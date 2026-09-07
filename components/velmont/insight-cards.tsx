@@ -1,3 +1,4 @@
+import { whatsappUrl } from '@/lib/site';
 import { Arrow } from '@/components/velmont/icons';
 import { articles, type Article } from '@/content/insights';
 const visuals: Record<string, string> = { MARCAS: 'velmont-trademark-ownership', SOFTWARE: 'velmont-software-authorship', PATENTES: 'velmont-patent-engineering' };
@@ -13,6 +14,6 @@ export function InsightCards() {
     </div>
     <div className="journal-divider"><h3>Olhares sobre o seu patrimônio</h3><span>03 LEITURAS ESSENCIAIS</span></div>
     <div className="journal-cards">{articles.map(article => <article className="journal-card" key={article.slug}><a href={`/insights/${article.slug}`}><div className="journal-card-image"><Cover article={article} /></div><div className="journal-card-copy"><span className="journal-category">{article.category}</span><h3>{article.title}</h3><p>{article.description}</p><span className="journal-meta">{article.readTime} de leitura <Arrow /></span></div></a></article>)}</div>
-    <div className="journal-footer"><span>CONHECIMENTO QUE APROXIMA.</span><a href="/#contato">Vamos conversar sobre seu negócio <Arrow /></a></div>
+    <div className="journal-footer"><span>CONHECIMENTO QUE APROXIMA.</span><a href={whatsappUrl()} target="_blank" rel="noopener noreferrer">Vamos conversar sobre seu negócio <Arrow /></a></div>
   </div>;
 }
