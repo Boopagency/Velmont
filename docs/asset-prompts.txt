@@ -1,0 +1,26 @@
+Generated using built-in image_gen. Three separate assets; initial requests ran in parallel. Hero regenerated to refine summit placement. No site changes.
+
+ASSET 1: hero-mountain.png
+Create a 1536x1024 PNG with a genuinely transparent background (native alpha channel). Photorealistic monumental mountain of burgundy oxblood dark stone, subtle champagne mineral veins, black cherry shadows, cinematic mineral photography. Composition is critical: sharp highest peak at exactly 52% across and 20% down the entire canvas. Top 20% of canvas completely empty transparent space. Lower flanking side peaks. Huge continuous mountain mass spans the lower 80% and covers the entire bottom edge left to right. Clean cutout silhouette with zero background haze. This is a transparent isolated asset, all background pixels must have alpha=0. Do not draw a checkerboard pattern. Do not draw any background. No vegetation, snow, blue sky, people, flags, buildings, text, logos or tourism.
+
+ASSET 2: gallery-monolith.png
+Use case: product-mockup
+Asset type: square gallery still-life, 1024x1024 pixels.
+Primary request: A tall heavy burgundy monolith within a thin champagne perimeter.
+Scene/backdrop: Black cherry studio ground and dark cherry backdrop.
+Subject: Single tall substantial monolith of dark burgundy stone, visually weighty, enclosed by a thin refined champagne-colored rectangular perimeter frame.
+Style/medium: Cinematic photographic quality, sophisticated material realism, gallery sculpture still-life.
+Composition/framing: Square image, carefully centered monolith and thin surrounding perimeter, entire sculpture visible.
+Lighting/mood: Cinematic directional studio light reveals burgundy mineral surface and fine champagne edges, deep black cherry shadows.
+Avoid: text, logos, watermarks.
+
+ASSET 3: gallery-exploded-sculpture.png
+Use case: product-mockup
+Asset type: square gallery sculpture photograph, 1024x1024 pixels.
+Primary request: Precisely aligned exploded-view sculpture: exactly FOUR suspended components made of brushed champagne metal and smoked burgundy glass, presenting a photorealistic engineered invention.
+Scene/backdrop: Dark cherry studio ground and backdrop.
+Subject: Four discrete geometric components, alternating brushed champagne metal and smoked burgundy glass, suspended separately with clean visible gaps and precisely registered on one shared vertical axis. Coherent matching geometry implies a single engineered object when assembled; no extra components, support rods or visible suspension wires.
+Style/medium: Photorealistic high-end studio sculpture photography with believable metal brushing, smoked glass thickness, refraction, and reflections.
+Composition/framing: Square image, centered complete exploded assembly, exactly four pieces countable and uncropped, meticulous alignment.
+Lighting/mood: Controlled cinematic studio lighting, warm champagne highlights and deep burgundy shadows.
+Avoid: gears, bulbs, code, text, logos, watermark.
