@@ -1,0 +1,25 @@
+/* CMS article elements. Scoped to .article-body; reuses the editorial tokens. */
+.article-body h3{font-size:22px;font-weight:500;margin:32px 0 14px;letter-spacing:-.02em}
+.article-body ul,.article-body ol{margin:20px 0;padding-left:1.3em;line-height:1.8}
+.article-body ul{list-style:disc}
+.article-body ol{list-style:decimal}
+.article-body li::marker{color:var(--champagne)}
+.article-body strong{color:var(--ivory);font-weight:650}
+.article-quote{margin:34px 0;padding-left:24px;border-left:1px solid var(--champagne)}
+.article-quote p{font-family:Instrument,Georgia,serif;font-size:24px;line-height:1.4;color:var(--ivory)}
+.article-quote cite{display:block;font-size:11px;font-style:normal;letter-spacing:.14em;text-transform:uppercase;color:var(--muted)}
+.article-callout{margin:32px 0;padding:24px 28px;background:var(--wine);border-top:1px solid var(--champagne)}
+.article-callout p{margin:0;line-height:1.8}
+.article-callout .article-callout-title{margin-bottom:8px;font-size:11px;letter-spacing:.16em;text-transform:uppercase;color:var(--champagne)}
+.article-faq{border-top:1px solid var(--line);padding-top:6px}
+.article-faq h3{font-size:19px}
+.article-table{margin:30px 0;overflow-x:auto}
+.article-table table{width:100%;border-collapse:collapse;font-size:14px}
+.article-table caption{caption-side:top;text-align:left;padding-bottom:10px;font-size:12px;color:var(--muted)}
+.article-table th,.article-table td{border-bottom:1px solid var(--line);padding:12px 14px 12px 0;text-align:left;vertical-align:top}
+.article-table th{font-size:11px;font-weight:500;letter-spacing:.12em;text-transform:uppercase;color:var(--champagne)}
+.article-figure{margin:34px 0}
+.article-figure img{width:100%;height:auto}
+.article-figure figcaption{margin-top:10px;font-size:12px;color:var(--muted)}
+.form-trap{position:absolute;left:-10000px;width:1px;height:1px;overflow:hidden}
+@media (max-width:767px){.article-quote p{font-size:20px}.article-callout{padding:20px}.article-body h3{font-size:20px}}

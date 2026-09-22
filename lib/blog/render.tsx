@@ -70,7 +70,9 @@ export function ArticleBlocks({ blocks, mediaBase }: { blocks: Block[]; mediaBas
     else groups.push({ heading: null, body: [block] });
   }
   return <>{groups.map((group, i) => {
-    const body = group.body.map((b, j) => renderBlock(b, j, mediaBase));
-    return group.heading ? <section key={i}>{renderBlock(group.heading, -1, mediaBase)}{body}</section> : <div key={i} className="article-lead">{body}</div>;
+    const body = group.body.map((b, j) => renderBlock(b, j, mediaBase)).filter(Boolean);
+    const heading = group.heading && renderBlock(group.heading, -1, mediaBase);
+    if (heading) return <section key={i}>{heading}{body}</section>;
+    return body.length ? <div key={i} className="article-lead">{body}</div> : null;
   })}</>;
 }

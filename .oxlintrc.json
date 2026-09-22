@@ -54,5 +54,15 @@
     "typescript/no-unsafe-function-type": "error",
     "nextjs/no-img-element": "off",
     "nextjs/no-html-link-for-pages": "off"
-  }
+  },
+  "overrides": [
+    {
+      "files": [
+        "tests/**"
+      ],
+      "rules": {
+        "typescript/no-floating-promises": "off"
+      }
+    }
+  ]
 }

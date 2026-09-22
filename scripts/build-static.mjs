@@ -4,7 +4,8 @@ import {createRequire} from 'node:module';
 import {pathToFileURL} from 'node:url';
 import {createHash} from 'node:crypto';
 
-// No application backend is needed: prerender all routes, hydrate interactions.
+// No application backend is needed for public pages: prerender all routes,
+// hydrate interactions. Published articles are read from the CMS at build time.
 // In-process tooling also supports Windows hosts without child-process access.
 const root=process.cwd();
 const req=createRequire(import.meta.url);
@@ -14,14 +15,27 @@ const postcssReq=createRequire(req.resolve('@tailwindcss/postcss'));
 const postcss=postcssReq('postcss');
 const tailwind=(await import('@tailwindcss/postcss')).default;
 const cache=path.join(root,'.static-build');
-const output=path.join(root,'dist');
-if(path.relative(root,output)!=='dist')throw new Error('Build output must remain inside this project.');
+const output=path.resolve(root,process.env.VELMONT_OUTPUT||'dist');
+const relativeOutput=path.relative(root,output);
+if(!relativeOutput||relativeOutput.startsWith('..')||path.isAbsolute(relativeOutput)||!['dist','.static-build'].includes(relativeOutput.split(path.sep)[0]))throw new Error('Build output must remain inside this project.');
+// Only public values reach the browser bundles. Secrets are never listed here.
+const env={
+ NEXT_PUBLIC_SITE_URL:process.env.NEXT_PUBLIC_SITE_URL||'https://velmont-patrimonio.jabez-oliveira.chatgpt.site',
+ NEXT_PUBLIC_SUPABASE_URL:(process.env.NEXT_PUBLIC_SUPABASE_URL||'').replace(/\/$/,''),
+ NEXT_PUBLIC_SUPABASE_ANON_KEY:process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY||'',
+ NEXT_PUBLIC_LEAD_CAPTURE:process.env.NEXT_PUBLIC_LEAD_CAPTURE==='true'?'true':'false',
+ NEXT_PUBLIC_TURNSTILE_SITE_KEY:process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY||'',
+};
+if(env.NEXT_PUBLIC_SUPABASE_URL&&!/^https:\/\/[a-z0-9.-]+$/.test(env.NEXT_PUBLIC_SUPABASE_URL)&&!(process.env.VERCEL!=='1'&&/^http:\/\/127\.0\.0\.1:\d+$/.test(env.NEXT_PUBLIC_SUPABASE_URL)))throw new Error('NEXT_PUBLIC_SUPABASE_URL must be an https origin.');
+if(/service_role/.test(Buffer.from((env.NEXT_PUBLIC_SUPABASE_ANON_KEY.split('.')[1]||''),'base64url').toString()))throw new Error('NEXT_PUBLIC_SUPABASE_ANON_KEY holds a service_role key. Use the anon/publishable key.');
+if(env.NEXT_PUBLIC_LEAD_CAPTURE==='true'&&!env.NEXT_PUBLIC_SUPABASE_URL)throw new Error('NEXT_PUBLIC_LEAD_CAPTURE requires the CMS to be configured.');
 await fs.rm(output,{recursive:true,force:true});
 await fs.mkdir(cache,{recursive:true});await fs.mkdir(path.join(output,'assets'),{recursive:true});
-const common={cwd:root,resolve:{alias:{'@':root}},platform:'browser',transform:{jsx:{runtime:'automatic'},define:{'process.env.NODE_ENV':JSON.stringify('production'),'process.env.NEXT_PUBLIC_SITE_URL':JSON.stringify(process.env.NEXT_PUBLIC_SITE_URL||'https://velmont-patrimonio.jabez-oliveira.chatgpt.site')}},onwarn(w){if(w.code!=='MODULE_LEVEL_DIRECTIVE'&&w.code!=='EVAL')console.warn(w.message);}};
-await fs.writeFile(path.join(cache,'server.tsx'),`import React from 'react';import {renderToString} from 'react-dom/server';import {StaticSite} from '@/components/velmont/static-site';export {articles} from '@/content/insights';export {siteUrl} from '@/lib/site';export {pageEntryScript} from '@/lib/page-entry';export {pageSeo,pageSchema} from '@/lib/seo';export const render=(path:string)=>renderToString(<StaticSite path={path}/>);`);
-await fs.writeFile(path.join(cache,'client.tsx'),`import React from 'react';import {hydrateRoot} from 'react-dom/client';import {StaticSite} from '@/components/velmont/static-site';hydrateRoot(document.getElementById('app')!,<StaticSite path={location.pathname.replace(/\\/$/,'')||'/'}/>);`);
-await build({...common,platform:'node',input:path.join(cache,'server.tsx'),external:['react','react-dom/server','react/jsx-runtime'],output:{file:path.join(cache,'server.mjs'),format:'esm'}});
+const define={'process.env.NODE_ENV':JSON.stringify('production'),...Object.fromEntries(Object.entries(env).map(([k,v])=>[`process.env.${k}`,JSON.stringify(v)]))};
+const common={cwd:root,resolve:{alias:{'@':root}},platform:'browser',transform:{jsx:{runtime:'automatic'},define},onwarn(w){if(w.code!=='MODULE_LEVEL_DIRECTIVE'&&w.code!=='EVAL')console.warn(w.message);}};
+await fs.writeFile(path.join(cache,'server.tsx'),`import React from 'react';import {renderToString} from 'react-dom/server';import {StaticSite,type PageData} from '@/components/velmont/static-site';export {siteUrl} from '@/lib/site';export {pageEntryScript} from '@/lib/page-entry';export {pageSeo,pageSchema} from '@/lib/seo';export {loadPublishedPosts,relatedPosts} from '@/lib/blog/source';export {summarize,postPath,BLOG_BASE} from '@/lib/blog/types';export const render=(path:string,data:PageData)=>renderToString(<StaticSite path={path} data={data}/>);`);
+await fs.writeFile(path.join(cache,'client.tsx'),`import React from 'react';import {hydrateRoot} from 'react-dom/client';import {StaticSite} from '@/components/velmont/static-site';const data=JSON.parse(document.getElementById('vm-data')?.textContent||'{}');hydrateRoot(document.getElementById('app')!,<StaticSite path={location.pathname.replace(/\\/$/,'')||'/'} data={data}/>);`);
+await build({...common,platform:'node',input:path.join(cache,'server.tsx'),external:['react','react-dom/server','react/jsx-runtime','zod'],output:{file:path.join(cache,'server.mjs'),format:'esm'}});
 const client=await build({...common,input:path.join(cache,'client.tsx'),output:{dir:path.join(output,'assets'),format:'esm',entryFileNames:'site-[hash].js',chunkFileNames:'chunk-[hash].js',minify:true}});
 const entry=client.output.find(x=>x.type==='chunk'&&x.isEntry).fileName;
 const raw=await fs.readFile(path.join(root,'app/globals.css'),'utf8');
@@ -29,17 +43,42 @@ const result=await postcss([tailwind({base:root,optimize:true})]).process(raw,{f
 const cssName=`site-${createHash('sha256').update(result.css).digest('hex').slice(0,12)}.css`;
 await fs.writeFile(path.join(output,'assets',cssName),result.css);
 await fs.cp(path.join(root,'public'),output,{recursive:true});
-const {render,articles,siteUrl,pageSeo,pageSchema,pageEntryScript}=await import(pathToFileURL(path.join(cache,'server.mjs')).href+'?v='+Date.now());
-const routes=['/','/insights','/privacidade',...articles.map(a=>'/insights/'+a.slug),'/404'];
+const {render,siteUrl,pageSeo,pageSchema,pageEntryScript,loadPublishedPosts,relatedPosts,summarize,postPath,BLOG_BASE}=await import(pathToFileURL(path.join(cache,'server.mjs')).href+'?v='+Date.now());
+
+// The inline head script is allowed by hash in the Content-Security-Policy.
+const entryHash=`'sha256-${createHash('sha256').update(pageEntryScript).digest('base64')}'`;
+const vercel=JSON.parse(await fs.readFile(path.join(root,'vercel.json'),'utf8'));
+const csp=vercel.headers.filter(h=>!h.source.startsWith('/admin')).flatMap(h=>h.headers).filter(h=>h.key==='Content-Security-Policy').map(h=>h.value);
+if(!csp.length||!csp.every(v=>v.includes(entryHash)))throw new Error(`vercel.json Content-Security-Policy must allow the page entry script: ${entryHash}`);
+
+const {posts,origin}=await loadPublishedPosts({url:env.NEXT_PUBLIC_SUPABASE_URL,anonKey:env.NEXT_PUBLIC_SUPABASE_ANON_KEY});
+const summaries=posts.map(summarize);
+const pages=[
+ {route:'/',data:{posts:summaries.slice(0,3)}},
+ {route:BLOG_BASE,data:{posts:summaries}},
+ {route:'/privacidade',data:{}},
+ ...posts.map(post=>({route:postPath(post.slug),post,data:{post,related:relatedPosts(post,posts)}})),
+ {route:'/404',data:{}},
+];
 const escape=s=>String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
-for(const route of routes){
- const data=pageSeo(route);
- const structured=pageSchema(route);
- const html=`<!doctype html><html lang="pt-BR"><head><meta charset="utf-8"><script>${pageEntryScript}</script><meta name="viewport" content="width=device-width, initial-scale=1"><meta name="theme-color" content="#210910"><title>${escape(data.title)}</title><meta name="description" content="${escape(data.description)}"><meta name="robots" content="${data.index?'index,follow,max-image-preview:large':'noindex,follow'}"><link rel="canonical" href="${data.canonical}"><meta property="og:type" content="${data.article?'article':'website'}"><meta property="og:locale" content="pt_BR"><meta property="og:site_name" content="Velmont"><meta property="og:title" content="${escape(data.title)}"><meta property="og:description" content="${escape(data.description)}"><meta property="og:url" content="${data.canonical}"><meta property="og:image" content="${data.image}"><meta property="og:image:alt" content="${escape(data.imageAlt)}"><meta property="og:image:width" content="${data.imageWidth}"><meta property="og:image:height" content="${data.imageHeight}"><meta name="twitter:card" content="summary_large_image"><meta name="twitter:title" content="${escape(data.title)}"><meta name="twitter:description" content="${escape(data.description)}"><meta name="twitter:image" content="${data.image}"><meta name="twitter:image:alt" content="${escape(data.imageAlt)}"><link rel="icon" href="/images/velmont-icon.png"><link rel="apple-touch-icon" href="/images/velmont-icon.png"><link rel="preload" href="/fonts/manrope-latin.woff2" as="font" type="font/woff2" crossorigin><link rel="stylesheet" href="/assets/${cssName}">${structured?`<script type="application/ld+json">${JSON.stringify(structured).replace(/</g,'\\u003c')}</script>`:''}</head><body><div id="app">${render(route)}</div><script type="module" src="/assets/${entry}"></script></body></html>`;
+const json=value=>JSON.stringify(value).replace(/</g,'\\u003c').replace(/\u2028/g,'\\u2028').replace(/\u2029/g,'\\u2029');
+for(const {route,post,data:pageData} of pages){
+ const data=pageSeo(route,post||null);
+ const structured=pageSchema(route,post||null);
+ const articleMeta=post?`${post.publishedAt?`<meta property="article:published_time" content="${escape(post.publishedAt)}">`:''}${post.modifiedAt?`<meta property="article:modified_time" content="${escape(post.modifiedAt)}">`:''}`:'';
+ const html=`<!doctype html><html lang="pt-BR"><head><meta charset="utf-8"><script>${pageEntryScript}</script><meta name="viewport" content="width=device-width, initial-scale=1"><meta name="theme-color" content="#210910"><title>${escape(data.title)}</title><meta name="description" content="${escape(data.description)}"><meta name="robots" content="${data.index?'index,follow,max-image-preview:large':'noindex,follow'}"><link rel="canonical" href="${escape(data.canonical)}"><meta property="og:type" content="${data.article?'article':'website'}"><meta property="og:locale" content="pt_BR"><meta property="og:site_name" content="Velmont"><meta property="og:title" content="${escape(data.ogTitle)}"><meta property="og:description" content="${escape(data.ogDescription)}"><meta property="og:url" content="${escape(data.canonical)}"><meta property="og:image" content="${escape(data.image)}"><meta property="og:image:alt" content="${escape(data.imageAlt)}"><meta property="og:image:width" content="${data.imageWidth}"><meta property="og:image:height" content="${data.imageHeight}">${articleMeta}<meta name="twitter:card" content="summary_large_image"><meta name="twitter:title" content="${escape(data.ogTitle)}"><meta name="twitter:description" content="${escape(data.ogDescription)}"><meta name="twitter:image" content="${escape(data.image)}"><meta name="twitter:image:alt" content="${escape(data.imageAlt)}"><link rel="icon" href="/images/velmont-icon.png"><link rel="apple-touch-icon" href="/images/velmont-icon.png"><link rel="preload" href="/fonts/manrope-latin.woff2" as="font" type="font/woff2" crossorigin><link rel="stylesheet" href="/assets/${cssName}">${structured?`<script type="application/ld+json">${json(structured)}</script>`:''}</head><body><div id="app">${render(route,pageData)}</div><script type="application/json" id="vm-data">${json(pageData)}</script><script type="module" src="/assets/${entry}"></script></body></html>`;
  const destination=route==='/404'?path.join(output,'404.html'):path.join(output,route.slice(1),'index.html');
  await fs.mkdir(path.dirname(destination),{recursive:true});await fs.writeFile(destination,html);
 }
-await fs.writeFile(path.join(output,'robots.txt'),`User-agent: *\nAllow: /\nSitemap: ${siteUrl}/sitemap.xml\n`);
-await fs.writeFile(path.join(output,'sitemap.xml'),`<?xml version="1.0" encoding="UTF-8"?><urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">${routes.filter(x=>x!=='/404').map(x=>`<url><loc>${siteUrl}${x==='/'?'/':x}</loc></url>`).join('')}</urlset>`);
-await fs.writeFile(path.join(output,'_headers'),`/assets/*\n  Cache-Control: public, max-age=31536000, immutable\n/fonts/*\n  Cache-Control: public, max-age=31536000, immutable\n/*\n  X-Content-Type-Options: nosniff\n  Referrer-Policy: strict-origin-when-cross-origin\n  X-Frame-Options: SAMEORIGIN\n`);
-console.log(`Built ${routes.length} prerendered pages in dist/. JavaScript ${Math.round(client.output.reduce((n,c)=>n+(c.code?.length||0),0)/1024)} KB; CSS ${Math.round(result.css.length/1024)} KB.`);
+
+// Only indexable pages whose canonical is their own URL belong in the sitemap.
+const dateOf=post=>post.modifiedAt||post.publishedAt;
+const latest=posts.map(dateOf).filter(Boolean).sort().at(-1);
+const sitemapEntries=[{loc:`${siteUrl}/`},{loc:`${siteUrl}${BLOG_BASE}`,lastmod:latest},{loc:`${siteUrl}/privacidade`},...posts.filter(p=>p.seo.index&&(!p.seo.canonical||p.seo.canonical===siteUrl+postPath(p.slug))).map(p=>({loc:siteUrl+postPath(p.slug),lastmod:dateOf(p)}))];
+await fs.writeFile(path.join(output,'sitemap.xml'),`<?xml version="1.0" encoding="UTF-8"?><urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">${sitemapEntries.map(e=>`<url><loc>${escape(e.loc)}</loc>${e.lastmod?`<lastmod>${escape(new Date(e.lastmod).toISOString())}</lastmod>`:''}</url>`).join('')}</urlset>`);
+await fs.writeFile(path.join(output,'robots.txt'),`User-agent: *\nAllow: /\nDisallow: /api/\n\nSitemap: ${siteUrl}/sitemap.xml\n`);
+// Optional convenience index for tools that read llms.txt. Not a ranking factor.
+await fs.writeFile(path.join(output,'llms.txt'),`# Velmont\n\n> Consultoria em propriedade intelectual em Curitiba (PR), com atendimento presencial e digital: registro de marcas, patentes, desenho industrial e software.\n\n## Páginas\n\n- [Início](${siteUrl}/): serviços, processo, fundadoras, perguntas frequentes e contato.\n- [Insights](${siteUrl}${BLOG_BASE}): guias sobre marcas, patentes e software.\n- [Privacidade](${siteUrl}/privacidade)\n\n## Artigos\n\n${posts.filter(p=>p.seo.index).map(p=>`- [${p.title.replace(/[[\]]/g,'')}](${siteUrl}${postPath(p.slug)}): ${p.excerpt}`).join('\n')}\n`);
+await fs.writeFile(path.join(output,'_headers'),`/assets/*\n  Cache-Control: public, max-age=31536000, immutable\n/fonts/*\n  Cache-Control: public, max-age=31536000, immutable\n/*\n  X-Content-Type-Options: nosniff\n  Referrer-Policy: strict-origin-when-cross-origin\n  X-Frame-Options: DENY\n  Permissions-Policy: camera=(), microphone=(), geolocation=(), payment=(), usb=()\n/admin/*\n  X-Robots-Tag: noindex, nofollow\n  Cache-Control: no-store\n`);
+await fs.writeFile(path.join(output,'build-info.json'),JSON.stringify({builtAt:new Date().toISOString(),articles:posts.length,source:origin}));
+console.log(`Built ${pages.length} prerendered pages in ${relativeOutput}/ (${posts.length} articles from ${origin}). JavaScript ${Math.round(client.output.reduce((n,c)=>n+(c.code?.length||0),0)/1024)} KB; CSS ${Math.round(result.css.length/1024)} KB.`);

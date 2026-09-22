@@ -6,9 +6,17 @@ import type { ReactNode } from 'react';
 
 const MEDIA_PATH = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\.(webp|jpg|png|avif)$/;
 
+function hasControlCharacter(value: string) {
+  for (let i = 0; i < value.length; i++) {
+    const code = value.charCodeAt(i);
+    if (code < 32 || code === 127) return true;
+  }
+  return false;
+}
+
 export function safeHref(raw: string): string | null {
   const url = raw.trim();
-  if (!url || url.length > 500 || /[\s<>"'`\\\u0000-\u001f\u007f]/.test(url)) return null;
+  if (!url || url.length > 500 || /[\s<>"'`\\]/.test(url) || hasControlCharacter(url)) return null;
   if (url.startsWith('#')) return /^#[\w-]+$/.test(url) ? url : null;
   if (url.startsWith('/')) return url.startsWith('//') ? null : url;
   try {
