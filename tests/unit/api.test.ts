@@ -1,0 +1,292 @@
+import assert from 'node:assert/strict';
+import { afterEach, beforeEach, describe, test } from 'node:test';
+import { POST as submitLead } from '../../api/leads';
+import { DELETE as deleteMedia, POST as uploadMedia } from '../../api/admin/media';
+import { POST as rebuild } from '../../api/admin/rebuild';
+import { GET as blogFallback } from '../../api/blog-fallback';
+import { sniffImage } from '../../server/image';
+import { clean } from '../../server/leads';
+
+// The Supabase client talks HTTP; these tests stand in for PostgREST,
+// Storage, Turnstile and the deploy hook by intercepting fetch.
+
+const SITE = 'https://www.velmont.test';
+const SUPABASE = 'https://project.supabase.co';
+type Call = { method: string; url: URL; body: string; auth: string | null };
+let calls: Call[] = [];
+let context: Record<string, unknown> | 'invalid' = { user_id: 'u1', is_staff: true, role: 'editor', aal: 'aal2' };
+let rateAllowed = true;
+let turnstileOk = true;
+let hookOk = true;
+let usageCount = 0;
+const realFetch = globalThis.fetch;
+
+function reply(status: number, body: unknown, headers: Record<string, string> = {}) {
+  return new Response(body === null ? null : JSON.stringify(body), { status, headers: { 'content-type': 'application/json', ...headers } });
+}
+
+beforeEach(() => {
+  calls = [];
+  context = { user_id: 'u1', is_staff: true, role: 'editor', aal: 'aal2' };
+  rateAllowed = true;
+  turnstileOk = true;
+  hookOk = true;
+  usageCount = 0;
+  Object.assign(process.env, {
+    NEXT_PUBLIC_SITE_URL: SITE,
+    NEXT_PUBLIC_SUPABASE_URL: SUPABASE,
+    NEXT_PUBLIC_SUPABASE_ANON_KEY: 'anon-key',
+    SUPABASE_SERVICE_ROLE_KEY: 'service-key',
+    RATE_LIMIT_SALT: 'a-long-random-test-salt',
+    NEXT_PUBLIC_LEAD_CAPTURE: 'true',
+    TURNSTILE_SECRET_KEY: '',
+    VERCEL_DEPLOY_HOOK_URL: 'https://api.vercel.com/v1/integrations/deploy/prj_abc/hook123',
+  });
+  globalThis.fetch = (async (input: RequestInfo | URL, init?: RequestInit) => {
+    const request = new Request(input, init);
+    const url = new URL(request.url);
+    const body = request.method === 'GET' || request.method === 'HEAD' ? '' : await request.clone().text().catch(() => '');
+    calls.push({ method: request.method, url, body, auth: request.headers.get('authorization') });
+    const path = url.pathname;
+    if (url.host === 'challenges.cloudflare.com') return reply(200, { success: turnstileOk });
+    if (url.host === 'api.vercel.com') return reply(hookOk ? 201 : 500, {});
+    if (path === '/rest/v1/rpc/admin_context') return context === 'invalid' ? reply(401, { message: 'JWT expired' }) : reply(200, context);
+    if (path === '/rest/v1/rpc/hit_rate_limit') return reply(200, rateAllowed);
+    if (path === '/rest/v1/rpc/resolve_slug_redirect') return reply(200, JSON.parse(body).p_slug === 'nome-antigo' ? 'nome-novo' : null);
+    if (path === '/rest/v1/leads' && request.method === 'POST') return reply(201, null);
+    if (path === '/rest/v1/site_builds') return reply(201, null);
+    if (path.startsWith('/storage/v1/object/media/')) return reply(200, { Key: 'media/x' });
+    if (path === '/storage/v1/object/media' && request.method === 'DELETE') return reply(200, []);
+    if (path === '/rest/v1/media' && request.method === 'POST') return reply(201, { id: '0f8fad5b-d9cb-469f-a165-70867728950e', path: 'x.webp' });
+    if (path === '/rest/v1/media' && request.method === 'GET') return reply(200, { id: '0f8fad5b-d9cb-469f-a165-70867728950e', path: '0f8fad5b-d9cb-469f-a165-70867728950e.webp' });
+    if (path === '/rest/v1/media' && request.method === 'DELETE') return reply(204, null);
+    if ((path === '/rest/v1/articles' || path === '/rest/v1/published_articles') && request.method === 'HEAD') return reply(200, null, { 'content-range': `*/${usageCount}` });
+    if (url.origin === SITE) return new Response('<!doctype html><title>Página não encontrada | Velmont</title>', { status: 200 });
+    return reply(404, { message: `unmocked ${request.method} ${path}` });
+  }) as typeof fetch;
+});
+afterEach(() => {
+  globalThis.fetch = realFetch;
+});
+
+const leadRequest = (body: unknown, headers: Record<string, string> = {}) =>
+  new Request(`${SITE}/api/leads`, { method: 'POST', headers: { 'content-type': 'application/json', origin: SITE, 'x-real-ip': '203.0.113.9', ...headers }, body: typeof body === 'string' ? body : JSON.stringify(body) });
+const validLead = { name: '  Maria\u0000  da   Silva ', company: 'Empresa', interest: 'Marcas', website: '', landing_page: '/blog/x', referrer: 'https://www.google.com', utm_source: 'google' };
+const inserted = () => calls.filter((c) => c.url.pathname === '/rest/v1/leads');
+
+describe('POST /api/leads', () => {
+  test('stores a normalized lead with only whitelisted columns', async () => {
+    const res = await submitLead(leadRequest(validLead));
+    assert.equal(res.status, 201);
+    const row = JSON.parse(inserted()[0].body);
+    assert.deepEqual(Object.keys(row).sort(), ['company', 'interest', 'landing_page', 'name', 'referrer', 'utm_campaign', 'utm_content', 'utm_medium', 'utm_source', 'utm_term']);
+    assert.equal(row.name, 'Maria da Silva');
+    assert.equal(inserted()[0].auth, 'Bearer service-key');
+    const rate = calls.find((c) => c.url.pathname === '/rest/v1/rpc/hit_rate_limit');
+    assert.ok(rate && !rate.body.includes('203.0.113.9'), 'IP is hashed before storage');
+  });
+
+  test('rejects mass assignment of status, notes or ids', async () => {
+    for (const extra of [{ status: 'converted' }, { notes: 'x' }, { id: '0f8fad5b-d9cb-469f-a165-70867728950e' }, { created_at: '2020-01-01' }]) {
+      assert.equal((await submitLead(leadRequest({ ...validLead, ...extra }))).status, 400, JSON.stringify(extra));
+    }
+    assert.equal(inserted().length, 0);
+  });
+
+  test('rejects unexpected input', async () => {
+    const cases: unknown[] = [
+      { ...validLead, name: '' },
+      { ...validLead, name: 'x'.repeat(101) },
+      { ...validLead, interest: "Marcas'; drop table leads;--" },
+      { ...validLead, landing_page: 'javascript:alert(1)' },
+      { ...validLead, referrer: 'https://evil.test/path?email=a@b.c' },
+      { ...validLead, name: { $ne: null } },
+      [validLead],
+      'null',
+      '{"name":',
+    ];
+    for (const body of cases) assert.equal((await submitLead(leadRequest(body))).status, 400, JSON.stringify(body));
+    assert.equal(inserted().length, 0);
+  });
+
+  test('keeps script payloads as inert text', async () => {
+    const res = await submitLead(leadRequest({ ...validLead, name: '<script>alert(1)</script>' }));
+    assert.equal(res.status, 201);
+    assert.equal(JSON.parse(inserted()[0].body).name, '<script>alert(1)</script>');
+  });
+
+  test('blocks cross-site and non-JSON requests, and oversized bodies', async () => {
+    assert.equal((await submitLead(leadRequest(validLead, { origin: 'https://evil.test' }))).status, 403);
+    assert.equal((await submitLead(new Request(`${SITE}/api/leads`, { method: 'POST', headers: { origin: SITE, 'content-type': 'text/plain' }, body: 'x' }))).status, 415);
+    assert.equal((await submitLead(leadRequest({ ...validLead, company: 'x'.repeat(10_000) }))).status, 413);
+  });
+
+  test('honeypot submissions are accepted silently and never stored', async () => {
+    const res = await submitLead(leadRequest({ ...validLead, website: 'https://spam.test' }));
+    assert.equal(res.status, 202);
+    assert.equal(inserted().length, 0);
+  });
+
+  test('rate limits excessive requests', async () => {
+    rateAllowed = false;
+    assert.equal((await submitLead(leadRequest(validLead))).status, 429);
+    assert.equal(inserted().length, 0);
+  });
+
+  test('requires a valid Turnstile token when configured', async () => {
+    process.env.TURNSTILE_SECRET_KEY = 'secret';
+    turnstileOk = false;
+    assert.equal((await submitLead(leadRequest({ ...validLead, turnstileToken: 'bad' }))).status, 403);
+    turnstileOk = true;
+    assert.equal((await submitLead(leadRequest({ ...validLead, turnstileToken: 'good' }))).status, 201);
+  });
+
+  test('is disabled unless lead capture is switched on', async () => {
+    process.env.NEXT_PUBLIC_LEAD_CAPTURE = 'false';
+    assert.equal((await submitLead(leadRequest(validLead))).status, 404);
+  });
+});
+
+const webp = () => {
+  const b = new Uint8Array(64);
+  b.set(new TextEncoder().encode('RIFF'), 0);
+  b.set(new TextEncoder().encode('WEBPVP8X'), 8);
+  b.set([0x7f, 0x06, 0x00], 24); // width 1664 - 1
+  b.set([0x7f, 0x03, 0x00], 27); // height 896 - 1
+  return b;
+};
+const upload = (file: Blob, name: string, headers: Record<string, string> = {}) => {
+  const form = new FormData();
+  form.set('file', file, name);
+  form.set('alt', 'Descrição');
+  return new Request(`${SITE}/api/admin/media`, { method: 'POST', headers: { origin: SITE, authorization: 'Bearer header.payload.signature-long-enough', ...headers }, body: form });
+};
+
+describe('admin APIs: authentication and authorization', () => {
+  test('reject requests without a bearer token', async () => {
+    assert.equal((await uploadMedia(upload(new Blob([webp()]), 'a.webp', { authorization: '' }))).status, 401);
+    assert.equal((await rebuild(new Request(`${SITE}/api/admin/rebuild`, { method: 'POST', headers: { origin: SITE, 'content-type': 'application/json' }, body: '{}' }))).status, 401);
+    assert.equal(calls.filter((c) => c.url.host === 'api.vercel.com').length, 0);
+  });
+
+  test('reject expired or forged tokens', async () => {
+    context = 'invalid';
+    assert.equal((await uploadMedia(upload(new Blob([webp()]), 'a.webp'))).status, 401);
+  });
+
+  test('reject signed-in users who are not active staff or lack MFA', async () => {
+    context = { user_id: 'u2', is_staff: false, role: null, aal: 'aal1' };
+    assert.equal((await uploadMedia(upload(new Blob([webp()]), 'a.webp'))).status, 403);
+    assert.equal(calls.filter((c) => c.url.pathname.startsWith('/storage')).length, 0);
+  });
+
+  test('reject cross-origin calls even with a token', async () => {
+    assert.equal((await uploadMedia(upload(new Blob([webp()]), 'a.webp', { origin: 'https://evil.test' }))).status, 403);
+  });
+});
+
+describe('POST /api/admin/media', () => {
+  test('stores a real image under a random name', async () => {
+    const res = await uploadMedia(upload(new Blob([webp()]), '../../etc/passwd.webp'));
+    assert.equal(res.status, 201);
+    const stored = calls.find((c) => c.url.pathname.startsWith('/storage/v1/object/media/'))!;
+    assert.match(stored.url.pathname, /^\/storage\/v1\/object\/media\/[0-9a-f-]{36}\.webp$/);
+    assert.equal(stored.auth, 'Bearer service-key');
+    const row = JSON.parse(calls.find((c) => c.url.pathname === '/rest/v1/media' && c.method === 'POST')!.body);
+    assert.equal(row.width, 1664);
+    assert.equal(row.height, 896);
+    assert.equal(calls.find((c) => c.url.pathname === '/rest/v1/media')!.auth, 'Bearer header.payload.signature-long-enough', 'row is written as the user (RLS + audit)');
+  });
+
+  test('rejects SVG, HTML disguised as an image, GIF and mismatched extensions', async () => {
+    const svg = '<svg xmlns="http://www.w3.org/2000/svg" onload="alert(1)"/>';
+    assert.equal((await uploadMedia(upload(new Blob([svg], { type: 'image/svg+xml' }), 'a.svg'))).status, 415);
+    assert.equal((await uploadMedia(upload(new Blob(['<html><script>alert(1)</script>'], { type: 'image/png' }), 'a.png'))).status, 415);
+    assert.equal((await uploadMedia(upload(new Blob(['GIF89a......'], { type: 'image/gif' }), 'a.gif'))).status, 415);
+    assert.equal((await uploadMedia(upload(new Blob([webp()], { type: 'image/webp' }), 'a.png'))).status, 415);
+    assert.equal((await uploadMedia(upload(new Blob([webp()]), 'a.webp.html'))).status, 415);
+    assert.equal(calls.filter((c) => c.url.pathname.startsWith('/storage')).length, 0);
+  });
+
+  test('rejects files over the size limit', async () => {
+    const big = new Uint8Array(4 * 1024 * 1024 + 1);
+    big.set(webp());
+    assert.equal((await uploadMedia(upload(new Blob([big]), 'a.webp'))).status, 413);
+  });
+
+  test('rate limits uploads', async () => {
+    rateAllowed = false;
+    assert.equal((await uploadMedia(upload(new Blob([webp()]), 'a.webp'))).status, 429);
+  });
+});
+
+describe('DELETE /api/admin/media', () => {
+  const del = (id: unknown) => new Request(`${SITE}/api/admin/media`, { method: 'DELETE', headers: { origin: SITE, 'content-type': 'application/json', authorization: 'Bearer header.payload.signature-long-enough' }, body: JSON.stringify({ id }) });
+
+  test('validates the id (no injection into filters)', async () => {
+    assert.equal((await deleteMedia(del("x',featured_image_id.neq.null"))).status, 400);
+  });
+
+  test('refuses to delete an image still in use', async () => {
+    usageCount = 1;
+    assert.equal((await deleteMedia(del('0f8fad5b-d9cb-469f-a165-70867728950e'))).status, 409);
+    assert.equal(calls.filter((c) => c.method === 'DELETE').length, 0);
+  });
+
+  test('deletes unused images from the table and storage', async () => {
+    assert.equal((await deleteMedia(del('0f8fad5b-d9cb-469f-a165-70867728950e'))).status, 200);
+    assert.ok(calls.some((c) => c.method === 'DELETE' && c.url.pathname === '/storage/v1/object/media'));
+  });
+});
+
+describe('POST /api/admin/rebuild', () => {
+  const req = () => new Request(`${SITE}/api/admin/rebuild`, { method: 'POST', headers: { origin: SITE, 'content-type': 'application/json', authorization: 'Bearer header.payload.signature-long-enough' }, body: JSON.stringify({ reason: 'publish: artigo' }) });
+
+  test('triggers the deploy hook for staff and records it', async () => {
+    assert.equal((await rebuild(req())).status, 202);
+    assert.ok(calls.some((c) => c.url.host === 'api.vercel.com'));
+    assert.ok(calls.some((c) => c.url.pathname === '/rest/v1/site_builds'));
+  });
+
+  test('never calls a hook URL outside api.vercel.com (SSRF guard)', async () => {
+    process.env.VERCEL_DEPLOY_HOOK_URL = 'http://169.254.169.254/latest/meta-data';
+    assert.equal((await rebuild(req())).status, 503);
+    assert.ok(!calls.some((c) => c.url.host === '169.254.169.254'));
+  });
+});
+
+describe('GET /api/blog-fallback', () => {
+  test('redirects a renamed article permanently to a relative URL', async () => {
+    const res = await blogFallback(new Request(`${SITE}/api/blog-fallback?slug=nome-antigo`));
+    assert.equal(res.status, 301);
+    assert.equal(res.headers.get('location'), '/blog/nome-novo');
+  });
+
+  test('returns 404 without querying for malformed slugs (no open redirect)', async () => {
+    for (const slug of ['//evil.test', 'https:%2F%2Fevil.test', '../admin', 'A', 'x'.repeat(121)]) {
+      const res = await blogFallback(new Request(`${SITE}/api/blog-fallback?slug=${encodeURIComponent(slug)}`));
+      assert.equal(res.status, 404, slug);
+      assert.equal(res.headers.get('location'), null);
+    }
+    assert.ok(!calls.some((c) => c.url.pathname === '/rest/v1/rpc/resolve_slug_redirect'));
+  });
+
+  test('unknown slugs get the site 404 page', async () => {
+    const res = await blogFallback(new Request(`${SITE}/api/blog-fallback?slug=nao-existe`));
+    assert.equal(res.status, 404);
+    assert.match(await res.text(), /Página não encontrada/);
+  });
+});
+
+describe('helpers', () => {
+  test('clean() strips control and bidi characters', () => {
+    assert.equal(clean('a‮b​c\u0007d'), 'a b c d');
+  });
+  test('sniffImage validates real headers and dimension bombs', () => {
+    assert.equal(sniffImage(webp())?.mime, 'image/webp');
+    const png = new Uint8Array(32);
+    png.set([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 0, 0, 0, 13, 0x49, 0x48, 0x44, 0x52]);
+    png.set([0, 0, 0xff, 0xff, 0, 0, 0xff, 0xff], 16); // 65535 x 65535
+    assert.equal(sniffImage(png), null);
+  });
+});
