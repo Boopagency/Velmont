@@ -97,7 +97,7 @@ try {
   ok('public API key cannot read leads or drafts');
 
   // Black-box probes an unauthenticated attacker would try with the public key.
-  const api = (p: string, init: RequestInit = {}) => fetch(`${stack.url}${p}`, { ...init, headers: { apikey: stack.anonKey, 'content-type': 'application/json', ...init.headers } });
+  const api = (p: string, init: Omit<RequestInit, 'headers'> & { headers?: Record<string, string> } = {}) => fetch(`${stack.url}${p}`, { ...init, headers: { apikey: stack.anonKey, 'content-type': 'application/json', ...init.headers } });
   const denied = async (label: string, r: Response) => assert.ok([401, 403, 404].includes(r.status) || (r.ok && JSON.stringify(await r.json()) === '[]'), `${label}: ${r.status}`);
   await denied('publish rpc', await api('/rest/v1/rpc/publish_article', { method: 'POST', body: JSON.stringify({ p_id: '00000000-0000-4000-8000-000000000000', p_expected_version: 1 }) }));
   await denied('rate limit rpc', await api('/rest/v1/rpc/hit_rate_limit', { method: 'POST', body: JSON.stringify({ p_key: 'x', p_limit: 1, p_window_seconds: 1 }) }));
@@ -113,7 +113,7 @@ try {
   assert.ok(!signup.ok, 'public sign-up must be disabled');
   const injected = await api('/rest/v1/rpc/resolve_slug_redirect', { method: 'POST', body: JSON.stringify({ p_slug: "x' or 1=1 --" }) });
   assert.equal(await injected.json(), null);
-  const unpublished = await (await fetch(`${site}/blog/nao-existe-ainda`)).status;
+  const unpublished = (await fetch(`${site}/blog/nao-existe-ainda`)).status;
   assert.equal(unpublished, 404);
   ok('attacker probes with the public key: privileged RPCs, writes, draft embedding, audit/team reads, sign-up and SQL injection all fail');
 

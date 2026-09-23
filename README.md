@@ -17,7 +17,9 @@ Abra `http://127.0.0.1:3000`. O comando gera o site e inicia o preview. Após ed
 pnpm typecheck
 pnpm lint
 pnpm build
-node scripts/verify.mjs
+pnpm verify
+pnpm check:functions
+pnpm test
 ```
 
 ## Arquitetura
@@ -26,7 +28,8 @@ node scripts/verify.mjs
 - Build estático com HTML pré-renderizado para todas as páginas e hidratação dos controles.
 - CSS autoral, Tailwind para os controles acessíveis do catálogo Base UI/Shadcn.
 - Motion nativo com `requestAnimationFrame` e `IntersectionObserver`, sem biblioteca de animação adicional.
-- Conteúdo dos insights em `content/insights.ts`.
+- Blog em `/blog` (antigo `/insights`, com 301), alimentado pelo CMS (`/admin`, Supabase). Sem CMS configurado, o build usa os artigos de lançamento de `content/insights.ts`.
+- Painel administrativo privado em `/admin`, Vercel Functions em `api/`. Detalhes, configuração e segurança: `ADMIN-CMS-IMPLEMENTATION.md`.
 - Componentes da marca em `components/velmont/`.
 - Assets em `public/images`, `public/generated` e `public/fonts`.
 - Fontes locais Manrope e Instrument Serif, com licenças OFL incluídas.
@@ -35,7 +38,7 @@ O exportador estático atende todo o escopo atual, reduz dependência de servido
 
 ## Conversão
 
-O formulário prepara uma mensagem para o WhatsApp oficial encontrado na apresentação institucional. Nenhum lead é gravado, nenhum contato é enviado automaticamente e nenhum segredo é necessário. A pessoa revisa e envia a mensagem no WhatsApp. Há também contato direto por e-mail e um fallback sem JavaScript.
+O formulário prepara uma mensagem para o WhatsApp oficial encontrado na apresentação institucional. A pessoa revisa e envia a mensagem no WhatsApp. Há também contato direto por e-mail e um fallback sem JavaScript. Com `NEXT_PUBLIC_LEAD_CAPTURE=true`, a submissão também é registrada como lead (via `/api/leads`) e aparece em `/admin/leads`; o texto da página de privacidade acompanha essa configuração.
 
 ## Publicação
 
