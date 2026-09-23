@@ -41,6 +41,6 @@ export function POST(request: Request) {
     }
     await removeUnreferencedPublicMedia(service).catch((e: Error) => console.error('api_error', e.message));
     const site = await requestDeploy(env, service, staff.userId, `${action}: ${body.id}`);
-    return json(200, { ok: true, site: site ? 'updating' : 'not_updated' });
+    return json(200, { ok: true, site: site.ok ? 'updating' : 'not_updated' });
   });
 }

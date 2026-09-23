@@ -7,7 +7,7 @@
   },
   "scripts": {
     "dev": "node scripts/build-static.mjs && node scripts/preview.mjs",
-    "build": "node scripts/build-static.mjs",
+    "build": "node scripts/build.mjs",
     "start": "node scripts/preview.mjs",
     "dev:vinext": "vinext dev",
     "build:worker": "vinext build",

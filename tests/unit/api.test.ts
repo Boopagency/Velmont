@@ -58,7 +58,7 @@ beforeEach(() => {
     calls.push({ method: request.method, url, body, auth: request.headers.get('authorization') });
     const path = url.pathname;
     if (url.host === 'challenges.cloudflare.com') return reply(200, { success: turnstileOk });
-    if (url.host === 'api.vercel.com') return reply(hookOk ? 201 : 500, {});
+    if (url.host === 'api.vercel.com') return reply(hookOk ? 201 : 500, hookOk ? { job: { id: 'job_1', state: 'PENDING' } } : {});
     if (path === '/rest/v1/rpc/admin_context') return context === 'invalid' ? reply(401, { message: 'JWT expired' }) : reply(200, context);
     if (path === '/rest/v1/rpc/hit_rate_limit') return reply(200, rateAllowed);
     if (path === '/rest/v1/rpc/resolve_slug_redirect') return reply(200, JSON.parse(body).p_slug === 'nome-antigo' ? 'nome-novo' : null);
@@ -265,6 +265,44 @@ describe('POST /api/admin/rebuild', () => {
     assert.equal((await rebuild(req())).status, 202);
     assert.ok(calls.some((c) => c.url.host === 'api.vercel.com'));
     assert.ok(calls.some((c) => c.url.pathname === '/rest/v1/site_builds'));
+  });
+
+  const build = () => JSON.parse(calls.filter((c) => c.url.pathname === '/rest/v1/site_builds').at(-1)!.body);
+
+  test('records an accepted request as pending with the Vercel job id', async () => {
+    assert.equal((await rebuild(req())).status, 202);
+    assert.deepEqual({ ...build(), finished_at: undefined }, { requested_by: 'u1', reason: 'publish: artigo', ok: true, status: 'pending', finished_at: undefined, deployment: 'job_1', detail: null });
+  });
+
+  test('records a rejected hook call as failed', async () => {
+    hookOk = false;
+    assert.equal((await rebuild(req())).status, 502);
+    assert.equal(build().status, 'failed');
+    assert.ok(build().finished_at);
+    assert.equal(build().detail, 'deploy hook answered 500');
+  });
+
+  test('accepts a pasted hook URL with whitespace or Vercel query flags', async () => {
+    for (const url of ['https://api.vercel.com/v1/integrations/deploy/prj_abc/hook-123\n', '  https://api.vercel.com/v1/integrations/deploy/prj_abc/hook123?buildCache=false ']) {
+      process.env.VERCEL_DEPLOY_HOOK_URL = url;
+      assert.equal((await rebuild(req())).status, 202, JSON.stringify(url));
+    }
+  });
+
+  test('a missing hook answers 503, names the setting and records a failed build', async () => {
+    process.env.VERCEL_DEPLOY_HOOK_URL = '';
+    const res = await rebuild(req());
+    assert.equal(res.status, 503);
+    assert.deepEqual(await res.json(), { error: 'deploy_hook_not_configured', missing: ['VERCEL_DEPLOY_HOOK_URL'] });
+    assert.equal(build().status, 'failed');
+  });
+
+  test('missing server settings answer 503 with their names only', async () => {
+    process.env.SUPABASE_SERVICE_ROLE_KEY = '';
+    process.env.RATE_LIMIT_SALT = 'short';
+    const res = await rebuild(req());
+    assert.equal(res.status, 503);
+    assert.deepEqual(await res.json(), { error: 'not_configured', missing: ['SUPABASE_SERVICE_ROLE_KEY', 'RATE_LIMIT_SALT'] });
   });
 
   test('never calls a hook URL outside api.vercel.com (SSRF guard)', async () => {

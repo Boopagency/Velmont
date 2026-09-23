@@ -6,7 +6,7 @@ import { useStaff } from '../auth';
 import { BlockEditor, cleanBlocks, emptyBlock } from '../blocks';
 import { MediaPicker } from '../media';
 import { MediaImage } from '../signed';
-import { Link, navigate } from '../router';
+import { Link, navigate, setLeaveGuard } from '../router';
 import { adminApi, explain, supabase } from '../supabase';
 import { articleStatusLabel, authorLabel, dateTime, editableArticleFields, hasUnpublishedChanges, type ArticleDraft, type ArticleRow, type MediaItem } from '../types';
 import { Button, Field, Loading, PageHeader, Pill, useConfirm, useToast } from '../ui';
@@ -81,9 +81,22 @@ export function ArticleEditor({ id }: { id: string | null }) {
   const [fallbackSlug] = useState(() => `rascunho-${Math.random().toString(36).slice(2, 8)}`);
   const [reloadKey, setReloadKey] = useState(0);
   const confirmRef = useRef(confirm);
+  const dirtyRef = useRef(dirty);
   useEffect(() => {
     confirmRef.current = confirm;
+    dirtyRef.current = dirty;
   });
+
+  // In-app navigation (links, back/forward, sign-out) asks before discarding edits.
+  useEffect(
+    () =>
+      setLeaveGuard(() =>
+        dirtyRef.current
+          ? confirmRef.current('Sair sem salvar?', 'As alterações deste artigo ainda não foram salvas. Se sair agora, elas ficam só na cópia local deste navegador.', 'Sair sem salvar', true)
+          : Promise.resolve(true),
+      ),
+    [],
+  );
 
   useEffect(() => {
     if (!id) return;
@@ -93,7 +106,7 @@ export function ArticleEditor({ id }: { id: string | null }) {
     if (cancelled) return;
     if (error || !data) {
       toast('error', 'Artigo não encontrado.');
-      navigate('/admin/artigos', { replace: true });
+      navigate('/admin/artigos', { replace: true, force: true });
       return;
     }
     const article = data as unknown as ArticleRow;
@@ -185,7 +198,8 @@ export function ArticleEditor({ id }: { id: string | null }) {
     setRow(saved);
     setDraft(pick(saved));
     setDirty(false);
-    if (!row) navigate(`/admin/artigos/${saved.id}`, { replace: true });
+    dirtyRef.current = false;
+    if (!row) navigate(`/admin/artigos/${saved.id}`, { replace: true, force: true });
     return saved;
   }
 
@@ -245,7 +259,7 @@ export function ArticleEditor({ id }: { id: string | null }) {
     if (error) toast('error', explain(error));
     else {
       toast('ok', 'Artigo excluído.');
-      navigate('/admin/artigos');
+      navigate('/admin/artigos', { force: true });
     }
   }
 
@@ -260,7 +274,14 @@ export function ArticleEditor({ id }: { id: string | null }) {
     setRevisions((data as Revision[]) || []);
   }
 
-  if (!draft) return <Loading />;
+  // The dialog must render while loading: recovering a local backup asks first.
+  if (!draft)
+    return (
+      <>
+        <Loading />
+        {dialog}
+      </>
+    );
   const status = row?.status || 'draft';
   const canPublish = checks.filter((c) => c.required).every((c) => c.ok);
 

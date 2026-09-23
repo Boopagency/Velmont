@@ -11,9 +11,11 @@ type Data = {
   newLeads: number;
   articles: { id: string; title: string; status: ArticleStatus; updated_at: string }[];
   leads: { id: string; name: string; interest: string; status: LeadStatus; created_at: string }[];
-  lastBuild: { requested_at: string; ok: boolean } | null;
+  lastBuild: { requested_at: string; status: 'pending' | 'success' | 'failed' } | null;
   siteBuiltAt: string | null;
 };
+
+const buildLabel = { pending: ' (em andamento)', success: ' (concluída)', failed: ' (falhou)' } as const;
 
 export function Dashboard() {
   const staff = useStaff();
@@ -30,7 +32,7 @@ export function Dashboard() {
         supabase.from('leads').select('id', head).eq('status', 'new'),
         supabase.from('articles').select('id, title, status, updated_at').neq('status', 'archived').order('updated_at', { ascending: false }).limit(5),
         supabase.from('leads').select('id, name, interest, status, created_at').order('created_at', { ascending: false }).limit(5),
-        supabase.from('site_builds').select('requested_at, ok').order('requested_at', { ascending: false }).limit(1),
+        supabase.from('site_builds').select('requested_at, status').order('requested_at', { ascending: false }).limit(1),
         fetch('/build-info.json', { cache: 'no-store' }).then((r) => (r.ok ? r.json() : null)).catch(() => null) as Promise<{ builtAt?: string } | null>,
       ]);
       setData({
@@ -100,7 +102,7 @@ export function Dashboard() {
           <section className="panel site-status">
             <div>
               <h2>Site público</h2>
-              <p>Última versão publicada: {dateTime(data.siteBuiltAt)}{data.lastBuild && ` · Última solicitação: ${dateTime(data.lastBuild.requested_at)}${data.lastBuild.ok ? '' : ' (falhou)'}`}</p>
+              <p>Última versão publicada: {dateTime(data.siteBuiltAt)}{data.lastBuild && ` · Última solicitação: ${dateTime(data.lastBuild.requested_at)}${buildLabel[data.lastBuild.status]}`}</p>
             </div>
             <Button variant="secondary" busy={busy} onClick={() => void updateSite()}>Atualizar site agora</Button>
           </section>

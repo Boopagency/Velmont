@@ -354,3 +354,40 @@ describe('service role helpers', () => {
     assert.deepEqual(results, [true, true, true, false]);
   });
 });
+
+describe('site build lifecycle', () => {
+  test('a production build resolves only the requests made before it started', async () => {
+    const results = await as(db, 'service_role', null, async (q) => {
+      await q(`insert into public.site_builds (requested_at, reason, ok, status) values
+        (now() - interval '10 minutes', 'antes', true, 'pending'),
+        (now() + interval '10 minutes', 'depois', true, 'pending'),
+        (now() - interval '10 minutes', 'falhou', false, 'failed')`);
+      const resolved = await q(`select public.finish_site_builds(now(), true) as n`);
+      const rows = await q(`select reason, status, finished_at is not null as finished from public.site_builds order by reason`);
+      return { resolved: resolved.rows[0].n, rows: rows.rows };
+    });
+    assert.equal(results.resolved, 1);
+    assert.deepEqual(results.rows, [
+      { reason: 'antes', status: 'success', finished: true },
+      { reason: 'depois', status: 'pending', finished: false },
+      { reason: 'falhou', status: 'failed', finished: false },
+    ]);
+  });
+
+  test('a failed build marks pending requests failed with a detail', async () => {
+    const rows = await as(db, 'service_role', null, async (q) => {
+      await q(`insert into public.site_builds (requested_at, reason, ok) values (now() - interval '1 minute', 'x', true)`);
+      await q(`select public.finish_site_builds(now(), false, 'build failed: boom')`);
+      return (await q(`select status, detail from public.site_builds where reason = 'x'`)).rows;
+    });
+    assert.deepEqual(rows, [{ status: 'failed', detail: 'build failed: boom' }]);
+  });
+
+  test('only the service role can resolve builds or write the table', async () => {
+    for (const [role, who] of [['anon', null], ['authenticated', owner]] as const) {
+      assert.equal(await outcome(as(db, role, who, (q) => q(`select public.finish_site_builds(now(), true)`))), '42501', role);
+      assert.equal(await outcome(as(db, role, who, (q) => q(`insert into public.site_builds (reason, ok) values ('x', true)`))), '42501', role);
+    }
+    assert.equal(await outcome(as(db, 'service_role', null, (q) => q(`insert into public.site_builds (reason, ok, status) values ('x', true, 'done')`))), '23514');
+  });
+});

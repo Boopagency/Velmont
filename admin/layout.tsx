@@ -1,6 +1,6 @@
 import { useState, type ReactNode } from 'react';
 import { useStaff } from './auth';
-import { Link, usePath } from './router';
+import { Link, confirmLeave, usePath } from './router';
 import { supabase } from './supabase';
 
 const main = [
@@ -37,7 +37,11 @@ export function Layout({ children }: { children: ReactNode }) {
           <div className="nav-bottom">
             {staff.role === 'owner' && item('/admin/equipe', 'Equipe')}
             {item('/admin/conta', 'Conta')}
-            <button type="button" onClick={() => void supabase.auth.signOut()}>
+            <button type="button" onClick={() =>
+                void confirmLeave().then(async (ok) => {
+                  if (ok) await supabase.auth.signOut();
+                })
+              }>
               Sair
             </button>
             <p className="who">

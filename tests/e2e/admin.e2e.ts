@@ -232,6 +232,32 @@ try {
   await page.getByText(/alterado por outra pessoa/).waitFor();
   ok('concurrent edits are detected (optimistic locking) instead of overwritten');
 
+  // Unsaved work: in-app navigation asks first, and a local backup is offered
+  // (and restorable) after a reload instead of leaving the editor on "Carregando…".
+  await page.goto(`${site}/admin/artigos`);
+  await page.locator('.content').getByRole('link', { name: /diferenças essenciais/ }).first().click();
+  await page.waitForURL(new RegExp(`/admin/artigos/${articleId}$`));
+  await page.fill('#title', 'Título ainda não salvo');
+  const navArticles = page.locator('#admin-nav').getByRole('link', { name: 'Artigos', exact: true });
+  await navArticles.click();
+  await page.locator('dialog').getByText('Sair sem salvar?').waitFor();
+  await page.locator('dialog').getByRole('button', { name: 'Cancelar' }).click();
+  assert.match(page.url(), new RegExp(`/admin/artigos/${articleId}$`));
+  await page.goBack();
+  await page.locator('dialog').getByText('Sair sem salvar?').waitFor();
+  await page.locator('dialog').getByRole('button', { name: 'Cancelar' }).click();
+  assert.match(page.url(), new RegExp(`/admin/artigos/${articleId}$`));
+  await page.waitForTimeout(1200);
+  await page.reload();
+  await page.locator('dialog').getByText('Alterações não salvas').waitFor({ timeout: 5000 });
+  await page.locator('dialog').getByRole('button', { name: 'Recuperar' }).click();
+  assert.equal(await page.inputValue('#title'), 'Título ainda não salvo');
+  await navArticles.click();
+  await page.locator('dialog').getByRole('button', { name: 'Sair sem salvar' }).click();
+  await page.waitForURL(/\/admin\/artigos$/);
+  await page.evaluate((id) => localStorage.removeItem(`vm-draft:${id}`), articleId);
+  ok('unsaved edits: leaving asks first (links and back button); a local backup is recovered after reload');
+
   // 6. Rebuild the static site from the CMS and check the public article.
   await build();
   const html = await (await fetch(`${site}/blog/marca-e-nome-empresarial-qual-a-diferenca`)).text();

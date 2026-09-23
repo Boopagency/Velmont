@@ -68,6 +68,7 @@ Migrations em `supabase/migrations/`:
 - `20260922120000_admin_cms.sql`: schema, RLS, funções e storage.
 - `20260922120100_import_launch_articles.sql`: importa os 3 artigos atuais, sem inventar datas (gerado por `scripts/generate-legacy-import.ts`).
 - `20260923090000_private_draft_media.sql`: bucket privado `media-private`, policies de Storage, coluna `media.public_since` e publicação de imagens controlada (seção 4.1).
+- `20260923150000_site_build_status.sql`: ciclo de vida de `site_builds` (`pending`/`success`/`failed`) e `finish_site_builds`, chamada só pela service role no build de produção.
 
 | Tabela | Conteúdo |
 |---|---|
@@ -172,7 +173,7 @@ Nunca use `NEXT_PUBLIC_` em segredos. O `scripts/verify.mjs` varre o `dist/` pro
 ## 7. Configuração do Supabase (passo a passo)
 
 1. Crie um projeto (sugestão: região **São Paulo, `sa-east-1`**). Plano Pro recomendado para backups diários/PITR, timeouts de sessão e proteção contra senhas vazadas.
-2. Aplique as migrations: `npx supabase link --project-ref <ref>` e depois `npx supabase db push`. Alternativa: cole os três arquivos de `supabase/migrations/`, em ordem, no SQL Editor.
+2. Aplique as migrations: `npx supabase link --project-ref <ref>` e depois `npx supabase db push`. Alternativa: cole os arquivos de `supabase/migrations/`, em ordem, no SQL Editor.
 3. **Authentication → Sign In / Providers**:
    - **Desative "Allow new users to sign up".**
    - E-mail ativo; confirmações de e-mail ativas.
@@ -205,8 +206,10 @@ Nunca use `NEXT_PUBLIC_` em segredos. O `scripts/verify.mjs` varre o `dist/` pro
 
 ## 9. Configuração na Vercel e deploy
 
-1. **Settings → Environment Variables** (Production; Preview só se quiser testar com um Supabase de testes): as variáveis da seção 6.
-2. **Settings → Git → Deploy Hooks**: crie um hook para o branch de produção e salve a URL em `VERCEL_DEPLOY_HOOK_URL`.
+1. **Settings → Environment Variables** (Production): as variáveis da seção 6, com `NEXT_PUBLIC_SITE_URL=https://www.grupovelmont.com`. Sem ela, o build usa esse mesmo domínio; um build de produção com uma URL `*.vercel.app` falha de propósito. Depois de criar ou alterar variáveis, faça um **Redeploy**: as Functions só leem os valores do deploy em que foram publicadas.
+2. **Settings → Git → Deploy Hooks**: crie um hook com o branch **`main`** e salve a URL em `VERCEL_DEPLOY_HOOK_URL`. Um hook de outro branch geraria um deploy de Preview, e o site público não mudaria.
+   - Cada pedido de atualização fica em `site_builds`: `pending` quando a Vercel aceita o hook; `success` ou `failed` quando o build de produção termina (o `scripts/build.mjs` informa o resultado com a `service_role`); `failed` imediato se o hook não estiver configurado ou recusar.
+   - Se o painel mostrar erro ao atualizar o site, a resposta de `/api/admin/rebuild` traz o nome da variável que falta (nunca o valor), e o mesmo aparece nos Runtime Logs.
 3. Build e saída continuam `pnpm build` → `dist`; o `vercel.json` já declara as Functions (`api/**/*.ts`, Node 22).
 4. Faça o deploy (merge do PR). Depois confira:
    - `/blog` e os 3 artigos; `/insights/...` responde **301**.

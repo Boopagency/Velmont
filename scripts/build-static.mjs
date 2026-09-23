@@ -20,12 +20,15 @@ const relativeOutput=path.relative(root,output);
 if(!relativeOutput||relativeOutput.startsWith('..')||path.isAbsolute(relativeOutput)||!['dist','.static-build'].includes(relativeOutput.split(path.sep)[0]))throw new Error('Build output must remain inside this project.');
 // Only public values reach the browser bundles. Secrets are never listed here.
 const env={
- NEXT_PUBLIC_SITE_URL:process.env.NEXT_PUBLIC_SITE_URL||'https://velmont-patrimonio.jabez-oliveira.chatgpt.site',
+ NEXT_PUBLIC_SITE_URL:(process.env.NEXT_PUBLIC_SITE_URL||'').trim().replace(/\/$/,'')||'https://www.grupovelmont.com',
  NEXT_PUBLIC_SUPABASE_URL:(process.env.NEXT_PUBLIC_SUPABASE_URL||'').replace(/\/$/,''),
  NEXT_PUBLIC_SUPABASE_ANON_KEY:process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY||'',
  NEXT_PUBLIC_LEAD_CAPTURE:process.env.NEXT_PUBLIC_LEAD_CAPTURE==='true'?'true':'false',
  NEXT_PUBLIC_TURNSTILE_SITE_KEY:process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY||'',
 };
+// Canonical, OG, JSON-LD, sitemap, robots and llms.txt all derive from this origin.
+if(!/^https:\/\/[a-z0-9.-]+$/.test(env.NEXT_PUBLIC_SITE_URL)&&!(process.env.VERCEL!=='1'&&/^http:\/\/127\.0\.0\.1:\d+$/.test(env.NEXT_PUBLIC_SITE_URL)))throw new Error('NEXT_PUBLIC_SITE_URL must be an https origin without a path.');
+if(process.env.VERCEL_ENV==='production'&&env.NEXT_PUBLIC_SITE_URL.endsWith('.vercel.app'))throw new Error('Production NEXT_PUBLIC_SITE_URL must be the official domain, not a vercel.app URL.');
 if(env.NEXT_PUBLIC_SUPABASE_URL&&!/^https:\/\/[a-z0-9.-]+$/.test(env.NEXT_PUBLIC_SUPABASE_URL)&&!(process.env.VERCEL!=='1'&&/^http:\/\/127\.0\.0\.1:\d+$/.test(env.NEXT_PUBLIC_SUPABASE_URL)))throw new Error('NEXT_PUBLIC_SUPABASE_URL must be an https origin.');
 if(/service_role/.test(Buffer.from((env.NEXT_PUBLIC_SUPABASE_ANON_KEY.split('.')[1]||''),'base64url').toString()))throw new Error('NEXT_PUBLIC_SUPABASE_ANON_KEY holds a service_role key. Use the anon/publishable key.');
 if(env.NEXT_PUBLIC_LEAD_CAPTURE==='true'&&!env.NEXT_PUBLIC_SUPABASE_URL)throw new Error('NEXT_PUBLIC_LEAD_CAPTURE requires the CMS to be configured.');
