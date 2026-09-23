@@ -12,7 +12,9 @@ const ids = {
   lead: '20000000-0000-4000-8000-000000000001',
   media: '30000000-0000-4000-8000-000000000001',
 };
-const claims = (sub: string, aal: 'aal1' | 'aal2' = 'aal2'): Claims => ({ sub, role: 'authenticated', aal });
+// Each user has one live session; its id mirrors the user id with a different prefix.
+const sessionOf = (sub: string) => `5${sub.slice(1)}`;
+const claims = (sub: string, aal: 'aal1' | 'aal2' = 'aal2'): Claims => ({ sub, role: 'authenticated', aal, session_id: sessionOf(sub) });
 const owner = claims(ids.owner);
 const editor = claims(ids.editor);
 const editorWithoutMfa = claims(ids.editor, 'aal1');
@@ -28,6 +30,9 @@ before(async () => {
     `insert into auth.users (id, email) values ($1, 'owner@velmont.test'), ($2, 'editor@velmont.test'),
      ($3, 'outsider@example.test'), ($4, 'inactive@velmont.test')`,
     [ids.owner, ids.editor, ids.outsider, ids.inactive],
+  );
+  await db.pool.query(
+    `insert into auth.sessions (id, user_id) select ('5' || substr(id::text, 2))::uuid, id from auth.users`,
   );
   await db.pool.query(
     `insert into public.admin_users (user_id, email, display_name, role, active) values
@@ -141,6 +146,30 @@ describe('authenticated users without a staff role', () => {
     assert.equal(ctx.rows[0].c.is_member, true);
     assert.equal(ctx.rows[0].c.is_staff, false);
     assert.equal(ctx.rows[0].c.aal, 'aal1');
+  });
+
+  test('a signed-out (deleted) session loses access even with an unexpired token', async () => {
+    const rows = await as(db, 'authenticated', editor, async (q) => {
+      await q(`set local role postgres`);
+      await q(`delete from auth.sessions where id = $1`, [sessionOf(ids.editor)]);
+      await q(`set local role authenticated`);
+      return (await q('select * from public.leads')).rowCount;
+    });
+    assert.equal(rows, 0);
+  });
+
+  test('an expired session (not_after) or a session of another user grants nothing', async () => {
+    const expired = await as(db, 'authenticated', editor, async (q) => {
+      await q(`set local role postgres`);
+      await q(`update auth.sessions set not_after = now() - interval '1 minute' where id = $1`, [sessionOf(ids.editor)]);
+      await q(`set local role authenticated`);
+      return (await q('select * from public.leads')).rowCount;
+    });
+    assert.equal(expired, 0);
+    const borrowed = await as(db, 'authenticated', { ...editor, session_id: sessionOf(ids.owner) }, (q) => q('select * from public.leads'));
+    assert.equal(borrowed.rowCount, 0);
+    const missing = await as(db, 'authenticated', { sub: ids.editor, role: 'authenticated', aal: 'aal2' }, (q) => q('select * from public.leads'));
+    assert.equal(missing.rowCount, 0);
   });
 
   test('forged user_metadata role claims are ignored', async () => {

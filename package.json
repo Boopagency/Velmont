@@ -12,8 +12,15 @@
     "dev:vinext": "vinext dev",
     "build:worker": "vinext build",
     "typecheck": "tsc --noEmit",
-    "lint": "oxlint app components/velmont content lib scripts components/ui/accordion.tsx components/ui/select.tsx",
-    "format": "oxfmt"
+    "lint": "oxlint app components/velmont content lib scripts server api admin tests components/ui/accordion.tsx components/ui/select.tsx",
+    "format": "oxfmt",
+    "test": "node --import tsx --test --test-concurrency=1 \"tests/unit/*.test.ts\" \"tests/unit/*.test.tsx\" \"tests/build/*.test.ts\" \"tests/db/*.test.ts\"",
+    "test:unit": "node --import tsx --test \"tests/unit/*.test.ts\" \"tests/unit/*.test.tsx\"",
+    "test:db": "node --import tsx --test \"tests/db/*.test.ts\"",
+    "test:e2e": "node --import tsx tests/e2e/admin.e2e.ts",
+    "check:functions": "node scripts/check-functions.mjs",
+    "verify": "node scripts/verify.mjs && node scripts/verify-navigation.mjs",
+    "serve:full": "node --import tsx scripts/dev-server.ts"
   },
   "dependencies": {
     "@base-ui/react": "1.7.0",
@@ -53,6 +60,7 @@
     "oxlint": "1.76.0",
     "oxlint-tsgolint": "7.0.2001",
     "pg": "8.23.0",
+    "playwright": "1.56.1",
     "tailwindcss": "4.2.1",
     "tsx": "4.23.15",
     "typescript": "5.9.3",

@@ -10,7 +10,7 @@ import pg from 'pg';
 const root = path.resolve(import.meta.dirname, '../..');
 const bin = process.env.PG_BIN || '/usr/lib/postgresql/16/bin';
 
-export type Claims = { sub: string; role: 'authenticated'; aal: 'aal1' | 'aal2' };
+export type Claims = { sub: string; role: 'authenticated'; aal: 'aal1' | 'aal2'; session_id?: string };
 export type Database = {
   pool: pg.Pool;
   stop: () => Promise<void>;

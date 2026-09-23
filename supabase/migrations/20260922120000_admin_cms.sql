@@ -2,7 +2,8 @@
 --
 -- Security model
 -- * Every table has RLS enabled. anon only reads `published_articles`.
--- * Staff = active row in `admin_users` AND a JWT with aal2 (MFA verified).
+-- * Staff = active row in `admin_users` AND a JWT with aal2 (MFA verified)
+--   whose session is still active in auth.sessions.
 --   Roles never come from user-editable metadata.
 -- * Writes that change workflow state go through SECURITY DEFINER functions
 --   that re-check authorization; column grants block mass assignment.
@@ -39,6 +40,14 @@ as $$
   where u.user_id = auth.uid()
     and u.active
     and coalesce(auth.jwt() ->> 'aal', '') = 'aal2'
+    -- The session must still exist: signing out (or revoking sessions)
+    -- invalidates access tokens immediately, not only when they expire.
+    and exists (
+      select 1 from auth.sessions s
+      where s.id = nullif(auth.jwt() ->> 'session_id', '')::uuid
+        and s.user_id = u.user_id
+        and (s.not_after is null or s.not_after > now())
+    )
 $$;
 
 create function private.is_staff()
@@ -848,29 +857,29 @@ alter table public.leads enable row level security;
 alter table public.rate_limits enable row level security;
 alter table public.site_builds enable row level security;
 
-create policy "staff read team" on public.admin_users for select to authenticated using (private.is_staff());
+create policy "staff read team" on public.admin_users for select to authenticated using ((select private.is_staff()));
 
-create policy "owner reads audit" on public.audit_log for select to authenticated using (private.is_owner());
+create policy "owner reads audit" on public.audit_log for select to authenticated using ((select private.is_owner()));
 
-create policy "staff read media" on public.media for select to authenticated using (private.is_staff());
-create policy "staff register media" on public.media for insert to authenticated with check (private.is_staff());
-create policy "staff edit media alt" on public.media for update to authenticated using (private.is_staff()) with check (private.is_staff());
-create policy "staff delete media" on public.media for delete to authenticated using (private.is_staff());
+create policy "staff read media" on public.media for select to authenticated using ((select private.is_staff()));
+create policy "staff register media" on public.media for insert to authenticated with check ((select private.is_staff()));
+create policy "staff edit media alt" on public.media for update to authenticated using ((select private.is_staff())) with check ((select private.is_staff()));
+create policy "staff delete media" on public.media for delete to authenticated using ((select private.is_staff()));
 
-create policy "staff read articles" on public.articles for select to authenticated using (private.is_staff());
-create policy "staff create articles" on public.articles for insert to authenticated with check (private.is_staff());
-create policy "staff edit articles" on public.articles for update to authenticated using (private.is_staff()) with check (private.is_staff());
-create policy "owner deletes articles" on public.articles for delete to authenticated using (private.is_owner());
+create policy "staff read articles" on public.articles for select to authenticated using ((select private.is_staff()));
+create policy "staff create articles" on public.articles for insert to authenticated with check ((select private.is_staff()));
+create policy "staff edit articles" on public.articles for update to authenticated using ((select private.is_staff())) with check ((select private.is_staff()));
+create policy "owner deletes articles" on public.articles for delete to authenticated using ((select private.is_owner()));
 
 create policy "anyone reads published" on public.published_articles for select to anon, authenticated using (true);
 
-create policy "staff read revisions" on public.article_revisions for select to authenticated using (private.is_staff());
-create policy "staff read redirects" on public.slug_redirects for select to authenticated using (private.is_staff());
-create policy "staff read builds" on public.site_builds for select to authenticated using (private.is_staff());
+create policy "staff read revisions" on public.article_revisions for select to authenticated using ((select private.is_staff()));
+create policy "staff read redirects" on public.slug_redirects for select to authenticated using ((select private.is_staff()));
+create policy "staff read builds" on public.site_builds for select to authenticated using ((select private.is_staff()));
 
-create policy "staff read leads" on public.leads for select to authenticated using (private.is_staff());
-create policy "staff update leads" on public.leads for update to authenticated using (private.is_staff()) with check (private.is_staff());
-create policy "owner deletes leads" on public.leads for delete to authenticated using (private.is_owner());
+create policy "staff read leads" on public.leads for select to authenticated using ((select private.is_staff()));
+create policy "staff update leads" on public.leads for update to authenticated using ((select private.is_staff())) with check ((select private.is_staff()));
+create policy "owner deletes leads" on public.leads for delete to authenticated using ((select private.is_owner()));
 
 -- rate_limits: RLS on, no policies. Only the service role (bypassrls) reaches it.
 

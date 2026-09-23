@@ -13,6 +13,12 @@ create table auth.users (
   email text unique
 );
 
+create table auth.sessions (
+  id uuid primary key default gen_random_uuid(),
+  user_id uuid not null,
+  not_after timestamptz
+);
+
 create function auth.jwt()
 returns jsonb
 language sql stable
