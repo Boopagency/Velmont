@@ -69,6 +69,16 @@ try {
   assert.deepEqual(lead.rows[0], { name: 'Maria <script>alert(1)</script>', utm_source: 'google', landing_page: '/' });
   ok('contact form still opens WhatsApp and stores the lead with UTM attribution');
 
+  const burst: number[] = [];
+  for (let i = 0; i < 7; i++) {
+    const r = await fetch(`${site}/api/leads`, { method: 'POST', headers: { origin: site, 'content-type': 'application/json' }, body: JSON.stringify({ name: `Spam ${i}`, interest: 'Marcas' }) });
+    burst.push(r.status);
+  }
+  assert.deepEqual(burst.slice(0, 4), [201, 201, 201, 201]);
+  assert.ok(burst.slice(4).every((code) => code === 429), burst.join(','));
+  await stack.db.query(`delete from public.leads where name like 'Spam %'`);
+  ok('excessive submissions from one client are rate limited (429) by the database-backed limiter');
+
   // 2. Admin is private and not indexable.
   const adminResponse = await page.goto(`${site}/admin`);
   assert.match(adminResponse!.headers()['x-robots-tag'] || '', /noindex/);
@@ -85,6 +95,27 @@ try {
   const anonDraft = await fetch(`${stack.url}/rest/v1/articles?select=*`, { headers: { apikey: stack.anonKey } });
   assert.equal(anonDraft.status, 401);
   ok('public API key cannot read leads or drafts');
+
+  // Black-box probes an unauthenticated attacker would try with the public key.
+  const api = (p: string, init: RequestInit = {}) => fetch(`${stack.url}${p}`, { ...init, headers: { apikey: stack.anonKey, 'content-type': 'application/json', ...init.headers } });
+  const denied = async (label: string, r: Response) => assert.ok([401, 403, 404].includes(r.status) || (r.ok && JSON.stringify(await r.json()) === '[]'), `${label}: ${r.status}`);
+  await denied('publish rpc', await api('/rest/v1/rpc/publish_article', { method: 'POST', body: JSON.stringify({ p_id: '00000000-0000-4000-8000-000000000000', p_expected_version: 1 }) }));
+  await denied('rate limit rpc', await api('/rest/v1/rpc/hit_rate_limit', { method: 'POST', body: JSON.stringify({ p_key: 'x', p_limit: 1, p_window_seconds: 1 }) }));
+  await denied('insert lead', await api('/rest/v1/leads', { method: 'POST', body: JSON.stringify({ name: 'x', interest: 'Marcas' }) }));
+  await denied('insert media', await api('/rest/v1/media', { method: 'POST', body: JSON.stringify({ path: '0f8fad5b-d9cb-469f-a165-70867728950e.webp', mime_type: 'image/webp', bytes: 1, width: 1, height: 1 }) }));
+  await denied('update published', await api('/rest/v1/published_articles?slug=eq.inovacao-e-patente', { method: 'PATCH', headers: { prefer: 'return=representation' }, body: JSON.stringify({ title: 'hacked' }) }));
+  await denied('delete published', await api('/rest/v1/published_articles?slug=neq.x', { method: 'DELETE', headers: { prefer: 'return=representation' } }));
+  const embed = await api('/rest/v1/published_articles?select=slug,articles(title,status,created_by)');
+  assert.ok(!embed.ok || !JSON.stringify(await embed.json()).includes('status'), 'drafts via embedding');
+  await denied('audit log', await api('/rest/v1/audit_log?select=*'));
+  await denied('admin users', await api('/rest/v1/admin_users?select=*'));
+  const signup = await fetch(`${stack.url}/auth/v1/signup`, { method: 'POST', headers: { apikey: stack.anonKey, 'content-type': 'application/json' }, body: JSON.stringify({ email: 'invasor@example.test', password: 'senha-invasor-123456' }) });
+  assert.ok(!signup.ok, 'public sign-up must be disabled');
+  const injected = await api('/rest/v1/rpc/resolve_slug_redirect', { method: 'POST', body: JSON.stringify({ p_slug: "x' or 1=1 --" }) });
+  assert.equal(await injected.json(), null);
+  const unpublished = await (await fetch(`${site}/blog/nao-existe-ainda`)).status;
+  assert.equal(unpublished, 404);
+  ok('attacker probes with the public key: privileged RPCs, writes, draft embedding, audit/team reads, sign-up and SQL injection all fail');
 
   // 3. Wrong password, then an outsider with a valid account.
   await page.goto(`${site}/admin`);

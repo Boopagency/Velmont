@@ -136,6 +136,14 @@ describe('authenticated users without a staff role', () => {
     });
   }
 
+  test('nobody can forge audit entries or call internal helpers', async () => {
+    for (const who of [outsider, editor, owner]) {
+      assert.equal(await outcome(as(db, 'authenticated', who, (q) => q(`select private.log_event('article.delete', 'article', 'x', '{}')`))), '42501');
+      assert.equal(await outcome(as(db, 'authenticated', who, (q) => q(`insert into public.audit_log (action, resource) values ('x', 'y')`))), '42501');
+      assert.equal(await outcome(as(db, 'authenticated', who, (q) => q(`select private.set_article_status($1, 'published', 'x', array['draft']::public.article_status[])`, [ids.draft]))), '42501');
+    }
+  });
+
   test('outsider cannot promote themselves', async () => {
     assert.equal(await outcome(as(db, 'authenticated', outsider, (q) => q(`insert into public.admin_users (user_id, email, display_name, role) values ($1, 'o@x', 'O', 'owner')`, [ids.outsider]))), '42501');
     assert.equal(await outcome(as(db, 'authenticated', outsider, (q) => q(`select public.add_staff_member('outsider@example.test', 'O', 'owner')`))), '42501');

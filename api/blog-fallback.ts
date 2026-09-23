@@ -5,10 +5,11 @@ import { anonClient } from '../server/supabase.js';
 // permanent redirect to their current URL; anything else gets the site's 404.
 const SLUG = /^[a-z0-9]+(-[a-z0-9]+)*$/;
 
-async function notFound(request: Request) {
+async function notFound(request: Request, siteUrl: string) {
   let body = '<!doctype html><html lang="pt-BR"><meta charset="utf-8"><title>Página não encontrada | Velmont</title><meta name="robots" content="noindex"><p>Esta página não foi encontrada. <a href="/">Voltar para o início</a></p></html>';
   try {
-    const page = await fetch(new URL('/404', request.url), { signal: AbortSignal.timeout(2000), redirect: 'manual' });
+    // Fetch from the configured site origin, never from a host taken from the request.
+    const page = await fetch(new URL('/404', siteUrl || new URL(request.url).origin), { signal: AbortSignal.timeout(2000), redirect: 'manual' });
     const html = await page.text();
     if (html.startsWith('<!doctype html>') && html.includes('Página não encontrada')) body = html;
   } catch {
@@ -20,8 +21,8 @@ async function notFound(request: Request) {
 export async function GET(request: Request) {
   const slug = new URL(request.url).searchParams.get('slug') || '';
   const env = serverEnv();
-  if (!SLUG.test(slug) || slug.length > 120 || !env.supabaseUrl || !env.supabaseAnonKey) return notFound(request);
+  if (!SLUG.test(slug) || slug.length > 120 || !env.supabaseUrl || !env.supabaseAnonKey) return notFound(request, env.siteUrl);
   const { data, error } = await anonClient(env).rpc('resolve_slug_redirect', { p_slug: slug });
-  if (error || typeof data !== 'string' || !SLUG.test(data)) return notFound(request);
+  if (error || typeof data !== 'string' || !SLUG.test(data)) return notFound(request, env.siteUrl);
   return new Response(null, { status: 301, headers: { location: `/blog/${data}`, 'cache-control': 'public, max-age=300, s-maxage=3600' } });
 }
