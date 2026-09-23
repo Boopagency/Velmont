@@ -172,7 +172,7 @@ Nunca use `NEXT_PUBLIC_` em segredos. O `scripts/verify.mjs` varre o `dist/` pro
 ## 7. Configuração do Supabase (passo a passo)
 
 1. Crie um projeto (sugestão: região **São Paulo, `sa-east-1`**). Plano Pro recomendado para backups diários/PITR, timeouts de sessão e proteção contra senhas vazadas.
-2. Aplique as migrations: `npx supabase link --project-ref <ref>` e depois `npx supabase db push`. Alternativa: cole os dois arquivos, em ordem, no SQL Editor.
+2. Aplique as migrations: `npx supabase link --project-ref <ref>` e depois `npx supabase db push`. Alternativa: cole os três arquivos de `supabase/migrations/`, em ordem, no SQL Editor.
 3. **Authentication → Sign In / Providers**:
    - **Desative "Allow new users to sign up".**
    - E-mail ativo; confirmações de e-mail ativas.
