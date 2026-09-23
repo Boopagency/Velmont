@@ -162,3 +162,4 @@ output{display:block}
 .sources .text-button{border:0;background:none;justify-self:start;padding:4px 0;min-height:0}
 @media (min-width:861px){.shell{background:linear-gradient(to right,var(--wine-deep) 232px,var(--ivory) 232px)}}
 .stack>.field{margin-bottom:0}
+.media-placeholder{display:block;width:100%;aspect-ratio:4/3;background:var(--paper)}

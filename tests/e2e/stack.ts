@@ -97,12 +97,86 @@ export async function startStack(): Promise<Stack> {
   const storage = new Map<string, { type: string; body: Buffer }>();
   const gatewayPort = await freePort();
   const cors = { 'access-control-allow-origin': '*', 'access-control-allow-headers': 'authorization, apikey, content-type, x-client-info, x-upsert, prefer, range, accept-profile, content-profile, x-supabase-api-version', 'access-control-allow-methods': 'GET, POST, PATCH, PUT, DELETE, OPTIONS, HEAD', 'access-control-expose-headers': 'content-range, x-total-count' };
-  const role = (auth: string | undefined) => {
+  // Storage stand-in with the same access rules as Supabase Storage:
+  // `media` is public (read by URL), `media-private` is not; signed URLs are
+  // issued only when the caller's JWT may SELECT the object under the real
+  // RLS policies (checked in Postgres); writes need the service role.
+  const PUBLIC_BUCKETS = new Set(['media']);
+  const claimsOf = (auth: string | undefined) => {
+    const token = (auth || '').replace(/^Bearer /, '');
+    const [h, p, sig] = token.split('.');
+    if (!h || !p || !sig || createHmac('sha256', secret).update(`${h}.${p}`).digest('base64url') !== sig) return null;
+    const claims = JSON.parse(Buffer.from(p, 'base64url').toString()) as { role?: string; exp?: number };
+    return claims.exp && claims.exp * 1000 < Date.now() ? null : claims;
+  };
+  const signToken = (key: string, exp: number) => `${b64({ key, exp })}.${createHmac('sha256', secret).update(`${key}|${exp}`).digest('base64url')}`;
+  const readToken = (token: string) => {
+    const [payload, sig] = token.split('.');
+    const data = JSON.parse(Buffer.from(payload || '', 'base64url').toString() || '{}') as { key?: string; exp?: number };
+    if (!data.key || !data.exp || createHmac('sha256', secret).update(`${data.key}|${data.exp}`).digest('base64url') !== sig) return null;
+    return data.exp * 1000 < Date.now() ? 'expired' : data.key;
+  };
+  const canRead = async (claims: Record<string, unknown>, bucket: string, names: string[]) => {
+    const client = await admin.connect();
     try {
-      return JSON.parse(Buffer.from((auth || '').split('.')[1] || '', 'base64url').toString()).role as string;
-    } catch {
-      return '';
+      await client.query('begin');
+      await client.query(`select set_config('request.jwt.claims', $1, true)`, [JSON.stringify(claims)]);
+      await client.query(`set local role ${claims.role === 'authenticated' ? 'authenticated' : 'anon'}`);
+      const rows = await client.query('select name from storage.objects where bucket_id = $1 and name = any ($2)', [bucket, names]);
+      return new Set(rows.rows.map((r) => r.name as string));
+    } finally {
+      await client.query('rollback').catch(() => {});
+      client.release();
     }
+  };
+  const jsonReply = (res: http.ServerResponse, status: number, value: unknown) => res.writeHead(status, { ...cors, 'content-type': 'application/json' }).end(JSON.stringify(value));
+  const serve = (res: http.ServerResponse, key: string) => {
+    const file = storage.get(key);
+    return file ? res.writeHead(200, { ...cors, 'content-type': file.type, 'x-content-type-options': 'nosniff' }).end(file.body) : jsonReply(res, 404, { error: 'not_found' });
+  };
+  const handleStorage = async (req: http.IncomingMessage, res: http.ServerResponse, url: URL, body: Buffer) => {
+    const path = url.pathname.slice('/storage/v1'.length);
+    let m = /^\/object\/public\/([\w-]+)\/(.+)$/.exec(path);
+    if (req.method === 'GET' && m) return PUBLIC_BUCKETS.has(m[1]) ? serve(res, `${m[1]}/${m[2]}`) : jsonReply(res, 400, { error: 'Bucket not public' });
+    m = /^\/object\/sign\/([\w-]+)\/(.+)$/.exec(path);
+    if (req.method === 'GET' && m) {
+      const key = readToken(url.searchParams.get('token') || '');
+      if (key === 'expired') return jsonReply(res, 400, { error: 'InvalidJWT', message: 'jwt expired' });
+      return key === `${m[1]}/${m[2]}` ? serve(res, key) : jsonReply(res, 400, { error: 'InvalidSignature' });
+    }
+    const claims = claimsOf(req.headers.authorization);
+    if (!claims) return jsonReply(res, 403, { error: 'Unauthorized' });
+    m = /^\/object\/sign\/([\w-]+)$/.exec(path);
+    if (req.method === 'POST' && m) {
+      const { expiresIn, paths } = JSON.parse(body.toString() || '{}') as { expiresIn: number; paths: string[] };
+      const allowed = await canRead(claims, m[1], paths);
+      const exp = Math.floor(Date.now() / 1000) + Number(expiresIn);
+      return jsonReply(res, 200, paths.map((p) => (allowed.has(p) ? { path: p, error: null, signedURL: `/object/sign/${m![1]}/${p}?token=${signToken(`${m![1]}/${p}`, exp)}` } : { path: p, error: 'Either the object does not exist or you do not have access to it', signedURL: null })));
+    }
+    if (claims.role !== 'service_role') return jsonReply(res, 403, { error: 'Unauthorized' });
+    if (req.method === 'POST' && path === '/object/copy') {
+      const { bucketId, sourceKey, destinationKey, destinationBucket } = JSON.parse(body.toString()) as Record<string, string>;
+      const file = storage.get(`${bucketId}/${sourceKey}`);
+      if (!file) return jsonReply(res, 404, { error: 'not_found', message: 'Object not found' });
+      if (storage.has(`${destinationBucket}/${destinationKey}`)) return jsonReply(res, 409, { error: 'Duplicate', message: 'The resource already exists' });
+      storage.set(`${destinationBucket}/${destinationKey}`, file);
+      await admin.query('insert into storage.objects (bucket_id, name) values ($1, $2)', [destinationBucket, destinationKey]);
+      return jsonReply(res, 200, { Key: `${destinationBucket}/${destinationKey}` });
+    }
+    m = /^\/object\/([\w-]+)\/(.+)$/.exec(path);
+    if (req.method === 'POST' && m) {
+      storage.set(`${m[1]}/${m[2]}`, { type: String(req.headers['content-type']), body });
+      await admin.query('insert into storage.objects (bucket_id, name) values ($1, $2)', [m[1], m[2]]);
+      return jsonReply(res, 200, { Key: `${m[1]}/${m[2]}` });
+    }
+    m = /^\/object\/([\w-]+)$/.exec(path);
+    if (req.method === 'DELETE' && m) {
+      const prefixes = (JSON.parse(body.toString() || '{}').prefixes || []) as string[];
+      for (const p of prefixes) storage.delete(`${m[1]}/${p}`);
+      await admin.query('delete from storage.objects where bucket_id = $1 and name = any ($2)', [m[1], prefixes]);
+      return jsonReply(res, 200, []);
+    }
+    return jsonReply(res, 404, { error: 'not_found' });
   };
   const gateway = http.createServer((req, res) => {
     if (req.method === 'OPTIONS') return res.writeHead(204, cors).end();
@@ -111,22 +185,8 @@ export async function startStack(): Promise<Stack> {
     req.on('data', (c: Buffer) => chunks.push(c)).on('end', () => {
       const body = Buffer.concat(chunks);
       if (url.pathname.startsWith('/storage/v1/')) {
-        const publicPath = /^\/storage\/v1\/object\/public\/media\/(.+)$/.exec(url.pathname);
-        if (req.method === 'GET' && publicPath) {
-          const file = storage.get(publicPath[1]);
-          return file ? res.writeHead(200, { ...cors, 'content-type': file.type, 'x-content-type-options': 'nosniff' }).end(file.body) : res.writeHead(404, cors).end();
-        }
-        if (role(req.headers.authorization?.replace('Bearer ', '')) !== 'service_role') return res.writeHead(403, cors).end('{"error":"forbidden"}');
-        const upload = /^\/storage\/v1\/object\/media\/(.+)$/.exec(url.pathname);
-        if (req.method === 'POST' && upload) {
-          storage.set(upload[1], { type: String(req.headers['content-type']), body });
-          return res.writeHead(200, { ...cors, 'content-type': 'application/json' }).end(JSON.stringify({ Key: `media/${upload[1]}` }));
-        }
-        if (req.method === 'DELETE' && url.pathname === '/storage/v1/object/media') {
-          for (const p of (JSON.parse(body.toString() || '{}').prefixes || []) as string[]) storage.delete(p);
-          return res.writeHead(200, { ...cors, 'content-type': 'application/json' }).end('[]');
-        }
-        return res.writeHead(404, cors).end();
+        handleStorage(req, res, url, body).catch(() => jsonReply(res, 500, { error: 'internal' }));
+        return;
       }
       const target = url.pathname.startsWith('/rest/v1') ? { port: restPort, path: url.pathname.slice(8) || '/' } : url.pathname.startsWith('/auth/v1') ? { port: authPort, path: url.pathname.slice(8) || '/' } : null;
       if (!target) return res.writeHead(404, cors).end();

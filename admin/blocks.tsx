@@ -1,6 +1,7 @@
 import { useRef, useState, type ClipboardEvent } from 'react';
 import type { Block, BlockType } from '@/lib/blog/types';
-import { MediaPicker, mediaSrc } from './media';
+import { MediaPicker } from './media';
+import { MediaImage } from './signed';
 import type { MediaItem } from './types';
 
 // Structured editor: each block maps 1:1 to the validated JSON content.
@@ -161,7 +162,7 @@ function BlockFields({ block, set, replaceWith }: { block: Block; set: (b: Block
     case 'image':
       return (
         <div className="image-block">
-          {block.path ? <img src={mediaSrc(block.path)} alt="" width={block.width} height={block.height} /> : <p className="empty">Nenhuma imagem escolhida.</p>}
+          {block.path ? <MediaImage path={block.path} width={block.width} height={block.height} /> : <p className="empty">Nenhuma imagem escolhida.</p>}
           <div className="stack">
             <button type="button" className="btn btn-secondary" onClick={() => setPicking(true)}>{block.path ? 'Trocar imagem' : 'Escolher imagem'}</button>
             <input aria-label="Descrição da imagem (texto alternativo)" placeholder="Descreva a imagem para quem não pode vê-la" value={block.alt} onChange={(e) => set({ ...block, alt: e.target.value })} maxLength={300} />

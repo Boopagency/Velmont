@@ -3,12 +3,15 @@ import { serverEnv, isConfigured } from '../../server/env.js';
 import { assertSameOrigin, fail, handle, HttpError, isUuid, json, readJson } from '../../server/http.js';
 import { extensionMatches, MAX_IMAGE_BYTES, sniffImage } from '../../server/image.js';
 import { hashKey, rateLimit } from '../../server/rate-limit.js';
+import { PRIVATE_BUCKET, PUBLIC_BUCKET } from '../../server/media.js';
 import { requireStaff, serviceClient } from '../../server/supabase.js';
 
-const BUCKET = 'media';
 const columns = 'id, path, mime_type, bytes, width, height, alt, created_at';
 
-/** Upload: staff only; the file is identified by its bytes and stored under a random name. */
+/**
+ * Upload: staff only. The file is identified by its bytes and stored in the
+ * private bucket; it becomes public only if a published article uses it.
+ */
 export function POST(request: Request) {
   return handle(async () => {
     const env = serverEnv();
@@ -33,12 +36,12 @@ export function POST(request: Request) {
     if (!info || !extensionMatches(file.name, info)) return fail(415, 'unsupported_image');
 
     const path = `${randomUUID()}.${info.ext}`;
-    const upload = await service.storage.from(BUCKET).upload(path, bytes, { contentType: info.mime, cacheControl: '31536000', upsert: false });
+    const upload = await service.storage.from(PRIVATE_BUCKET).upload(path, bytes, { contentType: info.mime, cacheControl: '3600', upsert: false });
     if (upload.error) throw new Error('storage_upload_failed');
     // Registered as the user, so RLS applies and the audit log names them.
     const { data, error } = await staff.client.from('media').insert({ path, mime_type: info.mime, bytes: bytes.byteLength, width: info.width, height: info.height, alt }).select(columns).single();
     if (error) {
-      await service.storage.from(BUCKET).remove([path]);
+      await service.storage.from(PRIVATE_BUCKET).remove([path]);
       throw new Error('media_insert_failed');
     }
     return json(201, { media: data });
@@ -71,7 +74,9 @@ export function DELETE(request: Request) {
 
     const { error } = await staff.client.from('media').delete().eq('id', id);
     if (error) return fail(409, 'media_in_use');
-    await serviceClient(env).storage.from('media').remove([media.path]);
+    const service = serviceClient(env);
+    await service.storage.from(PRIVATE_BUCKET).remove([media.path]);
+    await service.storage.from(PUBLIC_BUCKET).remove([media.path]);
     return json(200, { ok: true });
   });
 }

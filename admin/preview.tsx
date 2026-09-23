@@ -2,11 +2,14 @@ import { StrictMode, useEffect, useState } from 'react';
 import { createRoot } from 'react-dom/client';
 import { ArticleView } from '@/components/velmont/article-view';
 import { readingMinutes } from '@/lib/blog/posts';
+import type { MediaResolver } from '@/lib/blog/inline';
 import type { BlogPost, ImageRef } from '@/lib/blog/types';
+import { signedUrls } from './signed';
 import { supabase } from './supabase';
 
 // Private preview of the working copy, rendered with the public components.
 // Access relies on the staff session: RLS returns nothing to anyone else.
+// Draft images come from the private bucket through signed URLs that expire.
 
 type Row = {
   title: string; slug: string; excerpt: string; content: BlogPost['content']; category: BlogPost['category']; tags: string[]; author_key: BlogPost['author'];
@@ -16,7 +19,7 @@ type Row = {
 
 function Preview() {
   const [id] = useState(() => new URLSearchParams(location.search).get('id') || '');
-  const [state, setState] = useState<{ post: BlogPost; status: string } | 'denied' | null>(() => (/^[0-9a-f-]{36}$/.test(id) ? null : 'denied'));
+  const [state, setState] = useState<{ post: BlogPost; status: string; resolveMedia: MediaResolver } | 'denied' | null>(() => (/^[0-9a-f-]{36}$/.test(id) ? null : 'denied'));
   useEffect(() => {
     if (!/^[0-9a-f-]{36}$/.test(id)) return;
     void (async () => {
@@ -25,8 +28,11 @@ function Preview() {
       const { data } = await supabase.from('articles').select('title, slug, excerpt, content, category, tags, author_key, sources, reading_minutes, first_published_at, updated_at, status, featured:media!articles_featured_image_id_fkey(path, width, height, alt)').eq('id', id).maybeSingle();
       if (!data) return setState('denied');
       const row = data as unknown as Row;
+      const paths = [row.featured?.path, ...row.content.blocks.map((b) => (b.type === 'image' ? b.path : undefined))].filter((p): p is string => !!p);
+      const urls = await signedUrls([...new Set(paths)]);
       setState({
         status: row.status,
+        resolveMedia: (path) => urls.get(path) ?? null,
         post: {
           slug: row.slug, title: row.title || 'Sem título', excerpt: row.excerpt, content: row.content, category: row.category, tags: row.tags, author: row.author_key, sources: row.sources,
           featuredImage: row.featured, seo: { title: null, description: null, canonical: null, ogTitle: null, ogDescription: null, ogImage: null, index: false },
@@ -40,7 +46,7 @@ function Preview() {
   return (
     <>
       <output className="preview-bar">Pré-visualização · {state.status === 'published' ? 'versão salva (pode diferir da publicada)' : 'não publicado'} · <a href="/admin">Voltar ao painel</a></output>
-      <ArticleView post={state.post} related={[]} />
+      <ArticleView post={state.post} related={[]} resolveMedia={state.resolveMedia} />
     </>
   );
 }

@@ -3,6 +3,7 @@ import { afterEach, beforeEach, describe, test } from 'node:test';
 import { POST as submitLead } from '../../api/leads';
 import { DELETE as deleteMedia, POST as uploadMedia } from '../../api/admin/media';
 import { POST as rebuild } from '../../api/admin/rebuild';
+import { POST as publish } from '../../api/admin/publish';
 import { GET as blogFallback } from '../../api/blog-fallback';
 import { sniffImage } from '../../server/image';
 import { clean } from '../../server/leads';
@@ -19,6 +20,12 @@ let rateAllowed = true;
 let turnstileOk = true;
 let hookOk = true;
 let usageCount = 0;
+let publishError: { code: string; message: string } | null = null;
+let unreferenced: string[] = [];
+const COVER = '0f8fad5b-d9cb-469f-a165-70867728950e';
+const INLINE = '1f8fad5b-d9cb-469f-a165-70867728950e';
+const OTHER = '2f8fad5b-d9cb-469f-a165-70867728950e';
+const ARTICLE = '3f8fad5b-d9cb-469f-a165-70867728950e';
 const realFetch = globalThis.fetch;
 
 function reply(status: number, body: unknown, headers: Record<string, string> = {}) {
@@ -32,6 +39,8 @@ beforeEach(() => {
   turnstileOk = true;
   hookOk = true;
   usageCount = 0;
+  publishError = null;
+  unreferenced = [];
   Object.assign(process.env, {
     NEXT_PUBLIC_SITE_URL: SITE,
     NEXT_PUBLIC_SUPABASE_URL: SUPABASE,
@@ -55,8 +64,17 @@ beforeEach(() => {
     if (path === '/rest/v1/rpc/resolve_slug_redirect') return reply(200, JSON.parse(body).p_slug === 'nome-antigo' ? 'nome-novo' : null);
     if (path === '/rest/v1/leads' && request.method === 'POST') return reply(201, null);
     if (path === '/rest/v1/site_builds') return reply(201, null);
-    if (path.startsWith('/storage/v1/object/media/')) return reply(200, { Key: 'media/x' });
-    if (path === '/storage/v1/object/media' && request.method === 'DELETE') return reply(200, []);
+    if (path === '/storage/v1/object/copy') return reply(200, { Key: 'media/x' });
+    if (/^\/storage\/v1\/object\/(media|media-private)\/./.test(path)) return reply(200, { Key: 'x' });
+    if (/^\/storage\/v1\/object\/(media|media-private)$/.test(path) && request.method === 'DELETE') return reply(200, []);
+    if (path === '/rest/v1/rpc/media_mark_public') return reply(200, null);
+    if (path === '/rest/v1/rpc/media_unpublish_unreferenced') return reply(200, unreferenced);
+    if (path === '/rest/v1/rpc/publish_article') return publishError ? reply(400, publishError) : reply(200, 'artigo');
+    if (path === '/rest/v1/rpc/unpublish_article' || path === '/rest/v1/rpc/archive_article') return reply(200, null);
+    if (path === '/rest/v1/articles' && request.method === 'GET')
+      return reply(200, { id: ARTICLE, version: 3, featured_image_id: COVER, og_image_id: null, content: { version: 1, blocks: [{ type: 'paragraph', text: 'x' }, { type: 'image', mediaId: INLINE, path: `${INLINE}.webp` }] } });
+    if (path === '/rest/v1/media' && request.method === 'GET' && url.searchParams.get('id')?.startsWith('in.'))
+      return reply(200, [COVER, INLINE].filter((id) => url.searchParams.get('id')!.includes(id)).map((id) => ({ id, path: `${id}.webp` })));
     if (path === '/rest/v1/media' && request.method === 'POST') return reply(201, { id: '0f8fad5b-d9cb-469f-a165-70867728950e', path: 'x.webp' });
     if (path === '/rest/v1/media' && request.method === 'GET') return reply(200, { id: '0f8fad5b-d9cb-469f-a165-70867728950e', path: '0f8fad5b-d9cb-469f-a165-70867728950e.webp' });
     if (path === '/rest/v1/media' && request.method === 'DELETE') return reply(204, null);
@@ -189,8 +207,8 @@ describe('POST /api/admin/media', () => {
   test('stores a real image under a random name', async () => {
     const res = await uploadMedia(upload(new Blob([webp()]), '../../etc/passwd.webp'));
     assert.equal(res.status, 201);
-    const stored = calls.find((c) => c.url.pathname.startsWith('/storage/v1/object/media/'))!;
-    assert.match(stored.url.pathname, /^\/storage\/v1\/object\/media\/[0-9a-f-]{36}\.webp$/);
+    const stored = calls.find((c) => c.url.pathname.startsWith('/storage/v1/object/'))!;
+    assert.match(stored.url.pathname, /^\/storage\/v1\/object\/media-private\/[0-9a-f-]{36}\.webp$/, 'uploads land in the private bucket');
     assert.equal(stored.auth, 'Bearer service-key');
     const row = JSON.parse(calls.find((c) => c.url.pathname === '/rest/v1/media' && c.method === 'POST')!.body);
     assert.equal(row.width, 1664);
@@ -235,7 +253,8 @@ describe('DELETE /api/admin/media', () => {
 
   test('deletes unused images from the table and storage', async () => {
     assert.equal((await deleteMedia(del('0f8fad5b-d9cb-469f-a165-70867728950e'))).status, 200);
-    assert.ok(calls.some((c) => c.method === 'DELETE' && c.url.pathname === '/storage/v1/object/media'));
+    assert.ok(calls.some((c) => c.method === 'DELETE' && c.url.pathname === '/storage/v1/object/media-private'));
+    assert.ok(calls.some((c) => c.method === 'DELETE' && c.url.pathname === '/storage/v1/object/media'), 'public copy removed too');
   });
 });
 
@@ -288,5 +307,60 @@ describe('helpers', () => {
     png.set([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 0, 0, 0, 13, 0x49, 0x48, 0x44, 0x52]);
     png.set([0, 0, 0xff, 0xff, 0, 0, 0xff, 0xff], 16); // 65535 x 65535
     assert.equal(sniffImage(png), null);
+  });
+});
+
+describe('POST /api/admin/publish', () => {
+  const req = (body: unknown, headers: Record<string, string> = {}) =>
+    new Request(`${SITE}/api/admin/publish`, { method: 'POST', headers: { origin: SITE, 'content-type': 'application/json', authorization: 'Bearer header.payload.signature-long-enough', ...headers }, body: JSON.stringify(body) });
+  const copies = () => calls.filter((c) => c.url.pathname === '/storage/v1/object/copy').map((c) => JSON.parse(c.body));
+
+  test('copies exactly the images the article uses from the private to the public bucket, then publishes as the user', async () => {
+    const res = await publish(req({ id: ARTICLE, action: 'publish', expectedVersion: 3 }));
+    assert.equal(res.status, 200);
+    assert.deepEqual(copies().map((c) => [c.bucketId, c.sourceKey, c.destinationBucket, c.destinationKey]).sort((a, b) => a[1].localeCompare(b[1])), [
+      ['media-private', `${COVER}.webp`, 'media', `${COVER}.webp`],
+      ['media-private', `${INLINE}.webp`, 'media', `${INLINE}.webp`],
+    ]);
+    assert.ok(!copies().some((c) => c.sourceKey.includes(OTHER)), 'unrelated private media is never copied');
+    const copy = calls.find((c) => c.url.pathname === '/storage/v1/object/copy')!;
+    assert.equal(copy.auth, 'Bearer service-key');
+    const mark = calls.find((c) => c.url.pathname === '/rest/v1/rpc/media_mark_public')!;
+    assert.deepEqual(JSON.parse(mark.body).p_ids.sort(), [COVER, INLINE].sort());
+    const rpc = calls.find((c) => c.url.pathname === '/rest/v1/rpc/publish_article')!;
+    assert.equal(rpc.auth, 'Bearer header.payload.signature-long-enough', 'status change runs as the user');
+    const order = calls.map((c) => c.url.pathname);
+    assert.ok(order.indexOf('/rest/v1/rpc/media_mark_public') < order.indexOf('/rest/v1/rpc/publish_article'));
+  });
+
+  test('refuses stale versions before copying anything', async () => {
+    assert.equal((await publish(req({ id: ARTICLE, action: 'publish', expectedVersion: 2 }))).status, 409);
+    assert.equal(copies().length, 0);
+  });
+
+  test('removes public copies no published article references anymore', async () => {
+    unreferenced = [`${OTHER}.webp`];
+    assert.equal((await publish(req({ id: ARTICLE, action: 'unpublish' }))).status, 200);
+    const removal = calls.find((c) => c.method === 'DELETE' && c.url.pathname === '/storage/v1/object/media')!;
+    assert.deepEqual(JSON.parse(removal.body).prefixes, [`${OTHER}.webp`]);
+    assert.equal(copies().length, 0, 'unpublish copies nothing');
+  });
+
+  test('maps database refusals (e.g. private media) to a clear error', async () => {
+    publishError = { code: '22023', message: 'media_not_public' };
+    const res = await publish(req({ id: ARTICLE, action: 'publish', expectedVersion: 3 }));
+    assert.equal(res.status, 422);
+    assert.equal(((await res.json()) as { error: string }).error, 'invalid_media');
+  });
+
+  test('requires staff, same origin and a valid request', async () => {
+    assert.equal((await publish(req({ id: ARTICLE, action: 'publish', expectedVersion: 3 }, { authorization: '' }))).status, 401);
+    context = { user_id: 'u2', is_staff: false, role: null, aal: 'aal1' };
+    assert.equal((await publish(req({ id: ARTICLE, action: 'publish', expectedVersion: 3 }))).status, 403);
+    context = { user_id: 'u1', is_staff: true, role: 'editor', aal: 'aal2' };
+    assert.equal((await publish(req({ id: ARTICLE, action: 'publish', expectedVersion: 3 }, { origin: 'https://evil.test' }))).status, 403);
+    assert.equal((await publish(req({ id: 'x', action: 'publish', expectedVersion: 3 }))).status, 400);
+    assert.equal((await publish(req({ id: ARTICLE, action: 'delete' }))).status, 400);
+    assert.equal(copies().length, 0);
   });
 });

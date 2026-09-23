@@ -31,10 +31,17 @@ export function safeHref(raw: string): string | null {
 
 export const isExternal = (href: string) => /^https?:\/\//.test(href);
 
+export const isMediaPath = (path: string) => MEDIA_PATH.test(path);
+
+/** Public URL of an image copied to the public bucket at publish time. */
 export function mediaUrl(base: string, path: string): string | null {
   if (!base || !MEDIA_PATH.test(path)) return null;
   return `${base}/storage/v1/object/public/media/${path}`;
 }
+
+/** Maps a media path to a URL: public bucket on the site, signed URLs in the private preview. */
+export type MediaResolver = (path: string) => string | null;
+export const publicMedia = (base: string): MediaResolver => (path) => mediaUrl(base, path);
 
 const TOKEN = /\*\*([^*]+?)\*\*|\*([^*]+?)\*|\[([^\]\n]{1,300})\]\(([^()\s]{1,500})\)/g;
 

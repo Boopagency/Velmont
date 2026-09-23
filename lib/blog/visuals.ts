@@ -1,5 +1,5 @@
 import { articleVisuals } from '@/content/insights';
-import { mediaUrl } from './inline';
+import { isMediaPath, type MediaResolver } from './inline';
 import type { BlogSummary, Category, ImageRef } from './types';
 
 // Articles without an uploaded image keep the site's existing category art.
@@ -12,13 +12,13 @@ const fallback: Record<Category, { image: string; alt: string; service: string |
 
 export type Cover = { src: string; srcSet?: string; width: number; height: number; alt: string; uploaded: boolean };
 
-export function uploadedImage(image: ImageRef | null, base: string): Cover | null {
-  const src = image && mediaUrl(base, image.path);
+export function uploadedImage(image: ImageRef | null, resolveMedia: MediaResolver): Cover | null {
+  const src = image && isMediaPath(image.path) ? resolveMedia(image.path) : null;
   return src && image ? { src, width: image.width, height: image.height, alt: image.alt, uploaded: true } : null;
 }
 
-export function coverFor(post: Pick<BlogSummary, 'category' | 'featuredImage'>, base: string, size: '640' | '1000' = '1000'): Cover {
-  const uploaded = uploadedImage(post.featuredImage, base);
+export function coverFor(post: Pick<BlogSummary, 'category' | 'featuredImage'>, resolveMedia: MediaResolver, size: '640' | '1000' = '1000'): Cover {
+  const uploaded = uploadedImage(post.featuredImage, resolveMedia);
   if (uploaded) return uploaded;
   const visual = fallback[post.category] || fallback.MARCAS;
   return {

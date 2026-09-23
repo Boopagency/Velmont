@@ -1,10 +1,11 @@
 import { whatsappUrl } from '@/lib/site';
 import { publicEnv } from '@/lib/public-env';
 import { coverFor } from '@/lib/blog/visuals';
+import { publicMedia } from '@/lib/blog/inline';
 import { postPath, type BlogSummary } from '@/lib/blog/types';
 import { Arrow } from '@/components/velmont/icons';
 function Cover({ article, large = false }: { article: BlogSummary; large?: boolean }) {
-  const cover = coverFor(article, publicEnv.supabaseUrl, large ? '1000' : '640');
+  const cover = coverFor(article, publicMedia(publicEnv.supabaseUrl), large ? '1000' : '640');
   return <img src={cover.src} alt="" width={cover.uploaded ? cover.width : 640} height={cover.uploaded ? cover.height : 640} loading="lazy" decoding="async" />;
 }
 export function InsightCards({ posts }: { posts: BlogSummary[] }) {

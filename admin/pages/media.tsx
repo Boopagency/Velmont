@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { adminApi, explain, supabase } from '../supabase';
-import { mediaSrc, UploadButton, useMedia } from '../media';
+import { UploadButton, useMedia } from '../media';
+import { MediaImage } from '../signed';
 import { date, type MediaItem } from '../types';
 import { Button, Empty, Loading, PageHeader, useConfirm, useToast } from '../ui';
 
@@ -28,7 +29,7 @@ function MediaCard({ item, onSaved, onDeleted }: { item: MediaItem; onSaved: (m:
   return (
     <li className="media-card">
       {dialog}
-      <img src={mediaSrc(item.path)} alt="" width={item.width} height={item.height} loading="lazy" />
+      <MediaImage path={item.path} width={item.width} height={item.height} loading="lazy" />
       <label>
         <span>Descrição (texto alternativo)</span>
         <textarea rows={2} value={alt} onChange={(e) => setAlt(e.target.value)} maxLength={300} placeholder="O que a imagem mostra?" />

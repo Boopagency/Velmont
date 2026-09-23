@@ -259,16 +259,80 @@ try {
   for (const a of ['auth.login', 'article.create', 'article.publish', 'article.update', 'lead.update']) assert.ok(actions.includes(a), `audit ${a}`);
   ok('lead opened, status/notes updated; editor cannot delete leads; audit log records the actions');
 
-  // 8. Media upload through the validated API.
+  // 8. Private draft media: uploads, signed URLs, publish copies, cleanup.
   await page.goto(`${site}/admin/midia`);
   const png = fs.readFileSync(path.join(root, 'public/images/velmont-icon.png'));
-  await page.setInputFiles('input[type=file]', { name: 'foto.png', mimeType: 'image/png', buffer: png });
-  await page.locator('.toast').first().waitFor();
-  assert.match((await page.locator('.toast').first().textContent()) || '', /Imagem enviada/);
-  const stored = [...stack.storage.keys()];
-  assert.equal(stored.length, 1);
-  assert.match(stored[0], /^[0-9a-f-]{36}\.(webp|jpg)$/);
-  ok('image upload is re-encoded, validated server-side and stored under a random name');
+  for (const name of ['capa.png', 'nao-usada.png']) {
+    await page.setInputFiles('input[type=file]', { name, mimeType: 'image/png', buffer: png });
+    await page.locator('.toast', { hasText: 'Imagem enviada' }).last().waitFor();
+    await page.waitForTimeout(300);
+  }
+  const keys = () => [...stack.storage.keys()];
+  assert.equal(keys().filter((k) => k.startsWith('media-private/')).length, 2);
+  assert.equal(keys().filter((k) => k.startsWith('media/')).length, 0, 'nothing is public before publishing');
+  for (const k of keys()) assert.match(k, /^media-private\/[0-9a-f-]{36}\.(webp|jpg)$/);
+  ok('uploads are re-encoded, validated server-side and stored only in the private bucket');
+
+  await page.locator('.media-card img').nth(1).waitFor();
+  const thumbs = await page.locator('.media-card img').evaluateAll((els) => els.map((e) => (e as HTMLImageElement).src));
+  assert.ok(thumbs.every((src) => src.includes('/storage/v1/object/sign/media-private/') && src.includes('token=')), thumbs.join('\n'));
+  assert.ok(await page.locator('.media-card img').first().evaluate((img) => (img as HTMLImageElement).naturalWidth > 0), 'signed thumbnail loads');
+  const [first] = (await stack.db.query('select path from public.media order by created_at limit 1')).rows as { path: string }[];
+  const privateKey = first.path;
+  assert.notEqual((await fetch(`${stack.url}/storage/v1/object/public/media-private/${privateKey}`)).status, 200);
+  assert.equal((await fetch(`${stack.url}/storage/v1/object/public/media/${privateKey}`)).status, 404);
+  const staffToken = await page.evaluate(() => JSON.parse(localStorage.getItem('velmont-admin') || '{}').access_token as string);
+  const sign = (token: string, expiresIn = 60) => fetch(`${stack.url}/storage/v1/object/sign/media-private`, { method: 'POST', headers: { apikey: stack.anonKey, authorization: `Bearer ${token}`, 'content-type': 'application/json' }, body: JSON.stringify({ expiresIn, paths: [privateKey] }) }).then((r) => r.json() as Promise<{ signedURL: string | null }[]>);
+  assert.equal((await sign(stack.anonKey))[0].signedURL, null, 'anonymous cannot get a signed URL');
+  assert.equal((await sign(outsiderToken))[0].signedURL, null, 'non-staff cannot get a signed URL');
+  const shortLived = (await sign(staffToken, 1))[0].signedURL!;
+  assert.equal((await fetch(`${stack.url}/storage/v1${shortLived}`)).status, 200);
+  await page.waitForTimeout(2100);
+  assert.equal((await fetch(`${stack.url}/storage/v1${shortLived}`)).status, 400, 'signed URL expires');
+  ok('private media is reachable only through expiring signed URLs issued to staff (anon, outsider and public URLs refused)');
+
+  await page.goto(`${site}/admin/artigos/novo`);
+  await page.fill('#title', 'Artigo com imagem de capa');
+  await page.fill('#excerpt', 'Um artigo para verificar como a imagem de capa sai do bucket privado ao ser publicada.');
+  await page.getByRole('textbox', { name: 'Parágrafo', exact: true }).fill('Conteúdo com imagem.');
+  await page.getByRole('button', { name: 'Escolher imagem' }).click();
+  await page.locator('.media-grid button').last().click();
+  await page.click('button:has-text("Salvar")');
+  await page.waitForURL(/\/admin\/artigos\/[0-9a-f-]{36}$/);
+  const imageArticle = page.url().split('/').pop()!;
+  const [cover] = (await stack.db.query('select m.path from public.articles a join public.media m on m.id = a.featured_image_id where a.id = $1', [imageArticle])).rows as { path: string }[];
+  assert.equal(cover.path, privateKey);
+  await page.locator('.cover-preview img').waitFor();
+  assert.match(await page.locator('.cover-preview img').getAttribute('src') || '', /\/object\/sign\/media-private\/.+token=/);
+  const [imagePreview] = await Promise.all([context.waitForEvent('page'), page.click('button:has-text("Visualizar")')]);
+  await imagePreview.locator('img.article-cover').waitFor();
+  assert.match(await imagePreview.locator('img.article-cover').getAttribute('src') || '', /\/object\/sign\/media-private\/.+token=/);
+  assert.ok(await imagePreview.locator('img.article-cover').evaluate((img) => (img as HTMLImageElement).complete && (img as HTMLImageElement).naturalWidth > 0));
+  await imagePreview.close();
+  ok('editor and preview show draft images through signed URLs');
+
+  await page.click('button:has-text("Publicar")');
+  await page.locator('dialog').getByRole('button', { name: 'Publicar' }).click();
+  await page.getByText(/atualização automática do site falhou|site será atualizado/).waitFor();
+  assert.ok(keys().includes(`media/${cover.path}`), 'cover copied to the public bucket');
+  assert.equal(keys().filter((k) => k.startsWith('media/')).length, 1, 'unused private media stays private');
+  await build();
+  const imageHtml = await (await fetch(`${site}/blog/artigo-com-imagem-de-capa`)).text();
+  const publicUrl = `${stack.url}/storage/v1/object/public/media/${cover.path}`;
+  assert.ok(imageHtml.includes(publicUrl));
+  assert.ok(!imageHtml.includes('media-private') && !imageHtml.includes('token='), 'public page never references private media');
+  assert.equal((await fetch(publicUrl)).status, 200);
+  ok('publishing copies only the images the article uses to the public bucket; the static page serves them normally');
+
+  await page.click('button:has-text("Despublicar")');
+  await page.locator('dialog').getByRole('button', { name: 'Despublicar' }).click();
+  await page.getByText(/atualização automática do site falhou|site será atualizado/).waitFor();
+  assert.equal((await fetch(publicUrl)).status, 200, 'grace period keeps a just-published copy');
+  await stack.db.query(`update public.media set public_since = now() - interval '10 minutes' where public_since is not null`);
+  await fetch(`${site}/api/admin/rebuild`, { method: 'POST', headers: { origin: site, authorization: `Bearer ${staffToken}`, 'content-type': 'application/json' }, body: '{}' });
+  assert.equal((await fetch(publicUrl)).status, 404);
+  assert.ok(keys().includes(`media-private/${cover.path}`), 'the private original is kept');
+  ok('after unpublishing, the public copy is removed and the image is private again');
 
   // 9. Session: token reuse after sign-out is rejected by the API.
   const token = await page.evaluate(() => JSON.parse(localStorage.getItem('velmont-admin') || '{}').access_token as string);
@@ -288,7 +352,7 @@ try {
   await page.getByText(/Código inválido|Muitas tentativas/).waitFor();
   await page.fill('#code', totp(secret));
   await page.click('button[type=submit]');
-  await page.getByRole('heading', { name: 'Mídia' }).waitFor();
+  await page.getByRole('button', { name: 'Sair' }).waitFor();
   await page.getByRole('button', { name: 'Sair' }).click();
   ok('returning login requires the current TOTP code; a wrong code is refused');
   await page.fill('#email', 'owner@velmont.test');

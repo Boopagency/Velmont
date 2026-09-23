@@ -31,10 +31,13 @@ Navegador ──► Vercel (estático: dist/)
               ├─ /admin, /admin/preview                   SPA privada (shell sem dados, noindex)
               └─ /api/*  Vercel Functions (Node 22)
                    ├─ POST /api/leads            público: valida, rate limit, grava lead
-                   ├─ POST|DELETE /api/admin/media   upload/exclusão de imagens (staff)
-                   ├─ POST /api/admin/rebuild    dispara o Deploy Hook (staff)
+                   ├─ POST|DELETE /api/admin/media   upload (bucket privado) / exclusão (staff)
+                   ├─ POST /api/admin/publish    publica/despublica/arquiva: copia só as imagens do
+                   │                             artigo para o bucket público, limpa as sem uso, rebuild
+                   ├─ POST /api/admin/rebuild    limpeza de mídia pública + Deploy Hook (staff)
                    └─ GET  /api/blog-fallback    301 de slug antigo / 404
-Admin (navegador) ──► Supabase Auth (senha + TOTP)  e  PostgREST (RLS decide tudo)
+Admin (navegador) ──► Supabase Auth (senha + TOTP), PostgREST (RLS decide tudo)
+                      e Storage: imagens de rascunho só por URL assinada que expira
 Build na Vercel   ──► Supabase: lê apenas public.published_articles com a chave anon
 ```
 
@@ -44,6 +47,7 @@ Decisões principais:
 - **Rascunho e versão publicada ficam separados.** `articles` guarda a cópia de trabalho; `published_articles` guarda o *snapshot* que o público vê. Editar um artigo publicado não altera o site até clicar em **Publicar alterações**, então nenhuma versão publicada se perde em silêncio.
 - **Conteúdo em blocos tipados (JSON), nunca HTML.** Os blocos são parágrafo, título H2/H3, lista, destaque "Em resumo", pergunta e resposta, citação, tabela e imagem. Formatação inline limitada a `**negrito**`, `*itálico*` e `[link](url)`. O renderer produz somente elementos React: não há `dangerouslySetInnerHTML` com conteúdo de usuário, e links só aceitam `https`, `http`, `mailto`, `/` e `#`.
 - **`/insights` virou `/blog`** (pedido do projeto), com **301** para as URLs antigas em `vercel.json`. Os 3 artigos de lançamento foram importados para o CMS (migration). O rótulo visível continua "Insights".
+- **Mídia de rascunho é privada.** Todo upload vai para o bucket privado `media-private`. O público só recebe cópias das imagens usadas por artigos publicados (seção 4.1).
 - **Nenhuma dependência de IA** foi adicionada ao painel.
 
 ### Componentes públicos alterados (mínimo necessário)
@@ -63,6 +67,7 @@ Migrations em `supabase/migrations/`:
 
 - `20260922120000_admin_cms.sql`: schema, RLS, funções e storage.
 - `20260922120100_import_launch_articles.sql`: importa os 3 artigos atuais, sem inventar datas (gerado por `scripts/generate-legacy-import.ts`).
+- `20260923090000_private_draft_media.sql`: bucket privado `media-private`, policies de Storage, coluna `media.public_since` e publicação de imagens controlada (seção 4.1).
 
 | Tabela | Conteúdo |
 |---|---|
@@ -71,7 +76,7 @@ Migrations em `supabase/migrations/`:
 | `published_articles` | Snapshot público, a **única** tabela legível sem login. |
 | `article_revisions` | Histórico automático: cada edição guarda a versão anterior; cada publicação guarda o snapshot. |
 | `slug_redirects` | Slug antigo → artigo, criado automaticamente quando um artigo publicado muda de endereço (301). |
-| `media` | Imagens: caminho aleatório, tipo, bytes, dimensões e texto alternativo. |
+| `media` | Imagens: caminho, tipo, bytes, dimensões, texto alternativo e `public_since` (preenchido só enquanto existe cópia no bucket público; alterável apenas pela service role). |
 | `leads` | Nome, empresa, interesse, página de entrada, origem (somente a origem do referrer), UTMs, `status` (`new`/`contacted`/`qualified`/`converted`/`archived`) e notas internas. **Nenhum IP é guardado.** |
 | `audit_log` | *Append-only*: `actor_id`, `action`, `resource`, `resource_id`, `occurred_at` e metadata mínima (sem dados pessoais de leads, senhas ou tokens). |
 | `rate_limits` | Contadores por chave com hash + salt (sem IP em claro). |
@@ -93,15 +98,49 @@ RLS ativa em **todas** as 10 tabelas. Os privilégios começam do zero (`revoke 
 | `published_articles` | anon + authenticated | — (só via `publish_article`) | — | — |
 | `articles` | staff | staff (colunas editáveis) | staff (colunas editáveis; `status` só por função) | **owner** |
 | `article_revisions`, `slug_redirects`, `site_builds` | staff | — (trigger/serviço) | — | — |
-| `media` | staff | staff (upload valida via API) | staff (só `alt`) | staff (API verifica uso) |
+| `media` | staff | staff (upload valida via API) | staff (só `alt`; `public_since` nunca) | staff (API verifica uso) |
 | `leads` | staff | **ninguém** (só service role via `/api/leads`) | staff (só `status` e `notes`) | **owner** |
 | `admin_users` | staff | — (só `add_staff_member`, owner) | — (só `update_staff_member`, owner) | — |
 | `audit_log` | **owner** | — (triggers/funções) | bloqueado até para service role | bloqueado até para service role |
 | `rate_limits` | — | — | — | — (só service role) |
 
-Storage: bucket `media` público só para leitura por URL exata. Uma policy **restritiva** impede `anon`/`authenticated` de listar, enviar ou apagar objetos, mesmo que alguém adicione uma policy permissiva depois. Todo upload passa por `/api/admin/media`.
+Storage: dois buckets, detalhados em 4.1. Nenhuma escrita parte do navegador; todo upload passa por `/api/admin/media`.
 
 Funções: todas com `set search_path = ''`. `EXECUTE` revogado de `public`/`anon` e concedido apenas ao necessário. `resolve_slug_redirect` é a única função que o anon pode chamar, e exige o slug exato.
+
+### 4.1 Mídia: rascunhos privados, publicação controlada
+
+A segurança **não depende do nome do arquivo**. Os nomes continuam aleatórios, mas isso não é o mecanismo de proteção.
+
+| Bucket | Visibilidade | Leitura | Escrita |
+|---|---|---|---|
+| `media-private` | **privado** | somente staff ativo, com MFA (`aal2`) e sessão viva, via **URL assinada que expira em 10 min** | somente service role, dentro de `/api/admin/media` depois da validação |
+| `media` | público (leitura por URL) | qualquer pessoa, **apenas** cópias de imagens usadas por artigos publicados | somente service role, dentro de `/api/admin/publish` e `/api/admin/rebuild` |
+
+Policies em `storage.objects`, todas **restritivas**, para que nenhuma policy permissiva futura amplie o acesso:
+
+- `anon` nunca lê `media-private`.
+- `authenticated` só lê `media-private` se `private.is_staff()`. Essa é a única permissão que permite criar URLs assinadas.
+- `anon` e `authenticated` nunca inserem, alteram ou apagam objetos em nenhum dos dois buckets.
+- Ninguém lista o bucket público.
+
+Os testes provam isso com uma policy "libera tudo" presente no banco de teste.
+
+**Fluxo de publicação** (`POST /api/admin/publish`):
+
+1. Autentica e autoriza a pessoa (staff) e confere a versão do artigo (bloqueio otimista).
+2. Lê, **como a usuária** (RLS), as imagens que o artigo referencia: capa, imagem social e blocos de imagem. Só essas são copiadas de `media-private` para `media`, no mesmo caminho; nenhuma outra mídia privada sai do bucket.
+3. A service role marca essas imagens com `media_mark_public` (função executável só pela service role).
+4. `publish_article` roda **como a usuária** e revalida no banco:
+   - toda imagem referenciada existe e está marcada como pública;
+   - cada bloco de imagem aponta para o `path` da própria mídia.
+   Se não, recusa (`media_not_public` / `media_mismatch`). Assim, chamar a RPC direto, sem passar pela API, não publica imagem privada.
+5. `media_unpublish_unreferenced` desmarca e devolve as imagens que nenhum artigo publicado usa mais, e a API as **apaga do bucket público**. Isso roda em toda publicação, despublicação, arquivamento e em "Atualizar site agora".
+   - Há uma carência de 2 minutos, para não apagar a cópia de uma publicação em andamento. Um *advisory lock* serializa publicação e limpeza.
+   - Se a remoção falhar, a imagem volta a ser marcada e a próxima limpeza tenta de novo.
+6. Dispara o rebuild. O HTML estático aponta apenas para `…/storage/v1/object/public/media/<path>`. O teste verifica que a página pública nunca contém `media-private` nem `token=`.
+
+**No painel**, miniaturas, capa, imagens do editor e o preview usam `createSignedUrls` com validade de 10 minutos. O Storage só assina se a RLS permitir a leitura para aquele JWT. Excluir uma mídia remove o original privado e a eventual cópia pública, e é recusado enquanto algum artigo a usar.
 
 ## 5. Autenticação
 
@@ -143,7 +182,7 @@ Nunca use `NEXT_PUBLIC_` em segredos. O `scripts/verify.mjs` varre o `dist/` pro
 6. **Authentication → Rate Limits**: mantenha ou reduza os limites de login, verificação e e-mail. Opcional: **Attack Protection → CAPTCHA** (Turnstile) no login.
 7. **Sessions** (Pro): defina *inactivity timeout* (ex.: 12 h) e *time-box* (ex.: 7 dias).
 8. **API → GraphQL**: se não for usar, desative a extensão `pg_graphql` (ela respeita as mesmas permissões, mas é superfície a menos).
-9. Confira em **Storage** que o bucket `media` existe (criado pela migration), é público, com limite de 5 MB e tipos `image/webp, jpeg, png, avif`.
+9. Confira em **Storage** que as migrations criaram os buckets `media-private` (**privado**) e `media` (público), ambos com limite de 5 MB e tipos `image/webp, jpeg, png, avif`, e que as policies de `storage.objects` listadas na seção 4.1 aparecem. Não crie policies permissivas extras para esses buckets.
 10. Rode **Advisors → Security** e **Performance** e confirme que nenhuma tabela aparece sem RLS.
 
 ## 8. Contas de Lisandra e Dani
@@ -201,7 +240,7 @@ Ative também **Bot Protection / Attack Challenge Mode** quando houver abuso. O 
   - A caixa **Antes de publicar** orienta sobre títulos de seção, resumo direto, referências, imagem com descrição e links internos, que ajudam leitores e buscadores.
   - **Configurações avançadas de SEO** ficam recolhidas e são opcionais.
 - **Leads**: busca, filtros, detalhes completos (UTMs e página de entrada), status e notas internas. O lead indica a intenção de contato; a conversa em si acontece no WhatsApp.
-- **Mídia**: envio (otimizado automaticamente) e descrição das imagens. Uma imagem em uso não pode ser apagada.
+- **Mídia**: envio (otimizado automaticamente) e descrição das imagens. As imagens ficam privadas até serem usadas num artigo publicado. Os links que o painel mostra expiram em minutos, então não servem para compartilhar. Uma imagem em uso não pode ser apagada.
 
 ## 11. SEO e GEO
 
@@ -221,10 +260,10 @@ Ative também **Bot Protection / Attack Challenge Mode** quando houver abuso. O 
 
 | Suite | Comando | Resultado |
 |---|---|---|
-| RLS / banco (PostgreSQL 16 real, com os privilégios padrão permissivos do Supabase reproduzidos) | `pnpm test:db` | **47/47** |
-| APIs (leads, upload, rebuild, fallback) | `pnpm test:unit` | **27/27** APIs + **10/10** renderer/schema |
+| RLS / banco (PostgreSQL 16 real, com os privilégios padrão permissivos do Supabase reproduzidos) | `pnpm test:db` | **47/47** tabelas + **10/10** Storage/mídia |
+| APIs (leads, upload, publish, rebuild, fallback) | `pnpm test:unit` | **32/32** APIs + **10/10** renderer/schema |
 | Build com CMS falso (XSS, noindex, canonical, sitemap, JSON-LD, falha do CMS, chave service_role) | `pnpm test` | **8/8** |
-| **E2E** com Supabase Auth (GoTrue v2.186) + PostgREST v13 + Postgres reais, build real, emulação da Vercel e Chromium | `GOTRUE_BIN=… POSTGREST_BIN=… pnpm test:e2e` | **23/23** |
+| **E2E** com Supabase Auth (GoTrue v2.186) + PostgREST v13 + Postgres reais, build real, emulação da Vercel e Chromium | `GOTRUE_BIN=… POSTGREST_BIN=… pnpm test:e2e` | **27/27** |
 | Páginas, links, orçamento de bundle, isolamento do admin, varredura de segredos | `pnpm verify` | PASS |
 | Functions compiladas arquivo a arquivo e carregadas como Node ESM (como na Vercel) | `pnpm check:functions` | PASS |
 | typecheck / lint / build / `pnpm audit` | — | limpos / 0 vulnerabilidades |
@@ -240,6 +279,14 @@ Os cenários pedidos estão cobertos:
 - inputs inesperados (tipos errados, arrays, JSON inválido, NoSQL-like `{ $ne }`, SQL injection);
 - mass assignment;
 - upload de SVG, HTML disfarçado de PNG, GIF, extensão divergente, arquivo grande, bomba de dimensões;
+- mídia de rascunho:
+  - leitura e listagem negadas para anônimo, usuário comum, staff sem MFA e sessão encerrada;
+  - URL pública do bucket privado recusada;
+  - URL assinada negada a quem não é staff e recusada depois de expirar;
+  - staff não consegue se autopromover com `public_since` nem chamar as funções de publicação de mídia;
+  - `publish_article` recusa imagem privada, desconhecida ou com `path` divergente;
+  - só as imagens do artigo são copiadas;
+  - cópia pública removida após despublicar, com o original privado mantido;
 - requisições excessivas (429 real);
 - acesso direto às APIs administrativas sem token, com token forjado ou expirado, sem MFA e **depois do logout**;
 - CSRF/Origin;
@@ -263,7 +310,8 @@ Pergunta feita: *"Sem credenciais, como eu acessaria o painel, os leads ou o ban
 - **XSS no painel ou no site.** Não há HTML de usuário. A CSP do admin é `script-src 'self'`, sem terceiros. A CSP pública libera só o script inline por hash, e o build falha se o hash divergir.
 - **Clickjacking.** `frame-ancestors 'none'` + `X-Frame-Options: DENY`.
 - **Spam e bots no formulário.** Honeypot, validação estrita, limites de tamanho, rate limit no banco (IP com hash) e Turnstile opcional. Uma falha nunca bloqueia o WhatsApp.
-- **Uploads.** Tipo detectado pelos bytes, extensão coerente, nome aleatório, sem SVG e limites de tamanho e de pixels; a imagem também é recodificada no navegador (remove metadados como GPS).
+- **Uploads.** Tipo detectado pelos bytes, extensão coerente, sem SVG e limites de tamanho e de pixels; a imagem também é recodificada no navegador (remove metadados como GPS). O arquivo vai para o bucket **privado**.
+- **Mídia de rascunho.** Nunca é pública. A leitura exige staff com MFA (RLS do Storage), por URL assinada de 10 min. Só as imagens de artigos publicados são copiadas para o bucket público, e são removidas quando deixam de ser usadas.
 - **Segredos.** Service role só nas Functions. O build recusa uma chave service_role em variável pública. O `verify` varre o `dist/`.
 
 Achados corrigidos durante a própria revisão (detectados pelos testes):
@@ -276,7 +324,8 @@ Achados corrigidos durante a própria revisão (detectados pelos testes):
 
 Limitações conhecidas e assumidas:
 
-- Imagens de rascunho ficam num bucket público com nome aleatório (UUID não adivinhável).
+- Uma URL assinada já emitida continua válida até expirar (no máximo 10 min), mesmo se a pessoa sair ou perder o acesso nesse intervalo. Esse prazo curto é o limite aceito.
+- Depois de despublicar, a cópia pública é apagada na próxima limpeza, que roda em toda publicação e em "Atualizar site agora", respeitada a carência de 2 min.
 - O servidor não recodifica imagens: a validação é por assinatura e dimensões, e o conteúdo é servido pelo domínio do Supabase com o tipo correto.
 - O limite global de leads por hora pode ser esgotado por um atacante insistente, o que só afeta o registro; o WhatsApp continua funcionando. A regra de WAF da seção 9 mitiga isso.
 - Uma publicação só aparece no site depois do rebuild (1–2 min). Se o Deploy Hook falhar, o painel avisa e oferece "Atualizar site agora".
@@ -301,6 +350,7 @@ Limitações conhecidas e assumidas:
 - **Desligar só a captura de leads**: `NEXT_PUBLIC_LEAD_CAPTURE=false` e redeploy. O formulário volta ao comportamento original, e o texto de privacidade original volta junto.
 - **Desligar o CMS mantendo o blog**: remova `NEXT_PUBLIC_SUPABASE_URL` e `NEXT_PUBLIC_SUPABASE_ANON_KEY` e faça um redeploy. O build usa os 3 artigos de lançamento embutidos, e `/admin` mostra "Painel não configurado".
 - **Voltar ao código anterior**: `git revert` do merge; `/insights` volta a existir (remova os redirects).
+- **Mídia privada**: para voltar ao modelo anterior, seria preciso reverter `20260923090000_private_draft_media.sql` e tornar o upload público de novo. **Não recomendado**: rascunhos voltariam a ser acessíveis a quem obtivesse a URL.
 - **Banco**: as migrations só criam objetos novos, não alteram nada existente. Reverter = `drop` das tabelas, tipos e funções criadas, e do schema `private`. Faça backup antes; os leads são dados pessoais.
 - **Artigo publicado por engano**: **Despublicar** no painel (o site se atualiza sozinho); o histórico permite recuperar versões anteriores.
 

@@ -2,13 +2,13 @@ import assert from 'node:assert/strict';
 import { describe, test } from 'node:test';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { ArticleBlocks } from '../../lib/blog/render';
-import { plainText, safeHref } from '../../lib/blog/inline';
+import { plainText, publicMedia, safeHref } from '../../lib/blog/inline';
 import { contentSchema } from '../../lib/blog/schema';
 import { readingMinutes } from '../../lib/blog/posts';
 import type { Block } from '../../lib/blog/types';
 
 const base = 'https://project.supabase.co';
-const html = (blocks: unknown[]) => renderToStaticMarkup(<ArticleBlocks blocks={blocks as Block[]} mediaBase={base} />);
+const html = (blocks: unknown[]) => renderToStaticMarkup(<ArticleBlocks blocks={blocks as Block[]} resolveMedia={publicMedia(base)} />);
 
 describe('article renderer (XSS)', () => {
   test('escapes HTML in every text field', () => {

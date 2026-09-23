@@ -1,12 +1,10 @@
 import { useEffect, useRef, useState, type ChangeEvent } from 'react';
-import { mediaUrl } from '@/lib/blog/inline';
-import { publicEnv } from '@/lib/public-env';
+import { MediaImage } from './signed';
 import { adminApi, supabase } from './supabase';
 import type { MediaItem } from './types';
 import { Button, Empty, Loading, useToast } from './ui';
 
 const MAX_SIDE = 2000;
-export const mediaSrc = (path: string) => mediaUrl(publicEnv.supabaseUrl, path) || '';
 
 /**
  * Re-encodes the photo in the browser: caps the size for fast pages and drops
@@ -103,7 +101,7 @@ export function MediaPicker({ onSelect, onClose }: { onSelect: (m: MediaItem) =>
           {items.map((m) => (
             <li key={m.id}>
               <button type="button" onClick={() => onSelect(m)}>
-                <img src={mediaSrc(m.path)} alt={m.alt} width={m.width} height={m.height} loading="lazy" />
+                <MediaImage path={m.path} alt={m.alt} width={m.width} height={m.height} loading="lazy" />
                 <span>{m.alt || 'Sem descrição'}</span>
               </button>
             </li>

@@ -4,9 +4,10 @@ import { readingMinutes } from '@/lib/blog/posts';
 import { authorKeys, categories, type Block } from '@/lib/blog/types';
 import { useStaff } from '../auth';
 import { BlockEditor, cleanBlocks, emptyBlock } from '../blocks';
-import { MediaPicker, mediaSrc } from '../media';
+import { MediaPicker } from '../media';
+import { MediaImage } from '../signed';
 import { Link, navigate } from '../router';
-import { explain, requestSiteUpdate, supabase } from '../supabase';
+import { adminApi, explain, supabase } from '../supabase';
 import { articleStatusLabel, authorLabel, dateTime, editableArticleFields, hasUnpublishedChanges, type ArticleDraft, type ArticleRow, type MediaItem } from '../types';
 import { Button, Field, Loading, PageHeader, Pill, useConfirm, useToast } from '../ui';
 
@@ -206,19 +207,34 @@ export function ArticleEditor({ id }: { id: string | null }) {
     const [title, text, label] = texts[action];
     if (!(await confirm(title, text, label, action === 'unpublish' || action === 'archive'))) return;
     setBusy(action);
-    const rpc = { publish: 'publish_article', review: 'submit_article_for_review', draft: 'return_article_to_draft', unpublish: 'unpublish_article', archive: 'archive_article' }[action];
-    const args = action === 'publish' ? { p_id: current.id, p_expected_version: current.version } : { p_id: current.id };
-    const { error } = await supabase.rpc(rpc, args);
-    if (error) {
-      setBusy(null);
-      toast('error', explain(error));
-      return;
+    if (action === 'publish' || action === 'unpublish' || action === 'archive') {
+      // Server-side: copies only this article's images to the public bucket,
+      // changes the status as the signed-in user and rebuilds the site.
+      const result = await adminApi('/api/admin/publish', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ id: current.id, action, expectedVersion: current.version }) });
+      if (!result.ok) {
+        setBusy(null);
+        const messages: Record<string, string> = {
+          version_conflict: explain({ code: '40001' }),
+          invalid_media: 'Alguma imagem do artigo não foi encontrada. Escolha a imagem novamente e salve.',
+          media_missing: 'Alguma imagem do artigo não foi encontrada. Escolha a imagem novamente e salve.',
+          invalid_article: 'Preencha título, resumo e conteúdo antes de publicar.',
+          too_many_requests: 'Muitas publicações em pouco tempo. Aguarde alguns minutos.',
+        };
+        toast('error', messages[String(result.body.error)] || 'Não foi possível concluir. Tente novamente.');
+        return;
+      }
+      const updating = result.body.site === 'updating';
+      toast(updating ? 'ok' : 'error', updating ? 'Feito. O site será atualizado em cerca de 1 a 2 minutos.' : 'Status alterado, mas a atualização automática do site falhou. Use "Atualizar site agora" no Dashboard.');
+    } else {
+      const rpc = action === 'review' ? 'submit_article_for_review' : 'return_article_to_draft';
+      const { error } = await supabase.rpc(rpc, { p_id: current.id });
+      if (error) {
+        setBusy(null);
+        toast('error', explain(error));
+        return;
+      }
+      toast('ok', 'Status atualizado.');
     }
-    const affectsSite = action === 'publish' || action === 'unpublish' || (action === 'archive' && current.status === 'published');
-    if (affectsSite) {
-      const ok = await requestSiteUpdate(`${action}: ${current.slug}`);
-      toast(ok ? 'ok' : 'error', ok ? 'Feito. O site será atualizado em cerca de 1 a 2 minutos.' : 'Status alterado, mas a atualização automática do site falhou. Use "Atualizar site agora" no Dashboard.');
-    } else toast('ok', 'Status atualizado.');
     setBusy(null);
     setReloadKey((k) => k + 1);
   }
@@ -303,7 +319,7 @@ export function ArticleEditor({ id }: { id: string | null }) {
             <div className="field">
               <span className="label">Imagem para redes sociais</span>
               <div className="row">
-                {draft.og_image_id && images[draft.og_image_id] && <img className="thumb" src={mediaSrc(images[draft.og_image_id].path)} alt="" />}
+                {draft.og_image_id && images[draft.og_image_id] && <MediaImage className="thumb" path={images[draft.og_image_id].path} />}
                 <Button variant="secondary" onClick={() => setPicker('og')}>{draft.og_image_id ? 'Trocar' : 'Escolher'}</Button>
                 {draft.og_image_id && <Button variant="ghost" onClick={() => update('og_image_id', null)}>Usar a imagem principal</Button>}
               </div>
@@ -366,7 +382,7 @@ export function ArticleEditor({ id }: { id: string | null }) {
               <span className="label">Imagem principal</span>
               {featured ? (
                 <figure className="cover-preview">
-                  <img src={mediaSrc(featured.path)} alt="" width={featured.width} height={featured.height} />
+                  <MediaImage path={featured.path} width={featured.width} height={featured.height} />
                   <figcaption>{featured.alt || <em>Sem descrição — edite em Mídia</em>}</figcaption>
                 </figure>
               ) : (

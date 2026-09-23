@@ -1,6 +1,6 @@
 import type { ReactNode } from 'react';
 import type { Block } from './types';
-import { Inline, mediaUrl } from './inline';
+import { Inline, isMediaPath, type MediaResolver } from './inline';
 
 // Renders validated blocks as semantic HTML. Unknown or malformed blocks are
 // skipped, so even content that bypassed validation cannot inject markup.
@@ -9,7 +9,7 @@ const str = (v: unknown, max: number) => (typeof v === 'string' ? v.slice(0, max
 const optional = (v: unknown, max: number) => (typeof v === 'string' && v.trim() ? v.slice(0, max) : null);
 const num = (v: unknown) => (typeof v === 'number' && Number.isFinite(v) && v >= 1 && v <= 10000 ? Math.round(v) : null);
 
-function renderBlock(block: Block, key: number, mediaBase: string): ReactNode {
+function renderBlock(block: Block, key: number, resolveMedia: MediaResolver): ReactNode {
   switch (block?.type) {
     case 'paragraph': {
       const text = str(block.text, 5000);
@@ -49,7 +49,8 @@ function renderBlock(block: Block, key: number, mediaBase: string): ReactNode {
       return <div key={key} className="article-table"><table>{caption && <caption>{caption}</caption>}<thead><tr>{header.map((h, i) => <th scope="col" key={i}>{h}</th>)}</tr></thead><tbody>{rows.map((r, i) => <tr key={i}>{r.map((c, j) => <td key={j}><Inline text={c} /></td>)}</tr>)}</tbody></table></div>;
     }
     case 'image': {
-      const src = mediaUrl(mediaBase, str(block.path, 60));
+      const path = str(block.path, 60);
+      const src = isMediaPath(path) ? resolveMedia(path) : null;
       const width = num(block.width);
       const height = num(block.height);
       if (!src || !width || !height) return null;
@@ -62,7 +63,7 @@ function renderBlock(block: Block, key: number, mediaBase: string): ReactNode {
 }
 
 /** Groups blocks under each H2 in a <section>, matching the existing article markup. */
-export function ArticleBlocks({ blocks, mediaBase }: { blocks: Block[]; mediaBase: string }) {
+export function ArticleBlocks({ blocks, resolveMedia }: { blocks: Block[]; resolveMedia: MediaResolver }) {
   const groups: { heading: Block | null; body: Block[] }[] = [];
   for (const block of Array.isArray(blocks) ? blocks.slice(0, 400) : []) {
     if (block?.type === 'heading' && block.level === 2) groups.push({ heading: block, body: [] });
@@ -70,8 +71,8 @@ export function ArticleBlocks({ blocks, mediaBase }: { blocks: Block[]; mediaBas
     else groups.push({ heading: null, body: [block] });
   }
   return <>{groups.map((group, i) => {
-    const body = group.body.map((b, j) => renderBlock(b, j, mediaBase)).filter(Boolean);
-    const heading = group.heading && renderBlock(group.heading, -1, mediaBase);
+    const body = group.body.map((b, j) => renderBlock(b, j, resolveMedia)).filter(Boolean);
+    const heading = group.heading && renderBlock(group.heading, -1, resolveMedia);
     if (heading) return <section key={i}>{heading}{body}</section>;
     return body.length ? <div key={i} className="article-lead">{body}</div> : null;
   })}</>;
