@@ -20,8 +20,8 @@ export const articles: Article[] = [
   ],sources:[{title:'INPI — Guia básico de patentes',url:'https://www.gov.br/inpi/pt-br/servicos/patentes/guia-basico/guia-basico/'},{title:'INPI — Serviços de propriedade industrial',url:'https://www.gov.br/inpi/pt-br/servicos'}]},
 ];
 
-export const articleVisuals: Record<string, { image: string; alt: string; service: string; serviceLabel: string }> = {
- MARCAS: { image: 'velmont-trademark-ownership', alt: 'Frasco delimitado por uma estrutura dourada, ilustração de proteção de marca', service: 'marcas', serviceLabel: 'Registro e proteção de marcas' },
+export const articleVisuals: Record<string, { image: string; width?: number; height?: number; alt: string; service: string; serviceLabel: string }> = {
+ MARCAS: { image: 'velmont-trademark-bottle', width: 1192, height: 1320, alt: 'Frasco com o nome Velmont delimitado por uma moldura dourada, ilustração de proteção de marca', service: 'marcas', serviceLabel: 'Registro e proteção de marcas' },
  SOFTWARE: { image: 'velmont-software-authorship', alt: 'Camadas de uma aplicação digital, ilustração de autoria de software', service: 'software', serviceLabel: 'Registro e proteção de software' },
  PATENTES: { image: 'velmont-patent-engineering', alt: 'Componentes mecânicos em vista explodida, ilustração de uma invenção', service: 'patentes', serviceLabel: 'Patentes e desenho industrial' },
 };
