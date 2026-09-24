@@ -1,6 +1,6 @@
 import { Icon } from './icons';
 export function BrandPerimeter() {
-  return <svg className="brand-perimeter" viewBox="0 0 100 100" aria-hidden="true" fill="none"><path d="M32.5 88V10.3L78.2 8.8V84.4L32.5 88L21.8 76V7.2L68.8 6L78.2 8.8M21.8 7.2L32.5 10.3M68.8 6V73L78.2 84.4M21.8 76L68.8 73" pathLength="1" /></svg>;
+  return <svg className="brand-perimeter" viewBox="0 0 119.2 132" aria-hidden="true" fill="none"><path d="M31 126.4L30.8 11.4L99.6 9.3L99.8 120.9L31 126.4L14.4 109.2V6.7L85 5L99.6 9.3M14.4 6.7L30.8 11.4M85 5L85 104.4L99.8 120.9M14.4 109.2L85 104.4" pathLength="1" /></svg>;
 }
 
 export function PatentScene() {
