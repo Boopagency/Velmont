@@ -12,3 +12,6 @@
 @media(max-width:767px){.article-cover{aspect-ratio:1.4}.article-byline{font-size:10px}.article-related h2{font-size:25px}.service-related{font-size:12px}.hero{height:100svh;min-height:700px}.hero-kicker{padding-inline:20px}.hero-back{font-size:clamp(70px,20.8vw,160px)}.hero-front{font-size:clamp(40px,12vw,92px)}}
 
 .story-intro h2{font-weight:400;line-height:1.65;letter-spacing:0;color:var(--muted)}@media(max-width:767px){.story-words>b{transform:none}.story-words>b .icon-wrap{transform:rotate(45deg)}.story-words>b .vm-icon{transform:none}}
+
+/* Longer section labels wrap in balanced lines; the section number stays on the first line. */
+.software-top .eyebrow,.founders .section-heading .eyebrow>span:last-child{text-wrap:balance}.founders .section-heading .eyebrow{align-items:baseline}

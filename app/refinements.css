@@ -12,7 +12,7 @@
 .software-asset .software-layers strong{margin:0;font-size:29px;line-height:1.4}
 .software-asset .software-layers p{grid-column:2;font-size:13px;margin-top:6px}
 
-/* Two identical groups travel exactly one group width, including its final gap. */
+/* Two identical groups travel exactly one group width, including its final gap. 58s per six logos keeps the pace as logos are added. */
 .partner-section{margin-top:80px;padding:38px 0 0;border-top:1px solid var(--line)}
 .partners-heading{display:flex;justify-content:space-between;gap:32px;align-items:end;margin-bottom:35px}
 .partners-heading h3{font-size:32px;margin-top:17px;letter-spacing:-.03em}
@@ -21,7 +21,7 @@
 .marquee-control:hover{color:var(--ivory)}
 .marquee-control>span{font-size:18px;color:var(--champagne)}
 .partner-marquee{overflow:hidden;mask-image:linear-gradient(90deg,transparent,#000 5%,#000 95%,transparent);padding:22px 0 36px}
-.partner-track{display:flex;width:max-content;animation:partner-drift 58s linear infinite;background:var(--background)}
+.partner-track{display:flex;width:max-content;animation:partner-drift calc(var(--partner-count,6) * 58s / 6) linear infinite;background:var(--background)}
 .partner-group{display:flex;flex:none;align-items:center;gap:48px;padding:0 48px 0 0;margin:0;list-style:none}
 .partner-group li{display:flex;align-items:center;justify-content:center;width:clamp(185px,16vw,230px);height:180px;flex:none;background:var(--background)}
 .partner-group img{width:100%;height:180px;max-height:100%;object-fit:contain;filter:grayscale(1) invert(1);mix-blend-mode:screen;opacity:.86;transition:opacity .25s}
