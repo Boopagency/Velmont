@@ -88,7 +88,9 @@ await fs.writeFile(path.join(output,'_headers'),`/assets/*\n  Cache-Control: pub
 // public pages. Shells hold no data; the database authorizes every request.
 const adminBuild=await build({...common,input:{admin:path.join(root,'admin/main.tsx'),preview:path.join(root,'admin/preview.tsx')},output:{dir:path.join(output,'assets'),format:'esm',entryFileNames:'[name]-[hash].js',chunkFileNames:'admin-chunk-[hash].js',minify:true}});
 const adminEntry=name=>adminBuild.output.find(x=>x.type==='chunk'&&x.isEntry&&x.name===name).fileName;
-const adminCss=await fs.readFile(path.join(root,'admin/admin.css'),'utf8');
+// The panel stylesheet is a Tailwind entry as well: shadcn/ui components on the panel's own tokens.
+const adminSource=path.join(root,'admin/admin.css');
+const adminCss=(await postcss([tailwind({base:root,optimize:true})]).process(await fs.readFile(adminSource,'utf8'),{from:adminSource})).css;
 const adminCssName=`admin-${createHash('sha256').update(adminCss).digest('hex').slice(0,12)}.css`;
 await fs.writeFile(path.join(output,'assets',adminCssName),adminCss);
 const supabaseOrigin=env.NEXT_PUBLIC_SUPABASE_URL;

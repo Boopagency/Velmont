@@ -1,15 +1,46 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState, type KeyboardEvent, type ReactNode } from 'react';
+import {
+  ArchiveIcon,
+  ArchiveRestoreIcon,
+  CheckIcon,
+  ChevronDownIcon,
+  CircleIcon,
+  ExternalLinkIcon,
+  EyeIcon,
+  HistoryIcon,
+  ImageIcon,
+  MoreHorizontalIcon,
+  PlusIcon,
+  RotateCcwIcon,
+  SendIcon,
+  Trash2Icon,
+  UndoIcon,
+  XIcon,
+} from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { Checkbox } from '@/components/ui/checkbox';
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
+import { Input } from '@/components/ui/input';
+import { InputGroup, InputGroupAddon, InputGroupInput } from '@/components/ui/input-group';
+import { Label } from '@/components/ui/label';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Skeleton } from '@/components/ui/skeleton';
+import { Spinner } from '@/components/ui/spinner';
+import { Textarea } from '@/components/ui/textarea';
 import { contentSchema, SLUG_RE, sourceSchema } from '@/lib/blog/schema';
 import { readingMinutes } from '@/lib/blog/posts';
 import { authorKeys, categories, type Block } from '@/lib/blog/types';
+import { cn } from '@/lib/utils';
 import { useStaff } from '../auth';
 import { BlockEditor, cleanBlocks, emptyBlock } from '../blocks';
 import { MediaPicker } from '../media';
 import { MediaImage } from '../signed';
-import { Link, navigate, setLeaveGuard } from '../router';
+import { navigate, setLeaveGuard } from '../router';
+import { SiteStateIcon, useSiteStatus } from '../site-status';
 import { adminApi, explain, supabase } from '../supabase';
-import { articleStatusLabel, authorLabel, dateTime, editableArticleFields, hasUnpublishedChanges, type ArticleDraft, type ArticleRow, type MediaItem } from '../types';
-import { Button, Field, Loading, PageHeader, Pill, useConfirm, useToast } from '../ui';
+import { authorLabel, categoryLabel, editableArticleFields, hasUnpublishedChanges, type ArticleDraft, type ArticleRow, type MediaItem } from '../types';
+import { ArticleStatusBadge, longDate, notify, TimeAgo, useConfirm, useCrumbs } from '../ui';
 
 const select = 'id, title, slug, excerpt, content, featured_image_id, author_key, category, tags, sources, seo_title, seo_description, canonical_url, og_title, og_description, og_image_id, robots_index, reading_minutes, status, version, first_published_at, created_at, updated_at, published:published_articles(slug, source_version, published_at, modified_at)';
 
@@ -64,28 +95,119 @@ function checklist(d: ArticleDraft, media: MediaItem | null) {
 }
 
 type Revision = { id: number; kind: 'edit' | 'publish'; created_at: string; snapshot: ArticleRow };
+type Busy = 'save' | 'publish' | 'review' | 'draft' | 'unpublish' | 'archive' | null;
+
+/** Grows a textarea with its content (also where CSS field-sizing is not supported). */
+function useAutosize(value: string) {
+  const ref = useRef<HTMLTextAreaElement>(null);
+  useEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    el.style.height = 'auto';
+    el.style.height = `${el.scrollHeight}px`;
+  }, [value]);
+  return ref;
+}
+
+function Section({ title, children, aside }: { title: string; children: ReactNode; aside?: ReactNode }) {
+  return (
+    <section className="border-t py-5 first:border-t-0 first:pt-0">
+      <div className="mb-3.5 flex items-center justify-between gap-3">
+        <h2 className="text-[13px] font-semibold tracking-[-0.005em]">{title}</h2>
+        {aside}
+      </div>
+      <div className="grid gap-4">{children}</div>
+    </section>
+  );
+}
+
+function Counter({ value, ideal, max }: { value: number; ideal: [number, number]; max?: number }) {
+  const good = value >= ideal[0] && value <= ideal[1];
+  return (
+    <span className={cn('text-xs tabular', value === 0 ? 'text-muted-foreground' : good ? 'text-success' : 'text-champagne-foreground')}>
+      {value}
+      {max ? `/${max}` : ''}
+    </span>
+  );
+}
+
+function TagInput({ id, value, onChange, suggestions }: { id: string; value: string[]; onChange: (tags: string[]) => void; suggestions: string[] }) {
+  const [text, setText] = useState('');
+  const add = (raw: string) => {
+    const tag = raw.trim().slice(0, 40);
+    if (!tag || value.length >= 12 || value.some((t) => t.toLowerCase() === tag.toLowerCase())) return setText('');
+    onChange([...value, tag]);
+    setText('');
+  };
+  const key = (e: KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === 'Enter' || e.key === ',') {
+      e.preventDefault();
+      add(text);
+    } else if (e.key === 'Backspace' && !text && value.length) onChange(value.slice(0, -1));
+  };
+  return (
+    <div className="flex min-h-9 flex-wrap items-center gap-1.5 rounded-lg border border-input bg-background px-2 py-1.5 transition-colors focus-within:border-ring focus-within:ring-3 focus-within:ring-ring/40">
+      {value.map((tag) => (
+        <span key={tag} className="inline-flex h-6 items-center gap-1 rounded-md bg-muted pr-0.5 pl-2 text-xs font-medium">
+          {tag}
+          <button type="button" className="grid size-5 place-items-center rounded-sm text-muted-foreground hover:bg-background hover:text-foreground" aria-label={`Remover tag ${tag}`} onClick={() => onChange(value.filter((t) => t !== tag))}>
+            <XIcon className="size-3" aria-hidden="true" />
+          </button>
+        </span>
+      ))}
+      <input
+        id={id}
+        list={`${id}-suggestions`}
+        value={text}
+        onChange={(e) => (e.target.value.endsWith(',') ? add(e.target.value.slice(0, -1)) : setText(e.target.value))}
+        onKeyDown={key}
+        onBlur={() => text.trim() && add(text)}
+        placeholder={value.length ? '' : 'Digite e tecle Enter'}
+        maxLength={40}
+        disabled={value.length >= 12}
+        aria-labelledby={`${id}-label`}
+        aria-describedby={`${id}-hint`}
+        className="h-6 min-w-24 flex-1 bg-transparent text-sm outline-none placeholder:text-muted-foreground"
+      />
+      <datalist id={`${id}-suggestions`}>
+        {suggestions.filter((s) => !value.includes(s)).map((s) => (
+          <option key={s} value={s}>
+            {s}
+          </option>
+        ))}
+      </datalist>
+    </div>
+  );
+}
 
 export function ArticleEditor({ id }: { id: string | null }) {
   const staff = useStaff();
-  const toast = useToast();
+  const site = useSiteStatus();
   const { confirm, dialog } = useConfirm();
   const [row, setRow] = useState<ArticleRow | null>(null);
   const [draft, setDraft] = useState<ArticleDraft | null>(id ? null : blank());
   const [dirty, setDirty] = useState(false);
   const [slugTouched, setSlugTouched] = useState(false);
-  const [busy, setBusy] = useState<string | null>(null);
+  const [busy, setBusy] = useState<Busy>(null);
   const [picker, setPicker] = useState<'featured' | 'og' | null>(null);
   const [images, setImages] = useState<Record<string, MediaItem>>({});
   const [revisions, setRevisions] = useState<Revision[] | null>(null);
+  const [tagSuggestions, setTagSuggestions] = useState<string[]>([]);
+  const [published, setPublished] = useState<'updating' | 'not_updated' | null>(null);
+  const [showChecklist, setShowChecklist] = useState(false);
   const backupKey = `vm-draft:${id || 'novo'}`;
   const [fallbackSlug] = useState(() => `rascunho-${Math.random().toString(36).slice(2, 8)}`);
   const [reloadKey, setReloadKey] = useState(0);
   const confirmRef = useRef(confirm);
   const dirtyRef = useRef(dirty);
+  const checklistRef = useRef<HTMLDivElement>(null);
+  const titleRef = useAutosize(draft?.title || '');
+  const excerptRef = useAutosize(draft?.excerpt || '');
   useEffect(() => {
     confirmRef.current = confirm;
     dirtyRef.current = dirty;
   });
+  useCrumbs([{ label: 'Artigos', href: '/admin/artigos' }, { label: id ? draft?.title.trim() || row?.title || 'Sem título' : 'Novo artigo' }]);
 
   // In-app navigation (links, back/forward, sign-out) asks before discarding edits.
   useEffect(
@@ -99,40 +221,48 @@ export function ArticleEditor({ id }: { id: string | null }) {
   );
 
   useEffect(() => {
+    void supabase
+      .from('articles')
+      .select('tags')
+      .limit(200)
+      .then(({ data }) => setTagSuggestions([...new Set(((data as { tags: string[] }[]) || []).flatMap((r) => r.tags || []))].sort((a, b) => a.localeCompare(b, 'pt-BR'))));
+  }, []);
+
+  useEffect(() => {
     if (!id) return;
     let cancelled = false;
     void (async () => {
-    const { data, error } = await supabase.from('articles').select(select).eq('id', id).maybeSingle();
-    if (cancelled) return;
-    if (error || !data) {
-      toast('error', 'Artigo não encontrado.');
-      navigate('/admin/artigos', { replace: true, force: true });
-      return;
-    }
-    const article = data as unknown as ArticleRow;
-    setRow(article);
-    let next = pick(article);
-    try {
-      const backup = JSON.parse(localStorage.getItem(`vm-draft:${id}`) || 'null') as { version: number; draft: ArticleDraft } | null;
-      if (backup && backup.version === article.version && JSON.stringify(backup.draft) !== JSON.stringify(next) && (await confirmRef.current('Alterações não salvas', 'Encontramos alterações deste artigo que não foram salvas neste navegador. Deseja recuperá-las?', 'Recuperar'))) {
-        next = backup.draft;
-        setDirty(true);
-      } else localStorage.removeItem(`vm-draft:${id}`);
-    } catch {
-      // Local backup is optional.
-    }
-    setDraft(next);
-    setSlugTouched(article.status !== 'draft' || !!article.published || !article.slug.startsWith('rascunho-'));
-    const ids = [next.featured_image_id, next.og_image_id].filter(Boolean) as string[];
-    if (ids.length) {
-      const { data: media } = await supabase.from('media').select('id, path, mime_type, bytes, width, height, alt, created_at').in('id', ids);
-      setImages(Object.fromEntries(((media as MediaItem[]) || []).map((m) => [m.id, m])));
-    }
+      const { data, error } = await supabase.from('articles').select(select).eq('id', id).maybeSingle();
+      if (cancelled) return;
+      if (error || !data) {
+        notify.error('Artigo não encontrado.');
+        navigate('/admin/artigos', { replace: true, force: true });
+        return;
+      }
+      const article = data as unknown as ArticleRow;
+      setRow(article);
+      let next = pick(article);
+      try {
+        const backup = JSON.parse(localStorage.getItem(`vm-draft:${id}`) || 'null') as { version: number; draft: ArticleDraft } | null;
+        if (backup && backup.version === article.version && JSON.stringify(backup.draft) !== JSON.stringify(next) && (await confirmRef.current('Alterações não salvas', 'Encontramos alterações deste artigo que não foram salvas neste navegador. Deseja recuperá-las?', 'Recuperar'))) {
+          next = backup.draft;
+          setDirty(true);
+        } else localStorage.removeItem(`vm-draft:${id}`);
+      } catch {
+        // Local backup is optional.
+      }
+      setDraft(next);
+      setSlugTouched(article.status !== 'draft' || !!article.published || !article.slug.startsWith('rascunho-'));
+      const ids = [next.featured_image_id, next.og_image_id].filter(Boolean) as string[];
+      if (ids.length) {
+        const { data: media } = await supabase.from('media').select('id, path, mime_type, bytes, width, height, alt, created_at').in('id', ids);
+        setImages(Object.fromEntries(((media as MediaItem[]) || []).map((m) => [m.id, m])));
+      }
     })();
     return () => {
       cancelled = true;
     };
-  }, [id, reloadKey, toast]);
+  }, [id, reloadKey]);
 
   // Protect unsaved work: local backup and a warning before leaving the page.
   useEffect(() => {
@@ -162,8 +292,9 @@ export function ArticleEditor({ id }: { id: string | null }) {
     setDirty(true);
   };
 
-  const words = useMemo(() => (draft ? readingMinutes({ version: 1, blocks: cleanBlocks(draft.content.blocks) }) : 0), [draft]);
+  const minutes = useMemo(() => (draft ? readingMinutes({ version: 1, blocks: cleanBlocks(draft.content.blocks) }) : 0), [draft]);
   const featured = draft?.featured_image_id ? images[draft.featured_image_id] || null : null;
+  const ogImage = draft?.og_image_id ? images[draft.og_image_id] || null : null;
   const checks = draft ? checklist(draft, featured) : [];
   const live = row?.published;
   const pending = row ? hasUnpublishedChanges(row) : false;
@@ -172,7 +303,7 @@ export function ArticleEditor({ id }: { id: string | null }) {
     if (!draft) return null;
     const { payload, problems } = toPayload(draft, fallbackSlug);
     if (problems.length) {
-      toast('error', problems[0]);
+      notify.error('Revise antes de salvar', problems[0]);
       return null;
     }
     setBusy('save');
@@ -182,11 +313,11 @@ export function ArticleEditor({ id }: { id: string | null }) {
     const { data, error } = await query;
     setBusy(null);
     if (error) {
-      toast('error', explain(error));
+      notify.error(explain(error));
       return null;
     }
     if (!data) {
-      toast('error', explain({ code: '40001' }));
+      notify.error(explain({ code: '40001' }));
       return null;
     }
     const saved = data as unknown as ArticleRow;
@@ -198,17 +329,26 @@ export function ArticleEditor({ id }: { id: string | null }) {
     setRow(saved);
     setDraft(pick(saved));
     setDirty(false);
+    setPublished(null);
     dirtyRef.current = false;
     if (!row) navigate(`/admin/artigos/${saved.id}`, { replace: true, force: true });
     return saved;
   }
 
-  async function saveAndToast() {
+  async function saveAndNotify() {
     const saved = await save();
-    if (saved) toast('ok', saved.status === 'published' ? 'Salvo. O site continua mostrando a versão publicada até você publicar as alterações.' : 'Rascunho salvo.');
+    if (!saved) return;
+    if (saved.status === 'published') notify.ok('Alterações salvas', 'O site continua mostrando a versão publicada até você publicar as alterações.');
+    else notify.ok('Rascunho salvo.');
   }
 
   async function workflow(action: 'publish' | 'review' | 'draft' | 'unpublish' | 'archive') {
+    if (action === 'publish' && !checks.filter((c) => c.required).every((c) => c.ok)) {
+      setShowChecklist(true);
+      checklistRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      notify.error('Faltam itens obrigatórios', 'Preencha título, resumo e conteúdo antes de publicar.');
+      return;
+    }
     const current = dirty || !row ? await save() : row;
     if (!current) return;
     const texts: Record<typeof action, [string, string, string]> = {
@@ -234,20 +374,28 @@ export function ArticleEditor({ id }: { id: string | null }) {
           invalid_article: 'Preencha título, resumo e conteúdo antes de publicar.',
           too_many_requests: 'Muitas publicações em pouco tempo. Aguarde alguns minutos.',
         };
-        toast('error', messages[String(result.body.error)] || 'Não foi possível concluir. Tente novamente.');
+        notify.error(action === 'publish' ? 'Não foi possível publicar' : 'Não foi possível concluir', messages[String(result.body.error)] || 'Tente novamente.');
         return;
       }
-      const updating = result.body.site === 'updating';
-      toast(updating ? 'ok' : 'error', updating ? 'Feito. O site será atualizado em cerca de 1 a 2 minutos.' : 'Status alterado, mas a atualização automática do site falhou. Use "Atualizar site agora" no Dashboard.');
+      const done = { publish: 'Artigo publicado', unpublish: 'Artigo despublicado', archive: 'Artigo arquivado' }[action];
+      if (result.body.site === 'updating') {
+        notify.ok(done, 'O site será atualizado em cerca de 1 a 2 minutos.');
+        setPublished('updating');
+        site.watch();
+      } else {
+        notify.error('Não foi possível atualizar o site', `${done}, mas a atualização automática do site falhou. Tente novamente pelo status do site.`);
+        setPublished('not_updated');
+        void site.refresh();
+      }
     } else {
       const rpc = action === 'review' ? 'submit_article_for_review' : 'return_article_to_draft';
       const { error } = await supabase.rpc(rpc, { p_id: current.id });
       if (error) {
         setBusy(null);
-        toast('error', explain(error));
+        notify.error(explain(error));
         return;
       }
-      toast('ok', 'Status atualizado.');
+      notify.ok(action === 'review' ? 'Enviado para revisão' : 'Artigo voltou para rascunho');
     }
     setBusy(null);
     setReloadKey((k) => k + 1);
@@ -256,9 +404,9 @@ export function ArticleEditor({ id }: { id: string | null }) {
   async function remove() {
     if (!row || !(await confirm('Excluir definitivamente?', 'O artigo e todo o histórico de versões serão apagados. Esta ação não pode ser desfeita.', 'Excluir', true))) return;
     const { error } = await supabase.from('articles').delete().eq('id', row.id);
-    if (error) toast('error', explain(error));
+    if (error) notify.error(explain(error));
     else {
-      toast('ok', 'Artigo excluído.');
+      notify.ok('Artigo excluído.');
       navigate('/admin/artigos', { force: true });
     }
   }
@@ -278,164 +426,584 @@ export function ArticleEditor({ id }: { id: string | null }) {
   if (!draft)
     return (
       <>
-        <Loading />
         {dialog}
+        <div className="sticky top-12 z-10 flex h-14 items-center justify-between border-b bg-background px-4 md:px-6">
+          <Skeleton className="h-5 w-40" />
+          <Skeleton className="h-8 w-56" />
+        </div>
+        <output className="mx-auto grid max-w-[1320px] gap-10 px-4 py-8 sm:px-6 lg:grid-cols-[minmax(0,1fr)_320px] lg:px-10" aria-label="Carregando artigo">
+          <div className="space-y-5">
+            <Skeleton className="h-10 w-3/4" />
+            <Skeleton className="h-16 w-full" />
+            <Skeleton className="h-48 w-full" />
+          </div>
+          <div className="space-y-4">
+            <Skeleton className="h-32 w-full" />
+            <Skeleton className="h-40 w-full" />
+          </div>
+        </output>
       </>
     );
+
   const status = row?.status || 'draft';
-  const canPublish = checks.filter((c) => c.required).every((c) => c.ok);
+  const archived = status === 'archived';
+  const required = checks.filter((c) => c.required);
+  const missing = required.filter((c) => !c.ok).length;
+  const recommended = checks.filter((c) => !c.required);
+  const canPublishNow = !archived && (status !== 'published' || pending || dirty);
+  const saving = busy === 'save';
+  const publishing = busy === 'publish';
+
+  // One sentence about where this article stands right now.
+  const state: { icon: ReactNode; text: string; tone?: string } = saving
+    ? { icon: <Spinner className="size-3.5" aria-hidden="true" />, text: 'Salvando…' }
+    : publishing
+      ? { icon: <Spinner className="size-3.5" aria-hidden="true" />, text: 'Publicando…' }
+      : busy
+        ? { icon: <Spinner className="size-3.5" aria-hidden="true" />, text: 'Atualizando status…' }
+        : dirty
+          ? { icon: <CircleIcon className="size-2 fill-champagne text-champagne" aria-hidden="true" />, text: 'Alterações não salvas' }
+          : published && site.state === 'updating'
+            ? { icon: <SiteStateIcon state="updating" />, text: 'Atualizando site…' }
+            : published && (site.state === 'failed' || published === 'not_updated')
+              ? { icon: <SiteStateIcon state="failed" />, text: 'Falha na atualização do site', tone: 'text-destructive' }
+              : published && site.state === 'updated'
+                ? { icon: <SiteStateIcon state="updated" />, text: 'Site atualizado' }
+                : row
+                  ? { icon: <CheckIcon className="size-3.5 text-success" aria-hidden="true" />, text: `Salvo` }
+                  : { icon: <CircleIcon className="size-2 fill-muted-foreground/40 text-muted-foreground/40" aria-hidden="true" />, text: 'Ainda não salvo' };
+
+  const seoTitle = draft.seo_title || draft.title || 'Título do artigo';
+  const seoDescription = draft.seo_description || draft.excerpt || 'O resumo do artigo aparece aqui.';
+  const shareImage = ogImage || featured;
 
   return (
     <>
       {dialog}
-      <PageHeader
-        eyebrow={row ? `Artigo · ${articleStatusLabel[status]}` : 'Novo artigo'}
-        title={draft.title || 'Sem título'}
-        actions={<Link href="/admin/artigos" className="text-link">← Todos os artigos</Link>}
-      />
-      {pending && <p className="notice">Este artigo tem alterações salvas que ainda não estão no site. Clique em <strong>Publicar alterações</strong> quando estiver pronto.</p>}
-      {status === 'archived' && <p className="notice">Artigo arquivado. Restaure como rascunho para voltar a editar e publicar.</p>}
-      <div className="editor">
-        <div className="editor-main">
-          <Field label="Título" id="title">
-            <input id="title" className="title-input" value={draft.title} onChange={(e) => update('title', e.target.value)} maxLength={200} placeholder="Um título claro, que diga do que o artigo trata" />
-          </Field>
-          <Field label="Resumo" id="excerpt" hint={`${draft.excerpt.trim().length} caracteres. Ideal entre 50 e 160: aparece nos cards do site e nos resultados de busca.`}>
-            <textarea id="excerpt" rows={3} value={draft.excerpt} onChange={(e) => update('excerpt', e.target.value)} maxLength={400} />
-          </Field>
-          <div className="field">
-            <span className="label">Conteúdo <small>· cerca de {words} min de leitura</small></span>
-            <BlockEditor blocks={draft.content.blocks} onChange={(blocks: Block[]) => update('content', { version: 1, blocks })} />
-          </div>
-          <fieldset className="field sources">
-            <legend>Referências</legend>
-            <p className="field-hint">Fontes oficiais citadas no texto. Aparecem ao final do artigo.</p>
-            {draft.sources.map((s, i) => (
-              <div className="row" key={i}>
-                <input aria-label={`Título da referência ${i + 1}`} placeholder="Ex.: INPI — Guia básico de marcas" value={s.title} onChange={(e) => update('sources', draft.sources.map((x, j) => (j === i ? { ...x, title: e.target.value } : x)))} maxLength={200} />
-                <input aria-label={`Endereço da referência ${i + 1}`} placeholder="https://" type="url" value={s.url} onChange={(e) => update('sources', draft.sources.map((x, j) => (j === i ? { ...x, url: e.target.value } : x)))} maxLength={500} />
-                <button type="button" onClick={() => update('sources', draft.sources.filter((_, j) => j !== i))} aria-label={`Remover referência ${i + 1}`}>Remover</button>
-              </div>
-            ))}
-            {draft.sources.length < 20 && <button type="button" className="text-button" onClick={() => update('sources', [...draft.sources, { title: '', url: '' }])}>+ Adicionar referência</button>}
-          </fieldset>
-          <details className="advanced">
-            <summary>Configurações avançadas de SEO</summary>
-            <p className="field-hint">Opcional. Sem preenchimento, o site usa o título, o resumo e a imagem principal.</p>
-            <Field label="Endereço do artigo" id="slug" hint={live ? `Publicado em /blog/${live.slug}. Se mudar, o endereço antigo redirecionará permanentemente para o novo.` : `Ficará em /blog/${draft.slug || '…'}`}>
-              <input id="slug" value={draft.slug} onChange={(e) => { setSlugTouched(true); update('slug', e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, '-').slice(0, 120)); }} maxLength={120} />
-            </Field>
-            <Field label="Título para buscadores" id="seo_title" hint={`${(draft.seo_title || '').length}/60 recomendados`}>
-              <input id="seo_title" value={draft.seo_title || ''} onChange={(e) => update('seo_title', e.target.value)} maxLength={120} />
-            </Field>
-            <Field label="Descrição para buscadores" id="seo_description" hint={`${(draft.seo_description || '').length}/155 recomendados`}>
-              <textarea id="seo_description" rows={2} value={draft.seo_description || ''} onChange={(e) => update('seo_description', e.target.value)} maxLength={320} />
-            </Field>
-            <Field label="Título para redes sociais" id="og_title">
-              <input id="og_title" value={draft.og_title || ''} onChange={(e) => update('og_title', e.target.value)} maxLength={120} />
-            </Field>
-            <Field label="Descrição para redes sociais" id="og_description">
-              <textarea id="og_description" rows={2} value={draft.og_description || ''} onChange={(e) => update('og_description', e.target.value)} maxLength={320} />
-            </Field>
-            <div className="field">
-              <span className="label">Imagem para redes sociais</span>
-              <div className="row">
-                {draft.og_image_id && images[draft.og_image_id] && <MediaImage className="thumb" path={images[draft.og_image_id].path} />}
-                <Button variant="secondary" onClick={() => setPicker('og')}>{draft.og_image_id ? 'Trocar' : 'Escolher'}</Button>
-                {draft.og_image_id && <Button variant="ghost" onClick={() => update('og_image_id', null)}>Usar a imagem principal</Button>}
-              </div>
-            </div>
-            <Field label="URL canônica" id="canonical" hint="Somente se este texto foi publicado primeiro em outro site. Um valor errado pode tirar o artigo das buscas.">
-              <input id="canonical" type="url" value={draft.canonical_url || ''} onChange={(e) => update('canonical_url', e.target.value)} maxLength={500} placeholder="Deixe vazio na maioria dos casos" />
-            </Field>
-            <label className="check">
-              <input type="checkbox" checked={draft.robots_index} onChange={(e) => update('robots_index', e.target.checked)} /> Permitir que buscadores mostrem este artigo
-            </label>
-          </details>
-        </div>
-
-        <aside className="editor-side">
-          <section className="panel actions-panel">
-            <p className="meta">
-              <Pill tone={status}>{articleStatusLabel[status]}</Pill> {dirty ? 'Alterações não salvas' : row ? `Salvo ${dateTime(row.updated_at)}` : 'Ainda não salvo'}
-            </p>
-            {status !== 'archived' && <Button onClick={() => void saveAndToast()} busy={busy === 'save'} disabled={!dirty && !!row}>Salvar</Button>}
-            {status !== 'archived' && <Button variant="secondary" onClick={() => void preview()}>Visualizar</Button>}
-            {status !== 'archived' && (status !== 'published' || pending || dirty) && (
-              <Button onClick={() => void workflow('publish')} busy={busy === 'publish'} disabled={!canPublish}>{status === 'published' ? 'Publicar alterações' : 'Publicar'}</Button>
+      {/* Actions stay in reach while writing. */}
+      <div className="sticky top-12 z-10 border-b bg-background">
+        <div className="mx-auto flex min-h-14 max-w-[1320px] items-center gap-3 px-4 py-2 sm:px-6 lg:px-10">
+          <div className="flex min-w-0 flex-1 items-center gap-2.5">
+            <span className="hidden sm:contents">
+              <ArticleStatusBadge status={status} />
+            </span>
+            <output className={cn('flex min-w-0 items-center gap-1.5 text-[13px] text-muted-foreground', state.tone)} aria-live="polite">
+              {state.icon}
+              <span className="truncate" title={state.text}>
+                {state.text}
+                {state.text === 'Salvo' && row && (
+                  <span className="hidden sm:inline">
+                    {' '}
+                    · <TimeAgo value={row.updated_at} />
+                  </span>
+                )}
+              </span>
+            </output>
+            {published && (site.state === 'failed' || published === 'not_updated') && site.state !== 'updating' && (
+              <Button variant="link" size="sm" className="h-auto px-0 text-[13px]" disabled={site.requesting} onClick={() => void site.update('retry: editor').then((ok) => ok && setPublished('updating'))}>
+                <RotateCcwIcon data-icon="inline-start" aria-hidden="true" />
+                <span className="sr-only sm:not-sr-only">Tentar novamente</span>
+              </Button>
             )}
-            {status === 'draft' && row && <Button variant="ghost" onClick={() => void workflow('review')}>Enviar para revisão</Button>}
-            {status === 'review' && <Button variant="ghost" onClick={() => void workflow('draft')}>Voltar para rascunho</Button>}
-            {status === 'published' && <Button variant="ghost" onClick={() => void workflow('unpublish')}>Despublicar</Button>}
-            {row && status !== 'archived' && <Button variant="ghost" onClick={() => void workflow('archive')}>Arquivar</Button>}
-            {status === 'archived' && <Button onClick={() => void workflow('draft')}>Restaurar como rascunho</Button>}
-            {status === 'archived' && staff.role === 'owner' && <Button variant="danger" onClick={() => void remove()}>Excluir definitivamente</Button>}
-            {live && <a className="text-link" href={`/blog/${live.slug}`} target="_blank" rel="noopener noreferrer">Ver no site ↗</a>}
-          </section>
+          </div>
+          <div className="flex shrink-0 items-center gap-1 sm:gap-1.5">
+            {!archived && (
+              <Button variant="ghost" onClick={() => void preview()} disabled={saving} className="text-muted-foreground hover:text-foreground">
+                <EyeIcon data-icon="inline-start" aria-hidden="true" />
+                <span className="sr-only sm:not-sr-only">Pré-visualizar</span>
+              </Button>
+            )}
+            {!archived && (
+              <Button variant="outline" onClick={() => void saveAndNotify()} disabled={saving || publishing || (!dirty && !!row)} aria-busy={saving || undefined}>
+                {saving && <Spinner data-icon="inline-start" aria-hidden="true" />}
+                {saving ? (
+                  'Salvando…'
+                ) : status === 'published' ? (
+                  <>
+                    <span className="sm:hidden">Salvar</span>
+                    <span className="hidden sm:inline">Salvar alterações</span>
+                  </>
+                ) : (
+                  'Salvar'
+                )}
+              </Button>
+            )}
+            {canPublishNow && (
+              <Button onClick={() => void workflow('publish')} disabled={publishing || saving} aria-busy={publishing || undefined}>
+                {publishing ? <Spinner data-icon="inline-start" aria-hidden="true" /> : <SendIcon data-icon="inline-start" aria-hidden="true" />}
+                {publishing ? (
+                  'Publicando…'
+                ) : status === 'published' ? (
+                  <>
+                    <span className="sm:hidden">Publicar</span>
+                    <span className="hidden sm:inline">Publicar alterações</span>
+                  </>
+                ) : (
+                  'Publicar'
+                )}
+              </Button>
+            )}
+            {archived && (
+              <Button onClick={() => void workflow('draft')} disabled={!!busy}>
+                <ArchiveRestoreIcon data-icon="inline-start" aria-hidden="true" /> Restaurar como rascunho
+              </Button>
+            )}
+            {(row || live) && (
+              <DropdownMenu>
+                <DropdownMenuTrigger render={<Button variant="ghost" size="icon" aria-label="Mais ações" className="text-muted-foreground" />}>
+                  <MoreHorizontalIcon aria-hidden="true" />
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" className="w-56">
+                  {live && status === 'published' && (
+                    <DropdownMenuItem onClick={() => window.open(`/blog/${live.slug}`, '_blank', 'noopener')}>
+                      <ExternalLinkIcon aria-hidden="true" /> Ver no site
+                    </DropdownMenuItem>
+                  )}
+                  {status === 'draft' && row && (
+                    <DropdownMenuItem onClick={() => void workflow('review')}>
+                      <SendIcon aria-hidden="true" /> Enviar para revisão
+                    </DropdownMenuItem>
+                  )}
+                  {status === 'review' && (
+                    <DropdownMenuItem onClick={() => void workflow('draft')}>
+                      <UndoIcon aria-hidden="true" /> Voltar para rascunho
+                    </DropdownMenuItem>
+                  )}
+                  {status === 'published' && (
+                    <DropdownMenuItem onClick={() => void workflow('unpublish')}>
+                      <UndoIcon aria-hidden="true" /> Despublicar
+                    </DropdownMenuItem>
+                  )}
+                  {row && !archived && (
+                    <>
+                      <DropdownMenuSeparator />
+                      <DropdownMenuItem onClick={() => void workflow('archive')}>
+                        <ArchiveIcon aria-hidden="true" /> Arquivar
+                      </DropdownMenuItem>
+                    </>
+                  )}
+                  {archived && staff.role === 'owner' && (
+                    <DropdownMenuItem variant="destructive" onClick={() => void remove()}>
+                      <Trash2Icon aria-hidden="true" /> Excluir definitivamente
+                    </DropdownMenuItem>
+                  )}
+                </DropdownMenuContent>
+              </DropdownMenu>
+            )}
+          </div>
+        </div>
+      </div>
 
-          <section className="panel">
-            <h2>Antes de publicar</h2>
-            <ul className="checklist">
-              {checks.map((c) => (
-                <li key={c.label} className={c.ok ? 'ok' : c.required ? 'missing' : 'todo'}>
-                  <span aria-hidden="true">{c.ok ? '✓' : '○'}</span> {c.label}{!c.ok && c.required && <em> (obrigatório)</em>}
-                </li>
-              ))}
-            </ul>
-          </section>
+      <div className="mx-auto w-full max-w-[1320px] px-4 py-7 sm:px-6 md:py-9 lg:px-10">
+        {/* On phones the status badge leaves the action bar and sits above the title. */}
+        <div className="mb-5 sm:hidden">
+          <ArticleStatusBadge status={status} />
+        </div>
+        {pending && !dirty && (
+          <p className="mb-6 flex items-start gap-2.5 rounded-lg bg-champagne-soft px-3.5 py-2.5 text-[13px] leading-relaxed text-champagne-foreground">
+            <CircleIcon className="mt-1.5 size-2 shrink-0 fill-current" aria-hidden="true" />
+            <span>
+              Este artigo tem alterações salvas que ainda não estão no site. Clique em <strong className="font-semibold">Publicar alterações</strong> quando estiver pronto.
+            </span>
+          </p>
+        )}
+        {archived && <p className="mb-6 rounded-lg bg-muted px-3.5 py-2.5 text-[13px] text-muted-foreground">Artigo arquivado. Restaure como rascunho para voltar a editar e publicar.</p>}
 
-          <section className="panel">
-            <h2>Organização</h2>
-            <Field label="Autoria" id="author">
-              <select id="author" value={draft.author_key} onChange={(e) => update('author_key', e.target.value as ArticleDraft['author_key'])}>
-                {authorKeys.map((k) => <option key={k} value={k}>{authorLabel[k]}</option>)}
-              </select>
-            </Field>
-            <Field label="Categoria" id="category">
-              <select id="category" value={draft.category} onChange={(e) => update('category', e.target.value as ArticleDraft['category'])}>
-                {categories.map((c) => <option key={c} value={c}>{c.charAt(0) + c.slice(1).toLowerCase()}</option>)}
-              </select>
-            </Field>
-            <Field label="Tags" id="tags" hint="Separe por vírgulas. Usadas para organizar e relacionar artigos.">
-              <input id="tags" value={draft.tags.join(', ')} onChange={(e) => update('tags', e.target.value.split(',').map((t) => t.trimStart().slice(0, 40)).slice(0, 12))} />
-            </Field>
-            <div className="field">
-              <span className="label">Imagem principal</span>
-              {featured ? (
-                <figure className="cover-preview">
-                  <MediaImage path={featured.path} width={featured.width} height={featured.height} />
-                  <figcaption>{featured.alt || <em>Sem descrição — edite em Mídia</em>}</figcaption>
-                </figure>
-              ) : (
-                <p className="field-hint">Sem imagem, o site usa a ilustração da categoria.</p>
-              )}
-              <div className="row">
-                <Button variant="secondary" onClick={() => setPicker('featured')}>{featured ? 'Trocar' : 'Escolher imagem'}</Button>
-                {featured && <Button variant="ghost" onClick={() => update('featured_image_id', null)}>Remover</Button>}
+        <div className="grid gap-x-12 gap-y-10 lg:grid-cols-[minmax(0,1fr)_320px]">
+          <div className="min-w-0">
+            <label htmlFor="title" className="sr-only">
+              Título
+            </label>
+            <textarea
+              ref={titleRef}
+              id="title"
+              rows={1}
+              value={draft.title}
+              onChange={(e) => update('title', e.target.value.replace(/\n/g, ' '))}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') {
+                  e.preventDefault();
+                  excerptRef.current?.focus();
+                }
+              }}
+              maxLength={200}
+              placeholder="Título do artigo"
+              className="block w-full resize-none overflow-hidden bg-transparent text-[28px] leading-[1.2] font-semibold tracking-[-0.025em] text-foreground outline-none placeholder:text-muted-foreground/50 md:text-[34px]"
+            />
+            <div className="mt-5 grid gap-2">
+              <div className="flex items-center justify-between gap-3">
+                <Label htmlFor="excerpt" className="text-[13px] text-muted-foreground">
+                  Resumo
+                </Label>
+                <Counter value={draft.excerpt.trim().length} ideal={[50, 160]} max={160} />
               </div>
+              <textarea
+                ref={excerptRef}
+                id="excerpt"
+                rows={2}
+                value={draft.excerpt}
+                onChange={(e) => update('excerpt', e.target.value)}
+                maxLength={400}
+                aria-describedby="excerpt-hint"
+                placeholder="Em uma ou duas frases: do que o artigo trata e por que importa."
+                className="block w-full resize-none overflow-hidden rounded-lg border border-transparent bg-muted/60 px-3 py-2.5 text-[15px] leading-relaxed outline-none transition-colors placeholder:text-muted-foreground/70 hover:bg-muted focus-visible:border-ring focus-visible:bg-background focus-visible:ring-3 focus-visible:ring-ring/40"
+              />
+              <p id="excerpt-hint" className="text-xs text-muted-foreground">
+                Aparece nos cards do site e nos resultados de busca. Ideal entre 50 e 160 caracteres.
+              </p>
             </div>
-          </section>
 
-          {row && (
-            <section className="panel">
-              <h2>Histórico</h2>
-              {revisions === null ? (
-                <button type="button" className="text-button" onClick={() => void showRevisions()}>Ver versões anteriores</button>
-              ) : revisions.length === 0 ? (
-                <p className="field-hint">Nenhuma versão anterior.</p>
-              ) : (
-                <ul className="list compact">
-                  {revisions.map((r) => (
-                    <li key={r.id}>
-                      <span>{r.kind === 'publish' ? 'Publicada' : 'Editada'} · {dateTime(r.created_at)}</span>
-                      <button type="button" className="text-button" onClick={() => { setDraft(pick({ ...r.snapshot, published: null })); setDirty(true); toast('info', 'Versão carregada no editor. Salve para mantê-la.'); }}>Carregar</button>
-                    </li>
-                  ))}
-                </ul>
+            <div className="mt-9 mb-3 flex items-center justify-between gap-3 border-t pt-6">
+              <h2 className="text-[13px] font-semibold">Conteúdo</h2>
+              <span className="text-xs text-muted-foreground">cerca de {minutes} min de leitura</span>
+            </div>
+            <BlockEditor blocks={draft.content.blocks} onChange={(blocks: Block[]) => update('content', { version: 1, blocks })} confirm={confirm} />
+
+            <section className="mt-10 border-t pt-6" aria-labelledby="sources-title">
+              <div className="mb-1 flex items-center justify-between gap-3">
+                <h2 id="sources-title" className="text-[13px] font-semibold">
+                  Referências
+                </h2>
+                <span className="text-xs text-muted-foreground tabular">{draft.sources.length}/20</span>
+              </div>
+              <p className="mb-3 text-xs text-muted-foreground">Fontes oficiais citadas no texto. Aparecem ao final do artigo.</p>
+              <div className="grid gap-2">
+                {draft.sources.map((s, i) => (
+                  <div className="group/source grid gap-2 sm:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_auto]" key={i}>
+                    <Input aria-label={`Título da referência ${i + 1}`} placeholder="Ex.: INPI — Guia básico de marcas" value={s.title} onChange={(e) => update('sources', draft.sources.map((x, j) => (j === i ? { ...x, title: e.target.value } : x)))} maxLength={200} className="h-9" />
+                    <Input aria-label={`Endereço da referência ${i + 1}`} placeholder="https://" type="url" value={s.url} onChange={(e) => update('sources', draft.sources.map((x, j) => (j === i ? { ...x, url: e.target.value } : x)))} maxLength={500} className="h-9" />
+                    <Button variant="ghost" size="icon" className="size-9 justify-self-end text-muted-foreground hover:text-destructive" onClick={() => update('sources', draft.sources.filter((_, j) => j !== i))} aria-label={`Remover referência ${i + 1}`}>
+                      <Trash2Icon aria-hidden="true" />
+                    </Button>
+                  </div>
+                ))}
+              </div>
+              {draft.sources.length < 20 && (
+                <Button variant="outline" size="sm" className="mt-3" onClick={() => update('sources', [...draft.sources, { title: '', url: '' }])}>
+                  <PlusIcon data-icon="inline-start" aria-hidden="true" /> Adicionar referência
+                </Button>
               )}
             </section>
-          )}
-        </aside>
+          </div>
+
+          <aside className="min-w-0 lg:border-l lg:pl-8" aria-label="Configurações do artigo">
+            <Section title="Publicação">
+              <dl className="grid gap-2.5 text-[13px]">
+                <div className="flex items-center justify-between gap-3">
+                  <dt className="text-muted-foreground">Status</dt>
+                  <dd>
+                    <ArticleStatusBadge status={status} />
+                  </dd>
+                </div>
+                <div className="flex items-start justify-between gap-3">
+                  <dt className="text-muted-foreground">Endereço</dt>
+                  <dd className="min-w-0 text-right">
+                    {live && status === 'published' ? (
+                      <a className="inline-flex max-w-full items-center gap-1 font-medium [overflow-wrap:anywhere] text-brand hover:underline" href={`/blog/${live.slug}`} target="_blank" rel="noopener noreferrer">
+                        /blog/{live.slug} <ExternalLinkIcon className="size-3 shrink-0" aria-hidden="true" />
+                      </a>
+                    ) : (
+                      <span className="[overflow-wrap:anywhere] text-muted-foreground">/blog/{draft.slug || '…'}</span>
+                    )}
+                  </dd>
+                </div>
+                {row?.first_published_at && (
+                  <div className="flex items-center justify-between gap-3">
+                    <dt className="text-muted-foreground">Publicado pela 1ª vez</dt>
+                    <dd className="tabular">{longDate(row.first_published_at)}</dd>
+                  </div>
+                )}
+                {(live || published) && (
+                  <div className="flex items-center justify-between gap-3">
+                    <dt className="text-muted-foreground">Site</dt>
+                    <dd className="flex items-center gap-1.5 font-medium">
+                      <SiteStateIcon state={site.state} />
+                      {{ updated: 'Atualizado', updating: 'Atualizando…', stalled: 'Sem confirmação', failed: 'Falha' }[site.state]}
+                    </dd>
+                  </div>
+                )}
+              </dl>
+              <div ref={checklistRef} className="rounded-lg border bg-muted/30">
+                <Collapsible open={showChecklist || missing > 0} onOpenChange={setShowChecklist}>
+                  <CollapsibleTrigger className="flex w-full items-center justify-between gap-2 rounded-lg px-3 py-2.5 text-left text-[13px] font-medium outline-none focus-visible:ring-2 focus-visible:ring-ring/40">
+                    <span className="flex items-center gap-2">
+                      Antes de publicar
+                      <span className={cn('rounded-full px-1.5 py-px text-[11px] font-semibold tabular', missing ? 'bg-destructive/10 text-destructive' : 'bg-success-soft text-success')}>
+                        {missing ? `${missing} pendente${missing > 1 ? 's' : ''}` : `${checks.filter((c) => c.ok).length}/${checks.length}`}
+                      </span>
+                    </span>
+                    <ChevronDownIcon className="size-4 text-muted-foreground transition-transform [[data-panel-open]_&]:rotate-180" aria-hidden="true" />
+                  </CollapsibleTrigger>
+                  <CollapsibleContent>
+                    <ul className="grid gap-1.5 px-3 pb-3 text-[13px]">
+                      {[...required, ...recommended].map((c) => (
+                        <li key={c.label} className={cn('flex items-start gap-2', c.ok ? 'text-foreground' : c.required ? 'text-destructive' : 'text-muted-foreground')}>
+                          {c.ok ? <CheckIcon className="mt-0.5 size-3.5 shrink-0 text-success" aria-hidden="true" /> : <CircleIcon className="mt-1 size-2.5 shrink-0" aria-hidden="true" />}
+                          <span>
+                            {c.label}
+                            {!c.ok && c.required && <span className="text-[11px] font-medium"> (obrigatório)</span>}
+                            <span className="sr-only">{c.ok ? ': feito' : ': pendente'}</span>
+                          </span>
+                        </li>
+                      ))}
+                    </ul>
+                  </CollapsibleContent>
+                </Collapsible>
+              </div>
+            </Section>
+
+            <Section title="Organização">
+              <div className="grid gap-2">
+                <Label htmlFor="author" className="text-[13px]">
+                  Autoria
+                </Label>
+                <Select items={authorLabel} value={draft.author_key} onValueChange={(v) => v && update('author_key', v as ArticleDraft['author_key'])}>
+                  <SelectTrigger id="author" className="h-9 w-full bg-background">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent alignItemWithTrigger={false}>
+                    {authorKeys.map((k) => (
+                      <SelectItem key={k} value={k}>
+                        {authorLabel[k]}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="grid gap-2">
+                <Label htmlFor="category" className="text-[13px]">
+                  Categoria
+                </Label>
+                <Select items={categoryLabel} value={draft.category} onValueChange={(v) => v && update('category', v as ArticleDraft['category'])}>
+                  <SelectTrigger id="category" className="h-9 w-full bg-background">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent alignItemWithTrigger={false}>
+                    {categories.map((c) => (
+                      <SelectItem key={c} value={c}>
+                        {categoryLabel[c]}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="grid gap-2">
+                <div className="flex items-center justify-between">
+                  <Label id="tags-label" htmlFor="tags" className="text-[13px]">
+                    Tags
+                  </Label>
+                  <span className="text-xs text-muted-foreground tabular">{draft.tags.length}/12</span>
+                </div>
+                <TagInput id="tags" value={draft.tags} onChange={(tags) => update('tags', tags)} suggestions={tagSuggestions} />
+                <p id="tags-hint" className="text-xs text-muted-foreground">
+                  Enter ou vírgula adiciona. Usadas para organizar e relacionar artigos.
+                </p>
+              </div>
+            </Section>
+
+            <Section title="Imagem principal">
+              {featured ? (
+                <figure className="cover-preview m-0 grid grid-cols-1 gap-2">
+                  <div className="aspect-[16/10] overflow-hidden rounded-lg border bg-muted">
+                    <MediaImage path={featured.path} alt={featured.alt ? `Imagem principal: ${featured.alt}` : 'Imagem principal do artigo, ainda sem descrição'} width={featured.width} height={featured.height} className="size-full object-cover" />
+                  </div>
+                  <figcaption className={cn('text-xs', featured.alt ? 'text-muted-foreground' : 'text-champagne-foreground')}>{featured.alt || 'Sem descrição. Descreva a imagem em Mídia.'}</figcaption>
+                </figure>
+              ) : (
+                <div className="grid aspect-[16/10] place-items-center rounded-lg border border-dashed bg-muted/30 px-4 text-center">
+                  <p className="text-xs text-muted-foreground">
+                    <ImageIcon className="mx-auto mb-2 size-5 text-muted-foreground/70" aria-hidden="true" />
+                    Sem imagem, o site usa a ilustração da categoria.
+                  </p>
+                </div>
+              )}
+              <div className="flex flex-wrap gap-2">
+                <Button variant="outline" size="sm" onClick={() => setPicker('featured')}>
+                  {featured ? 'Trocar imagem' : 'Escolher imagem'}
+                </Button>
+                {featured && (
+                  <Button variant="ghost" size="sm" className="text-muted-foreground" onClick={() => update('featured_image_id', null)}>
+                    Remover
+                  </Button>
+                )}
+              </div>
+            </Section>
+
+            <section className="border-t py-5">
+              <Collapsible>
+                <CollapsibleTrigger className="group/seo flex w-full items-center justify-between gap-2 rounded-md text-left outline-none focus-visible:ring-2 focus-visible:ring-ring/40">
+                  <span>
+                    <span className="block text-[13px] font-semibold">SEO e compartilhamento</span>
+                    <span className="block text-xs text-muted-foreground">Opcional. Sem preenchimento, usa título, resumo e imagem.</span>
+                  </span>
+                  <ChevronDownIcon className="size-4 shrink-0 text-muted-foreground transition-transform group-data-[panel-open]/seo:rotate-180" aria-hidden="true" />
+                </CollapsibleTrigger>
+                <CollapsibleContent className="grid grid-cols-1 gap-5 pt-5">
+                  <div className="grid gap-2">
+                    <Label htmlFor="slug" className="text-[13px]">
+                      Endereço do artigo
+                    </Label>
+                    <InputGroup className="h-9 bg-background">
+                      <InputGroupAddon className="pr-0 text-[13px] text-muted-foreground">/blog/</InputGroupAddon>
+                      <InputGroupInput
+                        id="slug"
+                        value={draft.slug}
+                        onChange={(e) => {
+                          setSlugTouched(true);
+                          update('slug', e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, '-').slice(0, 120));
+                        }}
+                        maxLength={120}
+                        aria-describedby="slug-hint"
+                        className="pl-0.5 text-[13px] md:text-[13px]"
+                      />
+                    </InputGroup>
+                    <p id="slug-hint" className="text-xs text-muted-foreground">
+                      {live ? `Publicado em /blog/${live.slug}. Se mudar, o endereço antigo redireciona para o novo.` : 'Gerado a partir do título. Use letras minúsculas, números e hífens.'}
+                    </p>
+                  </div>
+                  <div className="grid gap-2">
+                    <div className="flex items-center justify-between">
+                      <Label htmlFor="seo_title" className="text-[13px]">
+                        Título para buscadores
+                      </Label>
+                      <Counter value={(draft.seo_title || '').length} ideal={[1, 60]} max={60} />
+                    </div>
+                    <Input id="seo_title" value={draft.seo_title || ''} onChange={(e) => update('seo_title', e.target.value)} maxLength={120} placeholder={draft.title || 'Usa o título do artigo'} className="h-9" />
+                  </div>
+                  <div className="grid gap-2">
+                    <div className="flex items-center justify-between">
+                      <Label htmlFor="seo_description" className="text-[13px]">
+                        Descrição para buscadores
+                      </Label>
+                      <Counter value={(draft.seo_description || '').length} ideal={[1, 155]} max={155} />
+                    </div>
+                    <Textarea id="seo_description" rows={2} value={draft.seo_description || ''} onChange={(e) => update('seo_description', e.target.value)} maxLength={320} placeholder="Usa o resumo do artigo" />
+                  </div>
+                  <div className="flex items-start gap-2.5 rounded-lg border px-3 py-2.5">
+                    <Checkbox id="robots_index" aria-labelledby="robots_index-label" checked={draft.robots_index} onCheckedChange={(checked) => update('robots_index', checked === true)} className="mt-0.5" />
+                    <div className="grid gap-0.5">
+                      <Label id="robots_index-label" htmlFor="robots_index" className="text-[13px] leading-snug">
+                        Permitir que buscadores mostrem este artigo
+                      </Label>
+                      <span className="text-xs text-muted-foreground">Desmarque só para conteúdos que não devem aparecer no Google.</span>
+                    </div>
+                  </div>
+
+                  <figure className="m-0 grid grid-cols-1 gap-2">
+                    <figcaption className="text-xs font-medium text-muted-foreground">Prévia na busca</figcaption>
+                    <div className="rounded-lg border bg-background p-3">
+                      <p className="truncate text-xs text-muted-foreground">grupovelmont.com › blog › {draft.slug || '…'}</p>
+                      <p className="mt-0.5 line-clamp-1 text-[15px] font-medium text-[#1a0dab]">{seoTitle}</p>
+                      <p className="mt-0.5 line-clamp-2 text-xs leading-relaxed text-muted-foreground">{seoDescription}</p>
+                    </div>
+                  </figure>
+
+                  <div className="grid gap-2">
+                    <Label htmlFor="og_title" className="text-[13px]">
+                      Título para redes sociais
+                    </Label>
+                    <Input id="og_title" value={draft.og_title || ''} onChange={(e) => update('og_title', e.target.value)} maxLength={120} placeholder="Usa o título para buscadores" className="h-9" />
+                  </div>
+                  <div className="grid gap-2">
+                    <Label htmlFor="og_description" className="text-[13px]">
+                      Descrição para redes sociais
+                    </Label>
+                    <Textarea id="og_description" rows={2} value={draft.og_description || ''} onChange={(e) => update('og_description', e.target.value)} maxLength={320} placeholder="Usa a descrição para buscadores" />
+                  </div>
+                  <div className="grid gap-2">
+                    <span className="text-[13px] font-medium">Imagem para redes sociais</span>
+                    <figure className="m-0 overflow-hidden rounded-lg border bg-background">
+                      <figcaption className="sr-only">Prévia do compartilhamento em redes sociais</figcaption>
+                      <div className="aspect-[1.91/1] bg-muted">
+                        {shareImage ? (
+                          <MediaImage path={shareImage.path} alt={shareImage.alt ? `Imagem de compartilhamento: ${shareImage.alt}` : 'Imagem de compartilhamento do artigo'} className="size-full object-cover" />
+                        ) : (
+                          <div className="grid size-full place-items-center text-xs text-muted-foreground">Imagem padrão da Velmont</div>
+                        )}
+                      </div>
+                      <div className="border-t px-3 py-2">
+                        <p className="text-[11px] tracking-wide text-muted-foreground uppercase">grupovelmont.com</p>
+                        <p className="line-clamp-1 text-[13px] font-semibold">{draft.og_title || seoTitle}</p>
+                        <p className="line-clamp-1 text-xs text-muted-foreground">{draft.og_description || seoDescription}</p>
+                      </div>
+                    </figure>
+                    <div className="flex flex-wrap gap-2">
+                      <Button variant="outline" size="sm" onClick={() => setPicker('og')}>
+                        {draft.og_image_id ? 'Trocar' : 'Escolher outra'}
+                      </Button>
+                      {draft.og_image_id && (
+                        <Button variant="ghost" size="sm" className="text-muted-foreground" onClick={() => update('og_image_id', null)}>
+                          Usar a imagem principal
+                        </Button>
+                      )}
+                    </div>
+                  </div>
+
+                  <Collapsible className="rounded-lg border px-3 py-2.5">
+                    <CollapsibleTrigger className="group/adv flex w-full items-center justify-between text-left text-[13px] font-medium outline-none focus-visible:ring-2 focus-visible:ring-ring/40">
+                      Avançado
+                      <ChevronDownIcon className="size-4 text-muted-foreground transition-transform group-data-[panel-open]/adv:rotate-180" aria-hidden="true" />
+                    </CollapsibleTrigger>
+                    <CollapsibleContent className="grid grid-cols-1 gap-2 pt-3">
+                      <Label htmlFor="canonical" className="text-[13px]">
+                        URL canônica
+                      </Label>
+                      <Input id="canonical" type="url" value={draft.canonical_url || ''} onChange={(e) => update('canonical_url', e.target.value)} maxLength={500} placeholder="Deixe vazio na maioria dos casos" aria-describedby="canonical-hint" className="h-9" />
+                      <p id="canonical-hint" className="text-xs text-muted-foreground">
+                        Somente se este texto foi publicado primeiro em outro site. Um valor errado pode tirar o artigo das buscas.
+                      </p>
+                    </CollapsibleContent>
+                  </Collapsible>
+                </CollapsibleContent>
+              </Collapsible>
+            </section>
+
+            {row && (
+              <section className="border-t py-5">
+                <Collapsible onOpenChange={(open) => open && revisions === null && void showRevisions()}>
+                  <CollapsibleTrigger className="group/hist flex w-full items-center justify-between gap-2 rounded-md text-left text-[13px] font-semibold outline-none focus-visible:ring-2 focus-visible:ring-ring/40">
+                    <span className="flex items-center gap-2">
+                      <HistoryIcon className="size-4 text-muted-foreground" aria-hidden="true" /> Histórico de versões
+                    </span>
+                    <ChevronDownIcon className="size-4 text-muted-foreground transition-transform group-data-[panel-open]/hist:rotate-180" aria-hidden="true" />
+                  </CollapsibleTrigger>
+                  <CollapsibleContent className="pt-3">
+                    {revisions === null ? (
+                      <Skeleton className="h-16 w-full" />
+                    ) : revisions.length === 0 ? (
+                      <p className="text-xs text-muted-foreground">Nenhuma versão anterior.</p>
+                    ) : (
+                      <ol className="grid gap-1">
+                        {revisions.map((r) => (
+                          <li key={r.id} className="flex items-center justify-between gap-2 rounded-md px-2 py-1.5 text-[13px] hover:bg-muted/60">
+                            <span className="flex min-w-0 items-center gap-2">
+                              <span className={cn('size-1.5 shrink-0 rounded-full', r.kind === 'publish' ? 'bg-success' : 'bg-muted-foreground/40')} aria-hidden="true" />
+                              <span className="truncate">{r.kind === 'publish' ? 'Publicada' : 'Editada'}</span>
+                              <span className="text-xs text-muted-foreground">
+                                <TimeAgo value={r.created_at} />
+                              </span>
+                            </span>
+                            <Button
+                              variant="ghost"
+                              size="xs"
+                              onClick={() => {
+                                setDraft(pick({ ...r.snapshot, published: null }));
+                                setDirty(true);
+                                notify.info('Versão carregada no editor', 'Salve para mantê-la.');
+                              }}
+                            >
+                              Carregar
+                            </Button>
+                          </li>
+                        ))}
+                      </ol>
+                    )}
+                  </CollapsibleContent>
+                </Collapsible>
+              </section>
+            )}
+          </aside>
+        </div>
       </div>
       {picker && (
         <MediaPicker

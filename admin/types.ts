@@ -62,6 +62,8 @@ export type Lead = {
 export const articleStatusLabel: Record<ArticleStatus, string> = { draft: 'Rascunho', review: 'Em revisão', published: 'Publicado', archived: 'Arquivado' };
 export const leadStatusLabel: Record<LeadStatus, string> = { new: 'Novo', contacted: 'Contatado', qualified: 'Qualificado', converted: 'Convertido', archived: 'Arquivado' };
 export const authorLabel: Record<AuthorKey, string> = { velmont: 'Velmont (institucional)', danielle: 'Danielle Cubas de Azevedo', lisandra: 'Lisandra Ferreira dos Santos' };
+export const authorShort: Record<AuthorKey, string> = { velmont: 'Velmont', danielle: 'Danielle', lisandra: 'Lisandra' };
+export const categoryLabel: Record<Category, string> = { MARCAS: 'Marcas', PATENTES: 'Patentes', SOFTWARE: 'Software', 'PROPRIEDADE INTELECTUAL': 'Propriedade intelectual' };
 
 export const hasUnpublishedChanges = (a: Pick<ArticleRow, 'status' | 'version' | 'published'>) => a.status === 'published' && !!a.published && a.published.source_version !== a.version;
 

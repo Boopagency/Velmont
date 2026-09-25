@@ -1,7 +1,11 @@
 import { createContext, useCallback, useContext, useEffect, useState, type SubmitEvent, type ReactNode } from 'react';
 import type { Session } from '@supabase/supabase-js';
+import { ShieldCheckIcon } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Spinner } from '@/components/ui/spinner';
 import { supabase } from './supabase';
-import { Button, Field, formText } from './ui';
+import { Field, formText } from './ui';
 import type { Role } from './types';
 
 export type Staff = { userId: string; email: string; role: Role; displayName: string };
@@ -57,7 +61,14 @@ export function AuthGate({ children }: { children: ReactNode }) {
     return () => data.subscription.unsubscribe();
   }, [evaluate]);
 
-  if (stage === 'loading') return <AuthShell><output>Verificando acesso…</output></AuthShell>;
+  if (stage === 'loading')
+    return (
+      <AuthShell>
+        <output className="flex items-center justify-center gap-2 py-6 text-sm text-muted-foreground">
+          <Spinner aria-hidden="true" /> Verificando acesso…
+        </output>
+      </AuthShell>
+    );
   if (stage === 'signed-out') return <Login />;
   if (stage === 'enroll') return <EnrollMfa onDone={() => void supabase.auth.getSession().then(({ data }) => evaluate(data.session))} />;
   if (stage === 'verify') return <VerifyMfa />;
@@ -65,16 +76,42 @@ export function AuthGate({ children }: { children: ReactNode }) {
   return <StaffContext.Provider value={staff}>{children}</StaffContext.Provider>;
 }
 
-function AuthShell({ children, title }: { children: ReactNode; title?: string }) {
+export function AuthShell({ children, title, description }: { children: ReactNode; title?: string; description?: ReactNode }) {
   return (
-    <main className="auth">
-      <div className="auth-card">
-        <div className="auth-brand"><img src="/images/velmont-logo.webp" width="140" height="70" alt="Velmont" /></div>
-        <p className="eyebrow">Painel editorial</p>
-        {title && <h1>{title}</h1>}
-        {children}
+    <main className="flex min-h-svh flex-col items-center justify-center bg-sidebar px-4 py-10">
+      <div className="w-full max-w-[400px]">
+        <div className="mb-7 flex flex-col items-center gap-2">
+          <span aria-hidden="true" className="brand-logo h-12 w-[144px] [mask-position:center]!" />
+          <span className="sr-only">Velmont</span>
+          <p className="text-xs font-medium tracking-[0.08em] text-muted-foreground uppercase">Painel editorial</p>
+        </div>
+        <div className="rounded-xl border bg-card p-6 shadow-[0_1px_2px_rgba(29,21,23,0.04),0_12px_32px_-16px_rgba(29,21,23,0.12)] sm:p-7">
+          {(title || description) && (
+            <div className="mb-5 space-y-1.5">
+              {title && <h1 className="text-xl font-semibold tracking-[-0.02em]">{title}</h1>}
+              {description && <p className="text-sm leading-relaxed text-muted-foreground">{description}</p>}
+            </div>
+          )}
+          {children}
+        </div>
+        <p className="mt-6 text-center text-xs text-muted-foreground">Acesso restrito à equipe da Velmont.</p>
       </div>
     </main>
+  );
+}
+
+const FormMessage = ({ children }: { children: ReactNode }) => (
+  <p className="rounded-lg bg-destructive/8 px-3 py-2 text-[13px] text-destructive" role="alert">
+    {children}
+  </p>
+);
+
+function SubmitButton({ busy, children, busyLabel }: { busy: boolean; children: ReactNode; busyLabel: string }) {
+  return (
+    <Button type="submit" size="lg" className="mt-1 h-10 w-full" disabled={busy} aria-busy={busy || undefined}>
+      {busy && <Spinner data-icon="inline-start" aria-hidden="true" />}
+      {busy ? busyLabel : children}
+    </Button>
   );
 }
 
@@ -98,27 +135,39 @@ function Login() {
     setBusy(false);
   }
   return (
-    <AuthShell title={mode === 'login' ? 'Entrar' : 'Recuperar acesso'}>
-      <form onSubmit={submit} className="stack">
+    <AuthShell title={mode === 'login' ? 'Entrar' : 'Recuperar acesso'} description={mode === 'login' ? 'Use o e-mail e a senha da sua conta.' : 'Enviaremos um link para você criar uma nova senha.'}>
+      <form onSubmit={submit} className="grid gap-4">
         <Field label="E-mail" id="email">
-          <input id="email" name="email" type="email" autoComplete="username" required maxLength={320} />
+          <Input id="email" name="email" type="email" autoComplete="username" required maxLength={320} className="h-10" />
         </Field>
         {mode === 'login' && (
           <Field label="Senha" id="password">
-            <input id="password" name="password" type="password" autoComplete="current-password" required maxLength={200} />
+            <Input id="password" name="password" type="password" autoComplete="current-password" required maxLength={200} className="h-10" />
           </Field>
         )}
-        {message && <p className="form-message" role="alert">{message}</p>}
-        <Button type="submit" busy={busy}>
+        {message && (mode === 'login' ? <FormMessage>{message}</FormMessage> : <output className="block rounded-lg bg-muted px-3 py-2 text-[13px]">{message}</output>)}
+        <SubmitButton busy={busy} busyLabel={mode === 'login' ? 'Entrando…' : 'Enviando…'}>
           {mode === 'login' ? 'Entrar' : 'Enviar link'}
-        </Button>
-        <button type="button" className="text-button" onClick={() => { setMode(mode === 'login' ? 'reset' : 'login'); setMessage(''); }}>
+        </SubmitButton>
+        <Button
+          type="button"
+          variant="link"
+          className="h-auto justify-self-center p-0 text-[13px] text-muted-foreground hover:text-brand"
+          onClick={() => {
+            setMode(mode === 'login' ? 'reset' : 'login');
+            setMessage('');
+          }}
+        >
           {mode === 'login' ? 'Esqueci minha senha' : 'Voltar para o login'}
-        </button>
+        </Button>
       </form>
     </AuthShell>
   );
 }
+
+const codeInput = (
+  <Input id="code" name="code" inputMode="numeric" autoComplete="one-time-code" pattern="[0-9 ]{6,7}" required maxLength={7} className="h-11 text-center text-lg tracking-[0.35em] tabular-nums md:text-lg" />
+);
 
 function EnrollMfa({ onDone }: { onDone: () => void }) {
   const [factor, setFactor] = useState<{ id: string; qr: string; secret: string } | null>(null);
@@ -144,25 +193,35 @@ function EnrollMfa({ onDone }: { onDone: () => void }) {
     else onDone();
   }
   return (
-    <AuthShell title="Proteja sua conta">
-      <p>O painel exige verificação em duas etapas. Abra um aplicativo autenticador (Google Authenticator, Microsoft Authenticator, 1Password…) e escaneie o código abaixo.</p>
-      {factor && (
-        <>
-          <img className="qr" src={factor.qr} width="180" height="180" alt="QR code para o aplicativo autenticador" />
-          <details className="secret">
-            <summary>Não consegue escanear?</summary>
-            <p>Digite esta chave no aplicativo:</p>
-            <code>{factor.secret}</code>
+    <AuthShell title="Proteja sua conta" description="O painel exige verificação em duas etapas. Abra um aplicativo autenticador (Google Authenticator, Microsoft Authenticator, 1Password…) e escaneie o código abaixo.">
+      {factor ? (
+        <div className="grid gap-4">
+          <div className="flex justify-center rounded-lg border bg-white p-3">
+            <img className="qr" src={factor.qr} width="168" height="168" alt="QR code para o aplicativo autenticador" />
+          </div>
+          <details className="secret group rounded-lg border px-3 py-2 text-[13px]">
+            <summary className="cursor-pointer font-medium text-muted-foreground outline-none select-none hover:text-foreground focus-visible:text-foreground">Não consegue escanear?</summary>
+            <p className="mt-2 text-muted-foreground">Digite esta chave no aplicativo:</p>
+            <code className="mt-1.5 block rounded-md bg-muted px-2.5 py-2 font-mono text-xs break-all">{factor.secret}</code>
           </details>
-          <form onSubmit={verify} className="stack">
+          <form onSubmit={verify} className="grid gap-4">
             <Field label="Código de 6 dígitos" id="code">
-              <input id="code" name="code" inputMode="numeric" autoComplete="one-time-code" pattern="[0-9 ]{6,7}" required maxLength={7} />
+              {codeInput}
             </Field>
-            <Button type="submit" busy={busy}>Ativar e continuar</Button>
+            {error && <FormMessage>{error}</FormMessage>}
+            <SubmitButton busy={busy} busyLabel="Verificando…">
+              Ativar e continuar
+            </SubmitButton>
           </form>
-        </>
+        </div>
+      ) : (
+        !error && (
+          <output className="flex items-center justify-center gap-2 py-6 text-sm text-muted-foreground">
+            <Spinner aria-hidden="true" /> Preparando o código…
+          </output>
+        )
       )}
-      {error && <p className="form-message" role="alert">{error}</p>}
+      {!factor && error && <FormMessage>{error}</FormMessage>}
       <SignOutLink />
     </AuthShell>
   );
@@ -183,13 +242,15 @@ function VerifyMfa() {
     if (!result || result.error) setError(result?.error?.status === 429 ? 'Muitas tentativas. Aguarde alguns minutos.' : 'Código inválido.');
   }
   return (
-    <AuthShell title="Verificação em duas etapas">
-      <form onSubmit={verify} className="stack">
+    <AuthShell title="Verificação em duas etapas" description="Digite o código de 6 dígitos que aparece no seu aplicativo autenticador.">
+      <form onSubmit={verify} className="grid gap-4">
         <Field label="Código do aplicativo autenticador" id="code">
-          <input id="code" name="code" inputMode="numeric" autoComplete="one-time-code" pattern="[0-9 ]{6,7}" required maxLength={7} />
+          {codeInput}
         </Field>
-        {error && <p className="form-message" role="alert">{error}</p>}
-        <Button type="submit" busy={busy}>Confirmar</Button>
+        {error && <FormMessage>{error}</FormMessage>}
+        <SubmitButton busy={busy} busyLabel="Verificando…">
+          Confirmar
+        </SubmitButton>
       </form>
       <SignOutLink />
     </AuthShell>
@@ -199,7 +260,10 @@ function VerifyMfa() {
 function NoAccess() {
   return (
     <AuthShell title="Acesso não liberado">
-      <p>Sua conta ainda não tem acesso ao painel. Peça a uma pessoa responsável pela equipe para liberar seu e-mail.</p>
+      <div className="flex gap-3 rounded-lg bg-muted p-3 text-sm leading-relaxed text-muted-foreground">
+        <ShieldCheckIcon className="mt-0.5 size-4 shrink-0 text-brand" aria-hidden="true" />
+        <p>Sua conta ainda não tem acesso ao painel. Peça a uma pessoa responsável pela equipe para liberar seu e-mail.</p>
+      </div>
       <SignOutLink />
     </AuthShell>
   );
@@ -207,8 +271,10 @@ function NoAccess() {
 
 function SignOutLink() {
   return (
-    <button type="button" className="text-button" onClick={() => void supabase.auth.signOut()}>
-      Sair
-    </button>
+    <div className="mt-4 flex justify-center border-t pt-4">
+      <Button type="button" variant="ghost" size="sm" className="text-muted-foreground" onClick={() => void supabase.auth.signOut()}>
+        Sair
+      </Button>
+    </div>
   );
 }

@@ -26,6 +26,8 @@ function go(to: string, replace: boolean) {
   current = here();
   listeners.forEach((l) => l());
   window.scrollTo(0, 0);
+  // On desktop the canvas scrolls on its own; start every page at its top.
+  document.getElementById('conteudo')?.scrollTo(0, 0);
 }
 
 /** `force` skips the leave guard (used after the page saved its own work). */

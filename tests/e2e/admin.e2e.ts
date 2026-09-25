@@ -181,7 +181,7 @@ try {
   await page.fill('#excerpt', 'Entenda por que o registro na Junta Comercial não protege sua marca e o que fazer antes de investir.');
   await page.getByRole('textbox', { name: 'Parágrafo', exact: true }).fill('<img src=x onerror=alert(1)> O **nome empresarial** identifica a empresa. Veja [nossos serviços](/#marcas) e [link perigoso](javascript:alert(1)).');
   await page.locator('.block .add-toggle').first().click();
-  await page.getByRole('button', { name: 'Resumo em destaque' }).click();
+  await page.getByRole('menuitem', { name: /Resumo em destaque/ }).click();
   await page.getByRole('textbox', { name: 'Texto do destaque', exact: true }).fill('Registro de marca e nome empresarial são proteções diferentes.');
   await page.click('button:has-text("Salvar")');
   await page.waitForURL(/\/admin\/artigos\/[0-9a-f-]{36}$/);
@@ -210,7 +210,7 @@ try {
 
   await page.screenshot({ path: path.join(shots, 'admin-editor.png'), fullPage: true });
   await page.click('button:has-text("Publicar")');
-  await page.locator('dialog').getByRole('button', { name: 'Publicar' }).click();
+  await page.getByRole('alertdialog').getByRole('button', { name: 'Publicar' }).click();
   await page.getByText(/atualização automática do site falhou|site será atualizado/).waitFor();
   const live = await fetch(`${stack.url}/rest/v1/published_articles?select=slug,title&article_id=eq.${articleId}`, { headers: { apikey: stack.anonKey } });
   const [published] = (await live.json()) as { slug: string }[];
@@ -240,20 +240,20 @@ try {
   await page.fill('#title', 'Título ainda não salvo');
   const navArticles = page.locator('#admin-nav').getByRole('link', { name: 'Artigos', exact: true });
   await navArticles.click();
-  await page.locator('dialog').getByText('Sair sem salvar?').waitFor();
-  await page.locator('dialog').getByRole('button', { name: 'Cancelar' }).click();
+  await page.getByRole('alertdialog').getByText('Sair sem salvar?').waitFor();
+  await page.getByRole('alertdialog').getByRole('button', { name: 'Cancelar' }).click();
   assert.match(page.url(), new RegExp(`/admin/artigos/${articleId}$`));
   await page.goBack();
-  await page.locator('dialog').getByText('Sair sem salvar?').waitFor();
-  await page.locator('dialog').getByRole('button', { name: 'Cancelar' }).click();
+  await page.getByRole('alertdialog').getByText('Sair sem salvar?').waitFor();
+  await page.getByRole('alertdialog').getByRole('button', { name: 'Cancelar' }).click();
   assert.match(page.url(), new RegExp(`/admin/artigos/${articleId}$`));
   await page.waitForTimeout(1200);
   await page.reload();
-  await page.locator('dialog').getByText('Alterações não salvas').waitFor({ timeout: 5000 });
-  await page.locator('dialog').getByRole('button', { name: 'Recuperar' }).click();
+  await page.getByRole('alertdialog').getByText('Alterações não salvas').waitFor({ timeout: 5000 });
+  await page.getByRole('alertdialog').getByRole('button', { name: 'Recuperar' }).click();
   assert.equal(await page.inputValue('#title'), 'Título ainda não salvo');
   await navArticles.click();
-  await page.locator('dialog').getByRole('button', { name: 'Sair sem salvar' }).click();
+  await page.getByRole('alertdialog').getByRole('button', { name: 'Sair sem salvar' }).click();
   await page.waitForURL(/\/admin\/artigos$/);
   await page.evaluate((id) => localStorage.removeItem(`vm-draft:${id}`), articleId);
   ok('unsaved edits: leaving asks first (links and back button); a local backup is recovered after reload');
@@ -273,7 +273,7 @@ try {
   // 7. Leads area.
   await page.goto(`${site}/admin/leads`);
   await page.getByRole('link', { name: /Maria/ }).click();
-  await page.getByText('Empresa Teste').waitFor();
+  await page.getByRole('dialog').getByText('Empresa Teste').first().waitFor();
   assert.equal(await page.locator('script:has-text("alert(1)")').count(), 0);
   await page.selectOption('#lead-status', 'contacted');
   await page.fill('#lead-notes', 'Retornar na segunda.');
@@ -338,7 +338,7 @@ try {
   ok('editor and preview show draft images through signed URLs');
 
   await page.click('button:has-text("Publicar")');
-  await page.locator('dialog').getByRole('button', { name: 'Publicar' }).click();
+  await page.getByRole('alertdialog').getByRole('button', { name: 'Publicar' }).click();
   await page.getByText(/atualização automática do site falhou|site será atualizado/).waitFor();
   assert.ok(keys().includes(`media/${cover.path}`), 'cover copied to the public bucket');
   assert.equal(keys().filter((k) => k.startsWith('media/')).length, 1, 'unused private media stays private');
@@ -350,8 +350,9 @@ try {
   assert.equal((await fetch(publicUrl)).status, 200);
   ok('publishing copies only the images the article uses to the public bucket; the static page serves them normally');
 
-  await page.click('button:has-text("Despublicar")');
-  await page.locator('dialog').getByRole('button', { name: 'Despublicar' }).click();
+  await page.getByRole('button', { name: 'Mais ações' }).click();
+  await page.getByRole('menuitem', { name: 'Despublicar' }).click();
+  await page.getByRole('alertdialog').getByRole('button', { name: 'Despublicar' }).click();
   await page.getByText(/atualização automática do site falhou|site será atualizado/).waitFor();
   assert.equal((await fetch(publicUrl)).status, 200, 'grace period keeps a just-published copy');
   await stack.db.query(`update public.media set public_since = now() - interval '10 minutes' where public_since is not null`);
@@ -387,7 +388,7 @@ try {
   await enroll();
   await page.getByRole('link', { name: 'Equipe' }).click();
   await page.getByRole('heading', { name: 'Equipe' }).waitFor();
-  await page.getByText('Publicou artigo').first().waitFor();
+  await page.getByText(/publicou “/).first().waitFor();
   ok('owner sees team management and the activity log');
 
   // 11. Responsive checks.

@@ -235,15 +235,51 @@ Ative também **Bot Protection / Attack Challenge Mode** quando houver abuso. O 
 
 ## 10. Uso do painel (resumo para Lisandra e Dani)
 
-- **Dashboard**: artigos publicados, rascunhos, leads novos, últimos artigos e leads, e "Atualizar site agora".
-- **Artigos → Novo artigo**:
-  - Preencha título e resumo e escreva em blocos: use "+ Adicionar bloco"; o texto colado do Word/Docs é dividido em parágrafos automaticamente.
-  - **Visualizar** abre a pré-visualização privada.
+A interface usa shadcn/ui sobre os tokens da Velmont. O sistema visual está em [`docs/admin-design-system.md`](docs/admin-design-system.md).
+
+- **Navegação**:
+  - Sidebar fixa com Dashboard, Artigos, Leads e Mídia.
+  - Grupo **Gestão** com Equipe (só para quem é Responsável).
+  - No rodapé: Conta, a pessoa conectada com seu papel, e **Sair**.
+  - A sidebar recolhe para ícones (Ctrl/⌘+B). No celular, vira um menu lateral.
+- **Dashboard**:
+  - Uma superfície de métricas: Publicados, Rascunhos, Leads novos e Status do site.
+  - Artigos e leads recentes.
+  - Painel **Status do site**:
+    - estados: Atualizado, Atualizando site…, Sem confirmação ou Falha;
+    - mostra o horário da versão no ar e da última solicitação;
+    - traz "Atualizar site agora" / "Tentar novamente".
+- **Artigos**:
+  - Tabela com busca e filtros por status, autoria e categoria. O filtro de status fica no endereço (`?status=`).
+  - Um aviso marca alterações salvas que ainda não foram publicadas.
+- **Artigos → Novo artigo** (editor):
+  - A barra de ações fica fixa no topo e mostra o estado (Salvando…, Publicando…, Atualizando site…, Site atualizado, Salvo há N min).
+  - **Pré-visualizar** abre a pré-visualização privada.
   - **Publicar** coloca o artigo no site em 1–2 minutos.
-  - A caixa **Antes de publicar** orienta sobre títulos de seção, resumo direto, referências, imagem com descrição e links internos, que ajudam leitores e buscadores.
-  - **Configurações avançadas de SEO** ficam recolhidas e são opcionais.
-- **Leads**: busca, filtros, detalhes completos (UTMs e página de entrada), status e notas internas. O lead indica a intenção de contato; a conversa em si acontece no WhatsApp.
-- **Mídia**: envio (otimizado automaticamente) e descrição das imagens. As imagens ficam privadas até serem usadas num artigo publicado. Os links que o painel mostra expiram em minutos, então não servem para compartilhar. Uma imagem em uso não pode ser apagada.
+  - Mais ações no menu "⋯": enviar para revisão, despublicar, arquivar e excluir.
+  - O texto é escrito em blocos:
+    - "+ Adicionar bloco" aparece entre blocos e ao final, com a descrição de cada tipo;
+    - cada bloco pode ser movido ou removido; blocos com texto pedem confirmação antes de sair;
+    - o texto colado do Word/Docs é dividido em parágrafos automaticamente.
+  - A coluna lateral traz:
+    - Publicação, com a caixa **Antes de publicar**;
+    - Organização (autoria, categoria, tags);
+    - Imagem principal;
+    - **SEO e compartilhamento**, recolhido e opcional, com prévias da busca e das redes sociais;
+    - Histórico de versões.
+- **Leads**:
+  - Tabela com busca e filtros (status, interesse, período).
+  - Ao abrir um lead, um painel lateral mostra respostas, origem (UTMs e página de entrada), status e notas internas.
+  - O lead indica a intenção de contato; a conversa em si acontece no WhatsApp.
+- **Mídia**:
+  - Grade com miniaturas proporcionais e filtros (em uso, sem uso, sem descrição).
+  - O selo **Em uso** mostra em quais artigos a imagem aparece antes de qualquer tentativa de exclusão; enquanto a imagem estiver em uso, o botão de excluir fica desativado.
+  - As imagens ficam privadas até serem usadas num artigo publicado. Os links do painel expiram em minutos.
+- **Equipe** (Responsável):
+  - Pessoas com papel (Responsável/Editor), MFA e status.
+  - Alterações de acesso pedem confirmação.
+  - **Atividade recente** mostra o registro de auditoria por dia; repetições seguidas aparecem agrupadas.
+- **Conta**: perfil, troca de senha, verificação em duas etapas e "Sair de todos os dispositivos".
 
 ## 11. SEO e GEO
 
@@ -266,7 +302,7 @@ Ative também **Bot Protection / Attack Challenge Mode** quando houver abuso. O 
 | RLS / banco (PostgreSQL 16 real, com os privilégios padrão permissivos do Supabase reproduzidos) | `pnpm test:db` | **47/47** tabelas + **10/10** Storage/mídia |
 | APIs (leads, upload, publish, rebuild, fallback) | `pnpm test:unit` | **32/32** APIs + **10/10** renderer/schema |
 | Build com CMS falso (XSS, noindex, canonical, sitemap, JSON-LD, falha do CMS, chave service_role) | `pnpm test` | **8/8** |
-| **E2E** com Supabase Auth (GoTrue v2.186) + PostgREST v13 + Postgres reais, build real, emulação da Vercel e Chromium | `GOTRUE_BIN=… POSTGREST_BIN=… pnpm test:e2e` | **27/27** |
+| **E2E** com Supabase Auth (GoTrue v2.186) + PostgREST v13 + Postgres reais, build real, emulação da Vercel e Chromium | `GOTRUE_BIN=… POSTGREST_BIN=… pnpm test:e2e` | **28/28** |
 | Páginas, links, orçamento de bundle, isolamento do admin, varredura de segredos | `pnpm verify` | PASS |
 | Functions compiladas arquivo a arquivo e carregadas como Node ESM (como na Vercel) | `pnpm check:functions` | PASS |
 | typecheck / lint / build / `pnpm audit` | — | limpos / 0 vulnerabilidades |

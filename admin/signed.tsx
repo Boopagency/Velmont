@@ -1,4 +1,5 @@
 import { useEffect, useState, type ImgHTMLAttributes } from 'react';
+import { cn } from '@/lib/utils';
 import { supabase } from './supabase';
 
 // Draft media is in a private bucket. The panel shows it through short-lived
@@ -55,5 +56,5 @@ export function MediaImage({ path, alt = '', ...props }: Omit<ImgHTMLAttributes<
       active = false;
     };
   }, [path]);
-  return src ? <img {...props} src={src} alt={alt} /> : <span className={`media-placeholder ${props.className || ''}`} aria-hidden="true" />;
+  return src ? <img {...props} src={src} alt={alt} /> : <span className={cn('media-placeholder block animate-pulse bg-muted', props.className)} aria-hidden="true" />;
 }
