@@ -4,9 +4,11 @@ import { POST as submitLead } from '../../api/leads';
 import { DELETE as deleteMedia, POST as uploadMedia } from '../../api/admin/media';
 import { POST as rebuild } from '../../api/admin/rebuild';
 import { POST as publish } from '../../api/admin/publish';
+import { POST as staffAccess } from '../../api/admin/staff';
 import { GET as blogFallback } from '../../api/blog-fallback';
 import { sniffImage } from '../../server/image';
 import { clean } from '../../server/leads';
+import { temporaryPassword } from '../../server/staff';
 
 // The Supabase client talks HTTP; these tests stand in for PostgREST,
 // Storage, Turnstile and the deploy hook by intercepting fetch.
@@ -22,10 +24,16 @@ let hookOk = true;
 let usageCount = 0;
 let publishError: { code: string; message: string } | null = null;
 let unreferenced: string[] = [];
+let foundUser: { user_id: string; is_member: boolean } | null = null;
+let members: { user_id: string }[] = [];
+let authRefuses: 'create' | 'password' | null = null;
 const COVER = '0f8fad5b-d9cb-469f-a165-70867728950e';
 const INLINE = '1f8fad5b-d9cb-469f-a165-70867728950e';
 const OTHER = '2f8fad5b-d9cb-469f-a165-70867728950e';
 const ARTICLE = '3f8fad5b-d9cb-469f-a165-70867728950e';
+const OWNER = '4f8fad5b-d9cb-469f-a165-70867728950e';
+const PERSON = '5f8fad5b-d9cb-469f-a165-70867728950e';
+const FACTOR = '6f8fad5b-d9cb-469f-a165-70867728950e';
 const realFetch = globalThis.fetch;
 
 function reply(status: number, body: unknown, headers: Record<string, string> = {}) {
@@ -41,6 +49,9 @@ beforeEach(() => {
   usageCount = 0;
   publishError = null;
   unreferenced = [];
+  foundUser = null;
+  members = [];
+  authRefuses = null;
   Object.assign(process.env, {
     NEXT_PUBLIC_SITE_URL: SITE,
     NEXT_PUBLIC_SUPABASE_URL: SUPABASE,
@@ -61,6 +72,15 @@ beforeEach(() => {
     if (url.host === 'api.vercel.com') return reply(hookOk ? 201 : 500, hookOk ? { job: { id: 'job_1', state: 'PENDING' } } : {});
     if (path === '/rest/v1/rpc/admin_context') return context === 'invalid' ? reply(401, { message: 'JWT expired' }) : reply(200, context);
     if (path === '/rest/v1/rpc/hit_rate_limit') return reply(200, rateAllowed);
+    if (path === '/rest/v1/rpc/staff_find_user') return reply(200, foundUser);
+    if (path === '/rest/v1/rpc/staff_issue_temporary_password') return JSON.parse(body).p_email === 'duplicada@velmont.test' ? reply(409, { code: '23505', message: 'duplicate key' }) : reply(200, '2026-09-27T18:00:00+00:00');
+    if (path === '/rest/v1/rpc/staff_temporary_password_failed') return reply(200, null);
+    if (path === '/rest/v1/admin_users' && request.method === 'GET') return reply(200, members);
+    if (path === '/auth/v1/admin/users' && request.method === 'POST') return authRefuses === 'create' ? reply(422, { code: 422, msg: 'refused' }) : reply(200, { id: PERSON, email: JSON.parse(body).email, aud: 'authenticated' });
+    if (/^\/auth\/v1\/admin\/users\/[0-9a-f-]{36}\/factors$/.test(path)) return reply(200, [{ id: FACTOR, factor_type: 'totp', status: 'verified' }]);
+    if (/^\/auth\/v1\/admin\/users\/[0-9a-f-]{36}\/factors\/[0-9a-f-]{36}$/.test(path) && request.method === 'DELETE') return reply(200, {});
+    if (/^\/auth\/v1\/admin\/users\/[0-9a-f-]{36}$/.test(path) && request.method === 'PUT')
+      return authRefuses === 'password' && JSON.parse(body).password ? reply(422, { code: 422, msg: 'refused' }) : reply(200, { id: path.split('/').pop(), aud: 'authenticated' });
     if (path === '/rest/v1/rpc/resolve_slug_redirect') return reply(200, JSON.parse(body).p_slug === 'nome-antigo' ? 'nome-novo' : null);
     if (path === '/rest/v1/leads' && request.method === 'POST') return reply(201, null);
     if (path === '/rest/v1/site_builds') return reply(201, null);
@@ -400,5 +420,164 @@ describe('POST /api/admin/publish', () => {
     assert.equal((await publish(req({ id: 'x', action: 'publish', expectedVersion: 3 }))).status, 400);
     assert.equal((await publish(req({ id: ARTICLE, action: 'delete' }))).status, 400);
     assert.equal(copies().length, 0);
+  });
+});
+
+describe('POST /api/admin/staff (team access with temporary passwords)', () => {
+  const req = (body: unknown, headers: Record<string, string> = {}) =>
+    new Request(`${SITE}/api/admin/staff`, { method: 'POST', headers: { origin: SITE, 'content-type': 'application/json', authorization: 'Bearer header.payload.signature-long-enough', ...headers }, body: typeof body === 'string' ? body : JSON.stringify(body) });
+  const create = { action: 'create', email: ' Nova.Pessoa@Velmont.test ', name: '  Nova\u0000  Pessoa ', role: 'editor' };
+  const auth = () => calls.filter((c) => c.url.pathname.startsWith('/auth/v1/admin'));
+  const step = (c: Call) => `${c.method} ${c.url.pathname.replace(/[0-9a-f-]{36}/g, ':id')}${c.url.pathname.startsWith('/rest') ? '' : ` ${c.body}`}`;
+  const asOwner = () => {
+    context = { user_id: OWNER, is_staff: true, role: 'owner', aal: 'aal2' };
+  };
+  const pattern = /^[A-HJ-NP-Za-km-z2-9]{5}(-[A-HJ-NP-Za-km-z2-9]{5}){3}$/;
+
+  test('temporary passwords are long, random, readable and have every character class', () => {
+    const seen = new Set<string>();
+    for (let i = 0; i < 2000; i++) {
+      const value = temporaryPassword();
+      assert.match(value, pattern);
+      assert.match(value, /[A-Z]/);
+      assert.match(value, /[a-z]/);
+      assert.match(value, /[0-9]/);
+      seen.add(value);
+    }
+    assert.equal(seen.size, 2000);
+  });
+
+  test('editors (and anyone who is not an MFA-verified owner) are refused before anything is touched', async () => {
+    assert.equal((await staffAccess(req(create))).status, 403);
+    context = { user_id: 'u2', is_staff: false, role: null, aal: 'aal1' };
+    assert.equal((await staffAccess(req(create))).status, 403);
+    assert.equal((await staffAccess(req(create, { authorization: '' }))).status, 401);
+    asOwner();
+    assert.equal((await staffAccess(req(create, { origin: 'https://evil.test' }))).status, 403);
+    assert.equal(auth().length, 0);
+    assert.equal(calls.filter((c) => c.url.pathname.includes('staff_')).length, 0);
+  });
+
+  test('creates access for a new person: locked and banned first, then the password is set and the ban lifted', async () => {
+    asOwner();
+    const logs: string[] = [];
+    const [log, error] = [console.log, console.error];
+    console.log = console.error = (...args: unknown[]) => void logs.push(args.join(' '));
+    let response: Response;
+    try {
+      response = await staffAccess(req(create));
+    } finally {
+      [console.log, console.error] = [log, error];
+    }
+    assert.equal(response.status, 201);
+    assert.equal(response.headers.get('cache-control'), 'no-store');
+    const body = (await response.json()) as { user_id: string; password: string; expires_at: string };
+    assert.equal(body.user_id, PERSON);
+    assert.match(body.password, pattern);
+    assert.equal(body.expires_at, '2026-09-27T18:00:00+00:00');
+
+    const issued = JSON.parse(calls.find((c) => c.url.pathname === '/rest/v1/rpc/staff_issue_temporary_password')!.body);
+    assert.deepEqual(issued, { p_actor: OWNER, p_user_id: PERSON, p_hours: 48, p_email: 'nova.pessoa@velmont.test', p_display_name: 'Nova Pessoa', p_role: 'editor' });
+    const flow = calls.filter((c) => c.url.pathname.startsWith('/auth') || c.url.pathname.includes('staff_')).map(step);
+    assert.deepEqual(flow, [
+      'POST /rest/v1/rpc/staff_find_user',
+      `POST /auth/v1/admin/users ${JSON.stringify({ email: 'nova.pessoa@velmont.test', email_confirm: true, ban_duration: '1h' })}`,
+      'POST /rest/v1/rpc/staff_issue_temporary_password',
+      'GET /auth/v1/admin/users/:id/factors ',
+      'DELETE /auth/v1/admin/users/:id/factors/:id ',
+      `PUT /auth/v1/admin/users/:id ${JSON.stringify({ password: body.password, email_confirm: true, ban_duration: 'none' })}`,
+    ]);
+    // The password goes to Supabase Auth only, and is never logged.
+    assert.equal(calls.filter((c) => c.body.includes(body.password)).length, 1);
+    assert.ok(!logs.join('\n').includes(body.password));
+  });
+
+  test('reuses an Auth user that already exists (for example an old e-mail invitation), banning it first', async () => {
+    asOwner();
+    foundUser = { user_id: PERSON, is_member: false };
+    const response = await staffAccess(req(create));
+    assert.equal(response.status, 201);
+    const flow = auth().map((c) => `${c.method} ${c.body}`);
+    assert.equal(flow[0], `PUT ${JSON.stringify({ ban_duration: '1h' })}`);
+    assert.equal(calls.filter((c) => c.url.pathname === '/auth/v1/admin/users' && c.method === 'POST').length, 0);
+  });
+
+  test('refuses people who are already on the team', async () => {
+    asOwner();
+    foundUser = { user_id: PERSON, is_member: true };
+    const response = await staffAccess(req(create));
+    assert.equal(response.status, 409);
+    assert.deepEqual(await response.json(), { error: 'already_member' });
+    assert.equal(auth().length, 0);
+  });
+
+  test('a new temporary password for a member: checked first, then banned, locked, authenticator removed, password set', async () => {
+    asOwner();
+    members = [{ user_id: PERSON }];
+    const response = await staffAccess(req({ action: 'reset', user_id: PERSON }));
+    assert.equal(response.status, 200);
+    const body = (await response.json()) as { password: string };
+    assert.match(body.password, pattern);
+    const issued = JSON.parse(calls.find((c) => c.url.pathname === '/rest/v1/rpc/staff_issue_temporary_password')!.body);
+    assert.deepEqual(issued, { p_actor: OWNER, p_user_id: PERSON, p_hours: 48 });
+    const flow = calls.filter((c) => c.url.pathname.startsWith('/auth') || c.url.pathname.includes('staff_') || c.url.pathname === '/rest/v1/admin_users').map((c) => `${c.method} ${c.url.pathname.replace(/[0-9a-f-]{36}/g, ':id')}`);
+    assert.deepEqual(flow, [
+      'GET /rest/v1/admin_users',
+      'PUT /auth/v1/admin/users/:id',
+      'POST /rest/v1/rpc/staff_issue_temporary_password',
+      'GET /auth/v1/admin/users/:id/factors',
+      'DELETE /auth/v1/admin/users/:id/factors/:id',
+      'PUT /auth/v1/admin/users/:id',
+    ]);
+  });
+
+  test('never for yourself or for someone who is not on the team (Auth untouched)', async () => {
+    asOwner();
+    assert.equal((await staffAccess(req({ action: 'reset', user_id: OWNER }))).status, 400);
+    members = [];
+    assert.equal((await staffAccess(req({ action: 'reset', user_id: PERSON }))).status, 404);
+    assert.equal(auth().length, 0);
+  });
+
+  test('validates input strictly', async () => {
+    asOwner();
+    for (const body of [
+      { ...create, email: 'sem-arroba' },
+      { ...create, email: 'a@b' },
+      { ...create, name: '   ' },
+      { ...create, name: 'x'.repeat(121) },
+      { ...create, role: 'admin' },
+      { ...create, active: true },
+      { action: 'reset', user_id: 'x' },
+      { action: 'reset', user_id: PERSON, role: 'owner' },
+      { action: 'delete', user_id: PERSON },
+      [],
+    ])
+      assert.equal((await staffAccess(req(body))).status, 400, JSON.stringify(body));
+    assert.equal((await staffAccess(req('{', { 'content-type': 'text/plain' }))).status, 415);
+    assert.equal(auth().length, 0);
+  });
+
+  test('rate limited per owner and globally', async () => {
+    asOwner();
+    rateAllowed = false;
+    assert.equal((await staffAccess(req(create))).status, 429);
+    assert.equal(auth().length, 0);
+  });
+
+  test('if Supabase Auth refuses the password, the account stays locked and no password is returned', async () => {
+    asOwner();
+    authRefuses = 'password';
+    const response = await staffAccess(req(create));
+    assert.equal(response.status, 502);
+    assert.deepEqual(await response.json(), { error: 'auth_update_failed' });
+    assert.equal(calls.filter((c) => c.url.pathname === '/rest/v1/rpc/staff_temporary_password_failed').length, 1);
+    authRefuses = 'create';
+    assert.equal((await staffAccess(req(create))).status, 502);
+  });
+
+  test('a duplicate caught by the database is reported as such', async () => {
+    asOwner();
+    assert.equal((await staffAccess(req({ ...create, email: 'duplicada@velmont.test' }))).status, 409);
   });
 });

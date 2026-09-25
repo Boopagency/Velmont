@@ -211,9 +211,6 @@ O redesign não alterou banco, RLS, Auth, MFA, APIs, publicação nem armazename
   - `record_admin_login` é chamado uma vez por aba do navegador, e cada salvamento registra `article.update`.
   - A linha do tempo agrupa repetições seguidas em vez de esconder registros.
   - Registrar uma entrada por sessão exigiria mudar o fluxo de autenticação.
-- **Convite de pessoas:**
-  - Continua em duas etapas: convite no Supabase, depois "Liberar acesso" no painel.
-  - Um convite direto pelo painel exigiria uma função nova com a chave de serviço.
 - **Atualização do site:**
   - Sem o Deploy Hook configurado (como no ambiente local), a API responde 503 e o painel mostra "Falha na atualização" com a explicação.
   - Não é um erro da interface.

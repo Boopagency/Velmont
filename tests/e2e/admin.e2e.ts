@@ -125,14 +125,16 @@ try {
   await page.getByText('E-mail ou senha incorretos.').waitFor();
   ok('wrong password shows a generic message');
 
-  const enroll = async () => {
-    await page.getByRole('heading', { name: 'Proteja sua conta' }).waitFor();
-    await page.getByText('Não consegue escanear?').click();
-    const secret = (await page.locator('.secret code').textContent())!.trim();
-    await page.fill('#code', totp(secret));
-    await page.click('button[type=submit]');
+  const enroll = async (p = page) => {
+    await p.getByRole('heading', { name: 'Proteja sua conta' }).waitFor();
+    await p.getByText('Não consegue escanear?').click();
+    const secret = (await p.locator('.secret code').textContent())!.trim();
+    await p.fill('#code', totp(secret));
+    await p.click('button[type=submit]');
     return secret;
   };
+  const tokenOf = (p: typeof page) => p.evaluate(() => JSON.parse(localStorage.getItem('velmont-admin') || '{}').access_token as string);
+  const leadsWith = async (token: string) => (await (await fetch(`${stack.url}/rest/v1/leads?select=id`, { headers: { apikey: stack.anonKey, authorization: `Bearer ${token}` } })).json()) as { id: string }[];
   await page.fill('#email', 'estranho@example.test');
   await page.fill('#password', PASSWORD);
   await page.click('button[type=submit]');
@@ -390,6 +392,87 @@ try {
   await page.getByRole('heading', { name: 'Equipe' }).waitFor();
   await page.getByText(/publicou “/).first().waitFor();
   ok('owner sees team management and the activity log');
+
+  // 10b. Team access without e-mail links: temporary password -> MFA -> personal password.
+  await page.getByRole('button', { name: 'Criar acesso' }).click();
+  await page.fill('#member-name', 'Nova Pessoa');
+  await page.fill('#member-email', 'Nova@Velmont.test');
+  await page.getByRole('dialog').getByRole('button', { name: 'Criar acesso' }).click();
+  const temporary = (await page.locator('#temporary-password').textContent())!.trim();
+  assert.match(temporary, /^[A-HJ-NP-Za-km-z2-9]{5}(-[A-HJ-NP-Za-km-z2-9]{5}){3}$/);
+  await page.screenshot({ path: path.join(shots, 'admin-temporary-password.png') });
+  const issuedRow = (await stack.db.query(`select user_id, must_change_password, temporary_password_expires_at > now() + interval '47 hours' as fresh from public.admin_users where email = 'nova@velmont.test'`)).rows[0];
+  assert.equal(issuedRow.must_change_password, true);
+  assert.equal(issuedRow.fresh, true);
+  const newbieId = issuedRow.user_id as string;
+  assert.equal((await stack.db.query(`select count(*)::int as n from public.audit_log where metadata::text like $1`, [`%${temporary}%`])).rows[0].n, 0, 'never in the audit log');
+  assert.equal((await stack.db.query(`select count(*)::int as n from auth.users where id = $1 and banned_until > now()`, [newbieId])).rows[0].n, 0, 'ban lifted');
+  await page.getByRole('dialog').getByRole('button', { name: 'Concluir' }).click();
+  await page.getByText('Aguardando primeiro acesso').waitFor();
+
+  const second = await browser.newContext({ viewport: { width: 1360, height: 900 } });
+  const newbie = await second.newPage();
+  newbie.on('console', (msg) => {
+    if (/Content Security Policy|Refused to/.test(msg.text())) cspErrors.push(`${newbie.url()}: ${msg.text()}`);
+  });
+  const signIn = async (password: string) => {
+    await newbie.goto(`${site}/admin`);
+    await newbie.evaluate(() => localStorage.clear());
+    await newbie.reload();
+    await newbie.getByRole('heading', { name: 'Entrar' }).waitFor();
+    await newbie.fill('#email', 'nova@velmont.test');
+    await newbie.fill('#password', password);
+    await newbie.click('button[type=submit]');
+  };
+  await signIn(temporary);
+  await enroll(newbie);
+  await newbie.getByRole('heading', { name: 'Crie sua senha' }).waitFor();
+  const lockedToken = await tokenOf(newbie);
+  assert.deepEqual(await leadsWith(lockedToken), [], 'MFA verified, temporary password: nothing readable');
+  const lockedApi = await fetch(`${site}/api/admin/rebuild`, { method: 'POST', headers: { origin: site, authorization: `Bearer ${lockedToken}`, 'content-type': 'application/json' }, body: '{}' });
+  assert.equal(lockedApi.status, 403);
+  await newbie.fill('#new-password', temporary);
+  await newbie.fill('#new-password-confirm', temporary);
+  await newbie.click('button[type=submit]');
+  await newbie.getByText('diferente da senha temporária').waitFor();
+  await newbie.fill('#new-password', 'minha-senha-pessoal-2026');
+  await newbie.fill('#new-password-confirm', 'minha-senha-pessoal-2026');
+  await newbie.click('button[type=submit]');
+  await newbie.getByRole('heading', { name: /Olá, Nova/ }).waitFor();
+  assert.equal((await stack.db.query('select must_change_password from public.admin_users where user_id = $1', [newbieId])).rows[0].must_change_password, false);
+  assert.deepEqual((await stack.db.query(`select actor_id from public.audit_log where action = 'auth.password_set' and resource_id = $1`, [newbieId])).rows, [{ actor_id: newbieId }]);
+  assert.ok((await leadsWith(await tokenOf(newbie))).length >= 1, "reads leads once unlocked");
+  ok('first access with a temporary password: MFA first, then a personal password; nothing is readable before that');
+
+  // A new temporary password from an owner: sessions end, the authenticator and the old password stop working.
+  const liveToken = await tokenOf(newbie);
+  await page.reload();
+  await page.getByRole('button', { name: 'Ações para Nova Pessoa' }).click();
+  await page.getByRole('menuitem', { name: 'Gerar nova senha temporária' }).click();
+  await page.getByRole('alertdialog').getByRole('button', { name: 'Gerar senha' }).click();
+  const again = (await page.locator('#temporary-password').textContent())!.trim();
+  assert.notEqual(again, temporary);
+  await page.getByRole('dialog').getByRole('button', { name: 'Concluir' }).click();
+  assert.deepEqual(await leadsWith(liveToken), [], 'the open session reads nothing');
+  assert.equal((await stack.db.query('select count(*)::int as n from auth.mfa_factors where user_id = $1', [newbieId])).rows[0].n, 0, 'authenticator removed');
+  await newbie.reload();
+  await newbie.getByRole('heading', { name: 'Entrar' }).waitFor({ timeout: 15000 });
+  await signIn('minha-senha-pessoal-2026');
+  await newbie.getByText('E-mail ou senha incorretos.').waitFor();
+  await page.getByRole('button', { name: 'Ações para Responsável' }).click();
+  assert.equal(await page.getByRole('menuitem', { name: 'Gerar nova senha temporária' }).count(), 0, 'never for yourself');
+  await page.keyboard.press('Escape');
+  ok('a new temporary password ends every session, removes the authenticator and the old password (never offered for yourself)');
+
+  // Expired: refused before any MFA setup, and changing the password in Supabase Auth unlocks nothing.
+  await stack.db.query(`update public.admin_users set temporary_password_expires_at = now() - interval '1 minute' where user_id = $1`, [newbieId]);
+  await signIn(again);
+  await newbie.getByRole('heading', { name: 'Senha temporária expirada' }).waitFor();
+  const direct = await fetch(`${stack.url}/auth/v1/user`, { method: 'PUT', headers: { apikey: stack.anonKey, authorization: `Bearer ${await tokenOf(newbie)}`, 'content-type': 'application/json' }, body: JSON.stringify({ password: 'outra-senha-pessoal-2026' }) });
+  assert.equal(direct.status, 200);
+  assert.equal((await stack.db.query('select must_change_password from public.admin_users where user_id = $1', [newbieId])).rows[0].must_change_password, true);
+  await second.close();
+  ok('an expired temporary password unlocks nothing, not even by changing it directly in Supabase Auth');
 
   // 11. Responsive checks.
   const mobile = await browser.newContext({ viewport: { width: 390, height: 844 }, deviceScaleFactor: 2 });

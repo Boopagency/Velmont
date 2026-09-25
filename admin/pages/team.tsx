@@ -1,5 +1,5 @@
 import { useEffect, useState, type SubmitEvent } from 'react';
-import { ActivityIcon, LockIcon, MoreHorizontalIcon, ShieldCheckIcon, UserPlusIcon } from 'lucide-react';
+import { ActivityIcon, CopyIcon, KeyRoundIcon, LockIcon, MoreHorizontalIcon, ShieldCheckIcon, UserPlusIcon } from 'lucide-react';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogClose, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
@@ -12,11 +12,23 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { cn } from '@/lib/utils';
 import { useStaff } from '../auth';
-import { explain, supabase } from '../supabase';
+import { adminApi, explain, supabase } from '../supabase';
 import { leadStatusLabel, type LeadStatus, type Role } from '../types';
 import { EmptyState, Field, formText, fullDate, initials, longDate, notify, Page, PageHeader, roleLabel, StatusBadge, useConfirm, useCrumbs } from '../ui';
 
-type Member = { user_id: string; email: string; display_name: string; role: Role; active: boolean; created_at: string };
+type Member = {
+  user_id: string;
+  email: string;
+  display_name: string;
+  role: Role;
+  active: boolean;
+  created_at: string;
+  // Present once the temporary-password migration is applied.
+  must_change_password?: boolean;
+  temporary_password_expires_at?: string | null;
+};
+/** A temporary password just issued: shown once, then forgotten. */
+type Issued = { name: string; email: string; password: string; expiresAt: string; created: boolean };
 type Event = { id: number; occurred_at: string; action: string; resource: string; resource_id: string | null; actor_id: string | null; metadata: Record<string, unknown> | null };
 type Entry = { event: Event; actor: string; text: string; count: number; since: string };
 
@@ -44,6 +56,8 @@ function describe(e: Event, names: Record<string, string>, articles: Record<stri
   const role = typeof meta.role === 'string' && meta.role in roleLabel ? roleLabel[meta.role as Role] : null;
   switch (e.action) {
     case 'auth.login': return 'entrou no painel';
+    case 'auth.password_set': return 'criou a própria senha no primeiro acesso';
+    case 'staff.temporary_password': return `gerou uma senha temporária para ${member}`;
     case 'article.create': return `criou ${quoted}`;
     case 'article.update': return `editou ${quoted}`;
     case 'article.publish': return `publicou ${quoted}`;
@@ -69,36 +83,78 @@ function describe(e: Event, names: Record<string, string>, articles: Record<stri
   }
 }
 
-function InviteDialog({ open, onOpenChange, onAdded }: { open: boolean; onOpenChange: (open: boolean) => void; onAdded: () => void }) {
+/** Active, inactive, or still on a temporary password (and whether it expired). */
+function MemberStatus({ member }: { member: Member }) {
+  const [now] = useState(() => Date.now());
+  const pending = member.active && member.must_change_password;
+  const expired = pending && !!member.temporary_password_expires_at && new Date(member.temporary_password_expires_at).getTime() <= now;
+  const [dot, label] = !member.active
+    ? ['bg-muted-foreground/40', 'Inativo']
+    : expired
+      ? ['bg-destructive', 'Senha temporária expirada']
+      : pending
+        ? ['bg-champagne', 'Aguardando primeiro acesso']
+        : ['bg-success', 'Ativo'];
+  return (
+    <span className="grid gap-0.5 text-[13px]">
+      <span className="inline-flex items-center gap-1.5">
+        <span aria-hidden="true" className={cn('size-1.5 shrink-0 rounded-full', dot)} />
+        {label}
+      </span>
+      {pending && !expired && member.temporary_password_expires_at && <span className="pl-3 text-xs text-muted-foreground">até {fullDate(member.temporary_password_expires_at)}</span>}
+    </span>
+  );
+}
+
+/** Messages for the answers of /api/admin/staff (never shows internals). */
+function staffProblem(status: number | undefined, code: unknown) {
+  if (code === 'already_member') return 'Essa pessoa já faz parte da equipe. Use "Gerar nova senha temporária" na lista.';
+  if (code === 'cannot_reset_self') return 'Sua própria senha é trocada em Conta.';
+  if (status === 400) return 'Confira o nome e o e-mail.';
+  if (status === 403) return 'Só uma pessoa responsável pode fazer isso.';
+  if (status === 404) return 'Essa pessoa não está na equipe.';
+  if (status === 429) return 'Muitas tentativas em pouco tempo. Aguarde alguns minutos.';
+  return 'O serviço de acesso não respondeu. Tente novamente em instantes.';
+}
+
+async function issueAccess(body: Record<string, string>) {
+  try {
+    const result = await adminApi('/api/admin/staff', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body) });
+    if (!result.ok) return { error: staffProblem(result.status, result.body.error) };
+    return { password: String(result.body.password), expiresAt: String(result.body.expires_at) };
+  } catch {
+    return { error: staffProblem(undefined, null) };
+  }
+}
+
+function CreateAccessDialog({ open, onOpenChange, onIssued }: { open: boolean; onOpenChange: (open: boolean) => void; onIssued: (issued: Issued) => void }) {
   const [busy, setBusy] = useState(false);
-  async function add(e: SubmitEvent<HTMLFormElement>) {
+  async function create(e: SubmitEvent<HTMLFormElement>) {
     e.preventDefault();
     const form = e.currentTarget;
     const data = new FormData(form);
+    const member = { name: formText(data, 'name').trim(), email: formText(data, 'email').trim().toLowerCase(), role: formText(data, 'role') };
     setBusy(true);
-    const { error } = await supabase.rpc('add_staff_member', { p_email: formText(data, 'email'), p_display_name: formText(data, 'name'), p_role: formText(data, 'role') as Role });
+    const result = await issueAccess({ action: 'create', ...member });
     setBusy(false);
-    if (error) notify.error('Não foi possível liberar o acesso', error.code === 'P0002' ? 'Convide primeiro este e-mail pelo Supabase (Authentication → Users → Invite).' : explain(error));
-    else {
-      form.reset();
-      notify.ok('Acesso liberado.');
-      onAdded();
-      onOpenChange(false);
-    }
+    if ('error' in result) return void notify.error('Não foi possível criar o acesso', result.error);
+    form.reset();
+    onOpenChange(false);
+    onIssued({ name: member.name, email: member.email, password: result.password!, expiresAt: result.expiresAt!, created: true });
   }
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
-          <DialogTitle className="text-[15px] font-semibold">Liberar acesso</DialogTitle>
-          <DialogDescription>Duas etapas: 1. convide o e-mail no Supabase (Authentication → Users → Invite). 2. Depois que a pessoa aceitar o convite, libere o acesso aqui.</DialogDescription>
+          <DialogTitle className="text-[15px] font-semibold">Criar acesso</DialogTitle>
+          <DialogDescription>A pessoa recebe uma senha temporária, válida por 48 horas, que só serve para o primeiro acesso. Nele, ela cadastra o aplicativo autenticador e cria a própria senha.</DialogDescription>
         </DialogHeader>
-        <form id="invite-form" className="grid gap-4" onSubmit={(e) => void add(e)}>
+        <form id="access-form" className="grid gap-4" onSubmit={(e) => void create(e)}>
           <Field label="Nome" id="member-name">
-            <Input id="member-name" name="name" required maxLength={120} className="h-9" />
+            <Input id="member-name" name="name" required maxLength={120} autoComplete="off" className="h-9" />
           </Field>
-          <Field label="E-mail" id="member-email">
-            <Input id="member-email" name="email" type="email" required maxLength={320} className="h-9" />
+          <Field label="E-mail" id="member-email" hint="O e-mail que a pessoa vai usar para entrar. Se houver um e-mail da Velmont, prefira ele.">
+            <Input id="member-email" name="email" type="email" required maxLength={254} autoComplete="off" aria-describedby="member-email-hint" className="h-9" />
           </Field>
           <Field label="Papel" id="member-role">
             <NativeSelect id="member-role" name="role" defaultValue="editor" className="w-full">
@@ -109,10 +165,86 @@ function InviteDialog({ open, onOpenChange, onAdded }: { open: boolean; onOpenCh
         </form>
         <DialogFooter>
           <DialogClose render={<Button variant="outline" />}>Cancelar</DialogClose>
-          <Button type="submit" form="invite-form" disabled={busy}>
+          <Button type="submit" form="access-form" disabled={busy} aria-busy={busy || undefined}>
             {busy && <Spinner data-icon="inline-start" aria-hidden="true" />}
-            {busy ? 'Liberando…' : 'Liberar acesso'}
+            {busy ? 'Criando…' : 'Criar acesso'}
           </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+/** Shows a temporary password once. Closing forgets it; it cannot be seen again. */
+function IssuedDialog({ issued, onClose }: { issued: Issued | null; onClose: () => void }) {
+  const first = issued?.name.split(' ')[0] || '';
+  const address = `${location.origin}/admin`;
+  const until = issued ? fullDate(issued.expiresAt) : '';
+  const message = issued
+    ? [
+        `Olá, ${first}! Seu acesso ao painel da Velmont:`,
+        `Endereço: ${address}`,
+        `E-mail: ${issued.email}`,
+        `Senha temporária: ${issued.password}`,
+        `Ela vale até ${until}. No primeiro acesso, você vai cadastrar um aplicativo autenticador (como o Google Authenticator) e criar a sua própria senha.`,
+      ].join('\n')
+    : '';
+  async function copy(text: string, done: string) {
+    try {
+      await navigator.clipboard.writeText(text);
+      notify.ok(done);
+    } catch {
+      notify.error('Não foi possível copiar', 'Selecione o texto e copie manualmente.');
+    }
+  }
+  const row = 'grid gap-0.5 sm:grid-cols-[132px_minmax(0,1fr)] sm:items-center sm:gap-3';
+  return (
+    <Dialog open={!!issued} onOpenChange={(open) => !open && onClose()} disablePointerDismissal>
+      <DialogContent className="sm:max-w-lg">
+        <DialogHeader>
+          <DialogTitle className="text-[15px] font-semibold">{issued?.created ? 'Acesso criado' : 'Nova senha temporária'}</DialogTitle>
+          <DialogDescription>
+            Envie estes dados diretamente para {issued?.name}, por um canal privado (por exemplo, WhatsApp). <strong className="font-semibold text-foreground">A senha não será mostrada de novo.</strong>
+          </DialogDescription>
+        </DialogHeader>
+        {issued && (
+          <dl className="grid min-w-0 gap-3 rounded-lg border bg-muted/40 p-4 text-sm">
+            <div className={row}>
+              <dt className="text-[13px] text-muted-foreground">Endereço</dt>
+              <dd className="min-w-0 [overflow-wrap:anywhere]">{address}</dd>
+            </div>
+            <div className={row}>
+              <dt className="text-[13px] text-muted-foreground">E-mail</dt>
+              <dd className="min-w-0 [overflow-wrap:anywhere]">{issued.email}</dd>
+            </div>
+            <div className={row}>
+              <dt className="text-[13px] text-muted-foreground">Senha temporária</dt>
+              <dd className="flex min-w-0 items-center justify-between gap-2">
+                <code id="temporary-password" className="font-mono text-[15px] font-semibold tracking-wide break-all select-all">
+                  {issued.password}
+                </code>
+                <Tooltip>
+                  <TooltipTrigger render={<Button variant="ghost" size="icon-sm" aria-label="Copiar senha" onClick={() => void copy(issued.password, 'Senha copiada')} />}>
+                    <CopyIcon aria-hidden="true" />
+                  </TooltipTrigger>
+                  <TooltipContent>Copiar senha</TooltipContent>
+                </Tooltip>
+              </dd>
+            </div>
+            <div className={row}>
+              <dt className="text-[13px] text-muted-foreground">Válida até</dt>
+              <dd>{until}</dd>
+            </div>
+          </dl>
+        )}
+        <p className="text-xs leading-relaxed text-muted-foreground">
+          No primeiro acesso, {first} cadastra o aplicativo autenticador e cria a própria senha. Até lá, a conta não vê nenhum dado do painel.
+        </p>
+        <DialogFooter>
+          <Button variant="outline" onClick={() => void copy(message, 'Mensagem copiada')}>
+            <CopyIcon data-icon="inline-start" aria-hidden="true" /> Copiar mensagem
+          </Button>
+          <DialogClose render={<Button />}>Concluir</DialogClose>
         </DialogFooter>
       </DialogContent>
     </Dialog>
@@ -127,7 +259,8 @@ export function Team() {
   const [events, setEvents] = useState<Event[] | null>(null);
   const [articles, setArticles] = useState<Record<string, string>>({});
   const [leads, setLeads] = useState<Record<string, string>>({});
-  const [inviting, setInviting] = useState(false);
+  const [creating, setCreating] = useState(false);
+  const [issued, setIssued] = useState<Issued | null>(null);
   const [version, setVersion] = useState(0);
   const load = () => setVersion((v) => v + 1);
   useCrumbs([{ label: 'Gestão' }, { label: 'Equipe' }]);
@@ -136,8 +269,8 @@ export function Team() {
     if (staff.role !== 'owner') return;
     void (async () => {
       const [m, a, arts, ls] = await Promise.all([
-        supabase.from('admin_users').select('user_id, email, display_name, role, active, created_at').order('created_at'),
-        supabase.from('audit_log').select('id, occurred_at, action, resource, resource_id, actor_id, metadata').order('occurred_at', { ascending: false }).limit(150),
+        supabase.from('admin_users').select('*').order('created_at'),
+        supabase.from('audit_log').select('id, occurred_at, action, resource, resource_id, actor_id, metadata').order('occurred_at', { ascending: false }).order('id', { ascending: false }).limit(150),
         supabase.from('articles').select('id, title').limit(500),
         supabase.from('leads').select('id, name').order('created_at', { ascending: false }).limit(500),
       ]);
@@ -171,6 +304,21 @@ export function Team() {
     }
   }
 
+  async function newTemporaryPassword(member: Member) {
+    const first = member.display_name.split(' ')[0];
+    const ok = await confirm(
+      `Gerar nova senha temporária para ${member.display_name}?`,
+      `A senha atual e o aplicativo autenticador de ${first} deixam de valer, e todas as sessões abertas são encerradas. No próximo acesso, ${first} cadastra o autenticador e cria uma nova senha.`,
+      'Gerar senha',
+      true,
+    );
+    if (!ok) return;
+    const result = await issueAccess({ action: 'reset', user_id: member.user_id });
+    if ('error' in result) return void notify.error('Não foi possível gerar a senha', result.error);
+    setIssued({ name: member.display_name, email: member.email, password: result.password!, expiresAt: result.expiresAt!, created: false });
+    load();
+  }
+
   const names = Object.fromEntries((members || []).map((m) => [m.user_id, m.display_name]));
   // By day; the same sentence repeated in a row (e.g. several saves of one
   // article) becomes one line with a count and the time span.
@@ -198,12 +346,20 @@ export function Team() {
         title="Equipe"
         description="Quem pode entrar no painel e o que cada pessoa pode fazer."
         actions={
-          <Button className="h-9 px-3.5" onClick={() => setInviting(true)}>
-            <UserPlusIcon data-icon="inline-start" aria-hidden="true" /> Liberar acesso
+          <Button className="h-9 px-3.5" onClick={() => setCreating(true)}>
+            <UserPlusIcon data-icon="inline-start" aria-hidden="true" /> Criar acesso
           </Button>
         }
       />
-      <InviteDialog open={inviting} onOpenChange={setInviting} onAdded={load} />
+      <CreateAccessDialog
+        open={creating}
+        onOpenChange={setCreating}
+        onIssued={(access) => {
+          setIssued(access);
+          load();
+        }}
+      />
+      <IssuedDialog issued={issued} onClose={() => setIssued(null)} />
 
       {!members ? (
         <div className="rounded-xl border bg-card p-5">
@@ -242,6 +398,11 @@ export function Team() {
                           </p>
                           <p className="truncate text-xs text-muted-foreground lg:hidden">{m.email}</p>
                           <p className="text-xs text-muted-foreground">Desde {longDate(m.created_at)}</p>
+                          {(!m.active || m.must_change_password) && (
+                            <div className="mt-1 sm:hidden">
+                              <MemberStatus member={m} />
+                            </div>
+                          )}
                         </div>
                       </div>
                     </TableCell>
@@ -258,10 +419,7 @@ export function Team() {
                       </Tooltip>
                     </TableCell>
                     <TableCell className="hidden py-3 sm:table-cell">
-                      <span className="inline-flex items-center gap-1.5 text-[13px]">
-                        <span aria-hidden="true" className={cn('size-1.5 rounded-full', m.active ? 'bg-success' : 'bg-muted-foreground/40')} />
-                        {m.active ? 'Ativo' : 'Inativo'}
-                      </span>
+                      <MemberStatus member={m} />
                     </TableCell>
                     <TableCell className="py-3 pr-3 text-right">
                       <DropdownMenu>
@@ -281,6 +439,11 @@ export function Team() {
                             ))}
                           </DropdownMenuGroup>
                           <DropdownMenuSeparator />
+                          {!self && (
+                            <DropdownMenuItem onClick={() => void newTemporaryPassword(m)}>
+                              <KeyRoundIcon aria-hidden="true" /> Gerar nova senha temporária
+                            </DropdownMenuItem>
+                          )}
                           {m.active ? (
                             <DropdownMenuItem variant="destructive" onClick={() => void change(m, m.role, false)}>
                               Desativar acesso

@@ -10,7 +10,7 @@ export const supabase = createClient(publicEnv.supabaseUrl || 'https://not-confi
 });
 
 /** Calls a Vercel Function with the current access token. */
-export async function adminApi(path: '/api/admin/media' | '/api/admin/rebuild' | '/api/admin/publish', init: RequestInit) {
+export async function adminApi(path: '/api/admin/media' | '/api/admin/rebuild' | '/api/admin/publish' | '/api/admin/staff', init: RequestInit) {
   const { data } = await supabase.auth.getSession();
   const token = data.session?.access_token;
   if (!token) throw new Error('Sessão expirada. Entre novamente.');

@@ -1,18 +1,27 @@
 import { createContext, useCallback, useContext, useEffect, useState, type SubmitEvent, type ReactNode } from 'react';
 import type { Session } from '@supabase/supabase-js';
-import { ShieldCheckIcon } from 'lucide-react';
+import { ClockAlertIcon, KeyRoundIcon, ShieldCheckIcon } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Spinner } from '@/components/ui/spinner';
 import { supabase } from './supabase';
-import { Field, formText } from './ui';
+import { Field, formText, fullDate } from './ui';
 import type { Role } from './types';
 
 export type Staff = { userId: string; email: string; role: Role; displayName: string };
 const StaffContext = createContext<Staff | null>(null);
 export const useStaff = () => useContext(StaffContext)!;
 
-type Stage = 'loading' | 'signed-out' | 'enroll' | 'verify' | 'no-access' | 'ready';
+type Stage = 'loading' | 'signed-out' | 'enroll' | 'verify' | 'no-access' | 'new-password' | 'temporary-expired' | 'ready';
+type Context = {
+  is_member?: boolean;
+  is_staff?: boolean;
+  role?: Role;
+  display_name?: string;
+  must_change_password?: boolean;
+  temporary_password_expired?: boolean;
+  temporary_password_expires_at?: string | null;
+};
 
 /**
  * Decides what the browser shows. It is a convenience only: the database
@@ -22,6 +31,8 @@ type Stage = 'loading' | 'signed-out' | 'enroll' | 'verify' | 'no-access' | 'rea
 export function AuthGate({ children }: { children: ReactNode }) {
   const [stage, setStage] = useState<Stage>('loading');
   const [staff, setStaff] = useState<Staff | null>(null);
+  const [expiresAt, setExpiresAt] = useState<string | null>(null);
+  const [email, setEmail] = useState('');
 
   const evaluate = useCallback(async (session: Session | null) => {
     if (!session) {
@@ -29,13 +40,35 @@ export function AuthGate({ children }: { children: ReactNode }) {
       setStage('signed-out');
       return;
     }
+    setEmail(session.user.email || '');
     const { data: aal } = await supabase.auth.mfa.getAuthenticatorAssuranceLevel();
     if (aal?.currentLevel !== 'aal2') {
+      // An expired temporary password stops here, before any authenticator is set up.
+      const { data } = await supabase.rpc('admin_context');
+      const early = data as Context | null;
+      if (early?.temporary_password_expired) {
+        setExpiresAt(early.temporary_password_expires_at || null);
+        setStage('temporary-expired');
+        return;
+      }
       setStage(aal?.nextLevel === 'aal2' ? 'verify' : 'enroll');
       return;
     }
     const { data, error } = await supabase.rpc('admin_context');
-    const ctx = data as { is_staff?: boolean; role?: Role; display_name?: string } | null;
+    const ctx = data as Context | null;
+    // A revoked session (sign-out elsewhere, new temporary password) may still
+    // hold an unexpired token: Supabase Auth confirms, then we sign in again.
+    if (!ctx?.is_staff && (await supabase.auth.getUser()).error) {
+      await supabase.auth.signOut({ scope: 'local' });
+      return;
+    }
+    // First access: MFA is set up; now the temporary password must be replaced.
+    // Until then the database grants nothing (see private.current_staff_role).
+    if (!error && ctx?.is_member && ctx.must_change_password) {
+      setExpiresAt(ctx.temporary_password_expires_at || null);
+      setStage(ctx.temporary_password_expired ? 'temporary-expired' : 'new-password');
+      return;
+    }
     if (error || !ctx?.is_staff || !ctx.role) {
       setStage('no-access');
       return;
@@ -73,6 +106,8 @@ export function AuthGate({ children }: { children: ReactNode }) {
   if (stage === 'enroll') return <EnrollMfa onDone={() => void supabase.auth.getSession().then(({ data }) => evaluate(data.session))} />;
   if (stage === 'verify') return <VerifyMfa />;
   if (stage === 'no-access') return <NoAccess />;
+  if (stage === 'new-password') return <NewPassword email={email} expiresAt={expiresAt} />;
+  if (stage === 'temporary-expired') return <TemporaryExpired expiresAt={expiresAt} />;
   return <StaffContext.Provider value={staff}>{children}</StaffContext.Provider>;
 }
 
@@ -135,7 +170,10 @@ function Login() {
     setBusy(false);
   }
   return (
-    <AuthShell title={mode === 'login' ? 'Entrar' : 'Recuperar acesso'} description={mode === 'login' ? 'Use o e-mail e a senha da sua conta.' : 'Enviaremos um link para você criar uma nova senha.'}>
+    <AuthShell
+      title={mode === 'login' ? 'Entrar' : 'Recuperar acesso'}
+      description={mode === 'login' ? 'Use o e-mail e a senha da sua conta. No primeiro acesso, use a senha temporária que você recebeu.' : 'Enviaremos um link para você criar uma nova senha.'}
+    >
       <form onSubmit={submit} className="grid gap-4">
         <Field label="E-mail" id="email">
           <Input id="email" name="email" type="email" autoComplete="username" required maxLength={320} className="h-10" />
@@ -263,6 +301,73 @@ function NoAccess() {
       <div className="flex gap-3 rounded-lg bg-muted p-3 text-sm leading-relaxed text-muted-foreground">
         <ShieldCheckIcon className="mt-0.5 size-4 shrink-0 text-brand" aria-hidden="true" />
         <p>Sua conta ainda não tem acesso ao painel. Peça a uma pessoa responsável pela equipe para liberar seu e-mail.</p>
+      </div>
+      <SignOutLink />
+    </AuthShell>
+  );
+}
+
+// Error codes only arrive when the API version header is readable, so the
+// Supabase Auth messages are matched too.
+const passwordProblem = (error: { code?: string; message: string }) =>
+  error.code === 'same_password' || /different from the old password/i.test(error.message)
+    ? 'A nova senha precisa ser diferente da senha temporária.'
+    : error.code === 'weak_password' || /weak|pwned|leaked|at least/i.test(error.message)
+      ? 'Senha fraca ou exposta em vazamentos conhecidos. Escolha outra.'
+      : 'Não foi possível salvar a senha. Tente novamente.';
+
+/** First access, after MFA: the temporary password is replaced by a personal one. */
+function NewPassword({ email, expiresAt }: { email: string; expiresAt: string | null }) {
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState('');
+  async function submit(e: SubmitEvent<HTMLFormElement>) {
+    e.preventDefault();
+    const form = new FormData(e.currentTarget);
+    const password = formText(form, 'new-password');
+    if (password.length < 12) return setError('Use pelo menos 12 caracteres.');
+    if (password !== formText(form, 'new-password-confirm')) return setError('As senhas não conferem.');
+    setBusy(true);
+    setError('');
+    // On success Supabase Auth emits USER_UPDATED and the gate checks access again.
+    const { error: updateError } = await supabase.auth.updateUser({ password });
+    setBusy(false);
+    if (updateError) setError(passwordProblem(updateError));
+  }
+  return (
+    <AuthShell title="Crie sua senha" description="A senha temporária só vale para este primeiro acesso. Escolha uma senha pessoal, que só você vai saber.">
+      <form onSubmit={submit} className="grid gap-4">
+        {/* Lets password managers save the new password under the right account. */}
+        <input type="email" autoComplete="username" value={email} readOnly hidden />
+        <Field label="Nova senha" id="new-password" hint="Pelo menos 12 caracteres. Uma frase longa é fácil de lembrar e difícil de adivinhar.">
+          <Input id="new-password" name="new-password" type="password" autoComplete="new-password" required minLength={12} maxLength={200} aria-describedby="new-password-hint" className="h-10" />
+        </Field>
+        <Field label="Confirme a nova senha" id="new-password-confirm">
+          <Input id="new-password-confirm" name="new-password-confirm" type="password" autoComplete="new-password" required minLength={12} maxLength={200} className="h-10" />
+        </Field>
+        {error && <FormMessage>{error}</FormMessage>}
+        <SubmitButton busy={busy} busyLabel="Salvando…">
+          Salvar e entrar
+        </SubmitButton>
+        {expiresAt && (
+          <p className="flex items-start gap-2 text-xs leading-relaxed text-muted-foreground">
+            <KeyRoundIcon className="mt-px size-3.5 shrink-0" aria-hidden="true" />
+            <span>A senha temporária vale até {fullDate(expiresAt)}. Até você criar a sua, o painel não mostra nenhum dado.</span>
+          </p>
+        )}
+      </form>
+      <SignOutLink />
+    </AuthShell>
+  );
+}
+
+function TemporaryExpired({ expiresAt }: { expiresAt: string | null }) {
+  return (
+    <AuthShell title="Senha temporária expirada">
+      <div className="flex gap-3 rounded-lg bg-muted p-3 text-sm leading-relaxed text-muted-foreground">
+        <ClockAlertIcon className="mt-0.5 size-4 shrink-0 text-brand" aria-hidden="true" />
+        <p>
+          {expiresAt ? `Ela valia até ${fullDate(expiresAt)}.` : 'Ela não vale mais.'} Peça à pessoa responsável pela equipe uma nova senha temporária.
+        </p>
       </div>
       <SignOutLink />
     </AuthShell>

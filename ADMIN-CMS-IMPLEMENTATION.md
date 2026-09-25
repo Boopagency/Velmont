@@ -35,6 +35,7 @@ Navegador ──► Vercel (estático: dist/)
                    ├─ POST /api/admin/publish    publica/despublica/arquiva: copia só as imagens do
                    │                             artigo para o bucket público, limpa as sem uso, rebuild
                    ├─ POST /api/admin/rebuild    limpeza de mídia pública + Deploy Hook (staff)
+                   ├─ POST /api/admin/staff      acesso da equipe com senha temporária (owner)
                    └─ GET  /api/blog-fallback    301 de slug antigo / 404
 Admin (navegador) ──► Supabase Auth (senha + TOTP), PostgREST (RLS decide tudo)
                       e Storage: imagens de rascunho só por URL assinada que expira
@@ -179,30 +180,49 @@ Nunca use `NEXT_PUBLIC_` em segredos. O `scripts/verify.mjs` varre o `dist/` pro
    - E-mail ativo; confirmações de e-mail ativas.
    - Tamanho mínimo de senha **12**; ative **Leaked password protection** (Pro).
 4. **Authentication → Multi-Factor**: **TOTP habilitado (enroll + verify).** No CLI local ele vem desabilitado; o `supabase/config.toml` do repositório já o habilita.
-5. **Authentication → URL Configuration**: *Site URL* = domínio definitivo; *Redirect URLs* = `https://<domínio>/admin/conta` (e os previews da Vercel, se desejar).
+5. **Authentication → URL Configuration**:
+   - *Site URL* = `https://www.grupovelmont.com`;
+   - *Redirect URLs* = `https://www.grupovelmont.com/admin/**` e `https://grupovelmont.com/admin/**`;
+   - **nunca um endereço `*.vercel.app`**: a Vercel protege esses endereços com login (*Vercel Authentication*, "todos exceto domínios customizados"). Um link de e-mail que volte para eles mostra a tela "Faça login no Vercel" em vez do painel.
 6. **Authentication → Rate Limits**: mantenha ou reduza os limites de login, verificação e e-mail. Opcional: **Attack Protection → CAPTCHA** (Turnstile) no login.
 7. **Sessions** (Pro): defina *inactivity timeout* (ex.: 12 h) e *time-box* (ex.: 7 dias).
 8. **API → GraphQL**: se não for usar, desative a extensão `pg_graphql` (ela respeita as mesmas permissões, mas é superfície a menos).
 9. Confira em **Storage** que as migrations criaram os buckets `media-private` (**privado**) e `media` (público), ambos com limite de 5 MB e tipos `image/webp, jpeg, png, avif`, e que as policies de `storage.objects` listadas na seção 4.1 aparecem. Não crie policies permissivas extras para esses buckets.
 10. Rode **Advisors → Security** e **Performance** e confirme que nenhuma tabela aparece sem RLS.
 
-## 8. Contas de Lisandra e Dani
+## 8. Contas da equipe (senha temporária)
 
-1. Supabase → **Authentication → Users → Invite user**: convide os dois e-mails.
-2. Cada pessoa aceita o convite e define a senha.
-3. Libere o acesso. Para a **primeira pessoa responsável (owner)**, use o SQL Editor, trocando os valores:
+O acesso não depende de link por e-mail. Cada pessoa recebe uma **senha temporária única**, gerada pelo servidor:
 
-   ```sql
-   insert into public.admin_users (user_id, email, display_name, role)
-   select id, email, 'Lisandra Ferreira dos Santos', 'owner' from auth.users where email = 'lisandra@…';
+- 20 caracteres aleatórios (cerca de 116 bits), sem caracteres ambíguos, nunca repetida;
+- **só abre o primeiro acesso**: até a pessoa cadastrar o aplicativo autenticador (MFA) **e** criar a própria senha, o banco não libera nenhum dado (RLS), nem pela API;
+- **vale 48 horas**. Depois disso, nem uma troca de senha feita direto no Supabase Auth libera a conta; só uma nova senha temporária;
+- aparece **uma única vez** para quem a pediu. Não fica gravada no banco, nos logs nem no registro de atividades (o Supabase Auth guarda apenas o hash).
+
+Uma "senha padrão" igual para todos não é usada de propósito: o MFA é cadastrado no primeiro login, então quem entrasse antes com uma senha conhecida cadastraria o próprio autenticador e ficaria com a conta.
+
+**Primeira pessoa responsável** (ainda não há ninguém para liberar pelo painel):
+
+1. Aplique a migration `20260925180000_temporary_password_access.sql` (seção 7, passo 2).
+2. Localmente, com as variáveis de produção (`vercel env pull .env.local`):
+
+   ```bash
+   node --env-file=.env.local --import tsx scripts/staff-access.ts criar --email <e-mail> --nome "<Nome>" --papel responsavel
    ```
 
-4. As demais pessoas podem ser liberadas pelo painel: **Equipe → Liberar acesso**, que é visível só para owners.
-5. No primeiro login, o painel pede o cadastro do aplicativo autenticador.
+3. Envie os dados impressos diretamente para a pessoa, por um canal privado, e apague o `.env.local`.
+
+**Demais pessoas**: **Equipe → Criar acesso** (só responsáveis). O painel mostra a senha temporária uma vez, com o botão "Copiar mensagem".
+
+**Primeiro acesso**: `https://www.grupovelmont.com/admin` → e-mail + senha temporária → cadastro do aplicativo autenticador → criação da própria senha → painel.
+
+**Esqueceu a senha ou perdeu o celular**: um responsável usa **Gerar nova senha temporária** na lista da Equipe (ou `scripts/staff-access.ts nova-senha --email …`). A senha e o autenticador antigos deixam de valer, e todas as sessões abertas da pessoa são encerradas na hora. O "Esqueci minha senha" por e-mail continua disponível e depende da URL Configuration da seção 7.
+
+**Suspeita de conta comprometida**: primeiro **Desativar acesso** (bloqueio imediato), depois gere a nova senha temporária e reative.
+
+**Qual e-mail usar**: o e-mail é o login. Prefira o e-mail da Velmont: se alguém sair, a empresa continua controlando a caixa usada para recuperar o acesso. Quem já recebeu um convite antigo por e-mail pode receber a senha temporária nesse mesmo endereço, porque o usuário existente é reaproveitado.
 
 **Papéis.** `editor` cria, edita, publica, despublica e arquiva artigos, gerencia mídia e leads. `owner` pode tudo isso e também excluir artigos e leads definitivamente (pedidos LGPD), gerenciar a equipe e ler o registro de atividades. **Decisão da empresa:** Lisandra e Dani podem ser as duas `owner`, ou uma owner e outra editor. O banco exige ao menos um owner ativo.
-
-**Perda do celular (autenticador).** Um owner remove o fator em Supabase → Authentication → Users → (usuário) → *MFA factors*. No próximo login, a pessoa cadastra um novo autenticador.
 
 ## 9. Configuração na Vercel e deploy
 
@@ -299,10 +319,10 @@ A interface usa shadcn/ui sobre os tokens da Velmont. O sistema visual está em 
 
 | Suite | Comando | Resultado |
 |---|---|---|
-| RLS / banco (PostgreSQL 16 real, com os privilégios padrão permissivos do Supabase reproduzidos) | `pnpm test:db` | **47/47** tabelas + **10/10** Storage/mídia |
-| APIs (leads, upload, publish, rebuild, fallback) | `pnpm test:unit` | **32/32** APIs + **10/10** renderer/schema |
+| RLS / banco (PostgreSQL 16 real, com os privilégios padrão permissivos do Supabase reproduzidos) | `pnpm test:db` | **50/50** tabelas + **10/10** Storage/mídia + **9/9** senha temporária |
+| APIs (leads, upload, publish, rebuild, staff, fallback) | `pnpm test:unit` | **48/48** APIs + **10/10** renderer/schema |
 | Build com CMS falso (XSS, noindex, canonical, sitemap, JSON-LD, falha do CMS, chave service_role) | `pnpm test` | **8/8** |
-| **E2E** com Supabase Auth (GoTrue v2.186) + PostgREST v13 + Postgres reais, build real, emulação da Vercel e Chromium | `GOTRUE_BIN=… POSTGREST_BIN=… pnpm test:e2e` | **28/28** |
+| **E2E** com Supabase Auth (GoTrue v2.186) + PostgREST v13 + Postgres reais, build real, emulação da Vercel e Chromium | `GOTRUE_BIN=… POSTGREST_BIN=… pnpm test:e2e` | **31/31** |
 | Páginas, links, orçamento de bundle, isolamento do admin, varredura de segredos | `pnpm verify` | PASS |
 | Functions compiladas arquivo a arquivo e carregadas como Node ESM (como na Vercel) | `pnpm check:functions` | PASS |
 | typecheck / lint / build / `pnpm audit` | — | limpos / 0 vulnerabilidades |
@@ -333,6 +353,14 @@ Os cenários pedidos estão cobertos:
 - MFA errado;
 - concorrência de edição;
 - mudança de slug com 301;
+- senha temporária:
+  - nada é legível antes da troca, mesmo com MFA, nem pelo PostgREST nem pelas APIs;
+  - a própria senha temporária não é aceita como nova senha;
+  - a troca vale só dentro do prazo;
+  - uma nova senha temporária encerra as sessões, remove o autenticador e invalida a senha anterior;
+  - nunca é oferecida para a própria conta;
+  - só owners com MFA emitem, com origem verificada e limite de uso;
+  - a senha não aparece em logs nem no registro de atividades;
 - ausência de violações de CSP;
 - 390 px sem rolagem horizontal.
 
@@ -345,6 +373,13 @@ Pergunta feita: *"Sem credenciais, como eu acessaria o painel, os leads ou o ban
 - **Chave anon (pública).** Lê apenas `published_articles`. Todas as outras tabelas e RPCs negam acesso (testado contra o PostgREST real). Embedding de rascunhos é negado. O Storage não lista nem aceita escrita.
 - **Criar uma conta.** O cadastro fica desativado. Mesmo que fosse ativado, a conta com MFA não é staff e não vê nada.
 - **Senha vazada de uma editora.** Sem o TOTP, a conta fica em `aal1` e não lê nada.
+- **Senha temporária interceptada.**
+  - Ela vale 48 h e é única por pessoa.
+  - Mesmo com o MFA cadastrado, não lê nada até ser trocada: `private.current_staff_role()` exige `must_change_password = false`.
+  - A troca é detectada no banco por um trigger em `auth.users`, nunca informada pelo navegador.
+  - Uma troca depois do prazo não desbloqueia.
+  - O responsável vê "Aguardando primeiro acesso" na Equipe e pode gerar outra senha: a anterior, o autenticador e as sessões deixam de valer.
+  - Durante a emissão, o usuário fica banido no Auth e as sessões são apagadas antes da senha nova. Não há janela para alguém entrar com a senha antiga no meio do processo.
 - **Token roubado.** Deixa de valer no logout ou na revogação de sessões (a sessão é verificada no banco). Caso contrário, expira em 1 h.
 - **XSS no painel ou no site.** Não há HTML de usuário. A CSP do admin é `script-src 'self'`, sem terceiros. A CSP pública libera só o script inline por hash, e o build falha se o hash divergir.
 - **Clickjacking.** `frame-ancestors 'none'` + `X-Frame-Options: DENY`.
