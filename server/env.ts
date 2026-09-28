@@ -1,5 +1,6 @@
 // Server-only configuration. Never import this from browser code.
 // NEXT_PUBLIC_* values are public by design; everything else is secret.
+import { HttpError, logEvent } from './http.js';
 
 // Values pasted into the Vercel dashboard often carry a trailing newline or
 // spaces; trim everything so a copy/paste never disables a feature.
@@ -31,3 +32,14 @@ export function missingConfig(env: ServerEnv) {
 }
 
 export const isConfigured = (env: ServerEnv) => missingConfig(env).length === 0;
+
+/**
+ * Stops with a generic 503 when settings are missing. Their names go to the
+ * Runtime Logs only; callers never learn which one.
+ */
+export function requireConfig(env: ServerEnv, extra: string[] = []) {
+  const missing = [...missingConfig(env), ...extra];
+  if (!missing.length) return;
+  logEvent('error', 'not_configured', { missing });
+  throw new HttpError(503, 'not_configured');
+}

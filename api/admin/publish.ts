@@ -1,28 +1,35 @@
-import { serverEnv, isConfigured } from '../../server/env.js';
-import { assertSameOrigin, fail, handle, isUuid, json, readJson } from '../../server/http.js';
+import { requireConfig, serverEnv } from '../../server/env.js';
+import { assertSameOrigin, fail, handle, isUuid, json, logEvent, readJson } from '../../server/http.js';
 import { requestDeploy } from '../../server/deploy.js';
-import { makeArticleMediaPublic, removeUnreferencedPublicMedia } from '../../server/media.js';
+import { makeArticleMediaPublic, removeUnreferencedPublicMedia, rollbackPublicCopies } from '../../server/media.js';
 import { hashKey, rateLimit } from '../../server/rate-limit.js';
 import { requireStaff, serviceClient } from '../../server/supabase.js';
 
-// Publish, unpublish or archive an article. Publishing first copies the
-// images the article needs to the public bucket; the workflow change itself
-// runs as the signed-in user, so the database re-checks authorization and
-// the audit log names them. Afterwards unused public copies are removed and
-// the static site is rebuilt.
+// Publish, unpublish or archive an article. Publishing is checked by the
+// database first (same rules as publish_article); only then are the images
+// the article needs copied to the public bucket, and if the publication is
+// still refused those copies are removed at once. The workflow change runs
+// as the signed-in user, so the database re-checks authorization and the
+// audit log names them. Afterwards unused public copies are removed and the
+// static site is rebuilt.
 
 const rpcFor = { publish: 'publish_article', unpublish: 'unpublish_article', archive: 'archive_article' } as const;
 const errors: Record<string, [number, string]> = {
-  '40001': [409, 'version_conflict'],
+  PT409: [409, 'version_conflict'],
   '42501': [403, 'forbidden'],
   P0002: [404, 'not_found'],
   '22023': [422, 'invalid_article'],
 };
+const mediaErrors = new Set(['media_not_public', 'media_mismatch', 'media_missing']);
+const refusal = (error: { code?: string; message?: string }) => {
+  const [status, code] = errors[error.code || ''] || [500, 'workflow_failed'];
+  return fail(status, mediaErrors.has(error.message || '') ? 'invalid_media' : code);
+};
 
 export function POST(request: Request) {
-  return handle(async () => {
+  return handle(request, async () => {
     const env = serverEnv();
-    if (!isConfigured(env)) return fail(503, 'not_configured');
+    requireConfig(env);
     assertSameOrigin(request, env.siteUrl);
     const staff = await requireStaff(request, env);
     const body = (await readJson(request, 1024)) as { id?: unknown; action?: unknown; expectedVersion?: unknown };
@@ -33,13 +40,18 @@ export function POST(request: Request) {
     const service = serviceClient(env);
     await rateLimit(service, `publish:${hashKey(env.rateLimitSalt, staff.userId)}`, 60, 3600);
 
-    if (action === 'publish') await makeArticleMediaPublic(staff.client, service, body.id, version);
+    let copied: string[] = [];
+    if (action === 'publish') {
+      const check = await staff.client.rpc('can_publish_article', { p_id: body.id, p_expected_version: version });
+      if (check.error) return refusal(check.error);
+      copied = await makeArticleMediaPublic(staff.client, service, body.id, version);
+    }
     const { error } = await staff.client.rpc(rpcFor[action], action === 'publish' ? { p_id: body.id, p_expected_version: version } : { p_id: body.id });
     if (error) {
-      const [status, code] = errors[error.code || ''] || [500, 'workflow_failed'];
-      return fail(status, error.message === 'media_not_public' || error.message === 'media_mismatch' ? 'invalid_media' : code);
+      await rollbackPublicCopies(service, copied).catch((e: Error) => logEvent('error', 'media_rollback_failed', { message: e.message }));
+      return refusal(error);
     }
-    await removeUnreferencedPublicMedia(service).catch((e: Error) => console.error('api_error', e.message));
+    await removeUnreferencedPublicMedia(service).catch((e: Error) => logEvent('error', 'media_cleanup_failed', { message: e.message }));
     const site = await requestDeploy(env, service, staff.userId, `${action}: ${body.id}`);
     return json(200, { ok: true, site: site.ok ? 'updating' : 'not_updated' });
   });

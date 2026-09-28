@@ -31,6 +31,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { contentSchema, SLUG_RE, sourceSchema } from '@/lib/blog/schema';
 import { readingMinutes } from '@/lib/blog/posts';
 import { authorKeys, categories, type Block } from '@/lib/blog/types';
+import { sameSiteUrl, siteUrl } from '@/lib/site';
 import { cn } from '@/lib/utils';
 import { useStaff } from '../auth';
 import { BlockEditor, cleanBlocks, emptyBlock } from '../blocks';
@@ -75,6 +76,7 @@ function toPayload(d: ArticleDraft, fallbackSlug: string) {
   if (!contentSchema.safeParse(payload.content).success) problems.push('Algum bloco de conteúdo está incompleto ou muito longo.');
   payload.sources.forEach((s, i) => { if (!sourceSchema.safeParse(s).success) problems.push(`Referência ${i + 1}: informe título e um endereço que comece com https://.`); });
   if (payload.canonical_url && !/^https:\/\/[^\s<>"]+$/.test(payload.canonical_url)) problems.push('A URL canônica precisa começar com https://.');
+  else if (payload.canonical_url && !sameSiteUrl(payload.canonical_url)) problems.push(`A URL canônica precisa ser um endereço deste site (${siteUrl}/…).`);
   return { payload, problems };
 }
 
@@ -950,7 +952,7 @@ export function ArticleEditor({ id }: { id: string | null }) {
                       </Label>
                       <Input id="canonical" type="url" value={draft.canonical_url || ''} onChange={(e) => update('canonical_url', e.target.value)} maxLength={500} placeholder="Deixe vazio na maioria dos casos" aria-describedby="canonical-hint" className="h-9" />
                       <p id="canonical-hint" className="text-xs text-muted-foreground">
-                        Somente se este texto foi publicado primeiro em outro site. Um valor errado pode tirar o artigo das buscas.
+                        Somente outro endereço deste site, quando dois artigos tratam do mesmo assunto. Um valor errado pode tirar o artigo das buscas.
                       </p>
                     </CollapsibleContent>
                   </Collapsible>

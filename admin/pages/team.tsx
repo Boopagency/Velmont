@@ -54,10 +54,24 @@ function describe(e: Event, names: Record<string, string>, articles: Record<stri
   const quoted = article === 'um artigo' ? article : `“${article}”`;
   const member = names[e.resource_id || ''] || 'uma pessoa';
   const role = typeof meta.role === 'string' && meta.role in roleLabel ? roleLabel[meta.role as Role] : null;
+  const self = !!e.actor_id && e.actor_id === e.resource_id;
+  const count = typeof meta.count === 'number' ? meta.count : 1;
+  const denied: Record<string, string> = { wrong_temporary_password: 'senha temporária incorreta', mfa_required: 'sem verificação em duas etapas', expired: 'senha temporária expirada' };
   switch (e.action) {
     case 'auth.login': return 'entrou no painel';
-    case 'auth.password_set': return 'criou a própria senha no primeiro acesso';
-    case 'staff.temporary_password': return `gerou uma senha temporária para ${member}`;
+    case 'auth.password_set': return 'concluiu o primeiro acesso (autenticador e senha própria)';
+    case 'auth.password_changed': return meta.first_access ? 'definiu a senha pessoal no primeiro acesso' : meta.locked ? 'alterou a senha com o acesso ainda bloqueado' : 'alterou a própria senha';
+    case 'auth.mfa_enrolled': return 'cadastrou o aplicativo autenticador';
+    case 'auth.mfa_removed': return self ? 'removeu o próprio aplicativo autenticador' : `removeu o aplicativo autenticador de ${member}`;
+    case 'auth.sessions_revoked':
+      if (self) return count > 1 ? `encerrou ${count} sessões` : 'saiu do painel';
+      return `encerrou ${count > 1 ? `${count} sessões` : 'a sessão'} de ${member}`;
+    case 'auth.first_access_denied': return `teve o primeiro acesso recusado${denied[text('reason')] ? ` (${denied[text('reason')]})` : ''}`;
+    case 'staff.access_denied': return 'tentou gerenciar acessos sem ser responsável';
+    case 'staff.temporary_password': return meta.new_member ? `criou o acesso de ${member} com senha temporária` : `gerou nova senha temporária para ${member}`;
+    case 'site.rebuild_requested': return 'pediu a atualização do site';
+    case 'site.rebuild_failed': return 'pediu a atualização do site, que não pôde ser iniciada';
+    case 'site.build_failed': return 'a atualização do site falhou na Vercel';
     case 'article.create': return `criou ${quoted}`;
     case 'article.update': return `editou ${quoted}`;
     case 'article.publish': return `publicou ${quoted}`;
@@ -110,6 +124,7 @@ function MemberStatus({ member }: { member: Member }) {
 function staffProblem(status: number | undefined, code: unknown) {
   if (code === 'already_member') return 'Essa pessoa já faz parte da equipe. Use "Gerar nova senha temporária" na lista.';
   if (code === 'cannot_reset_self') return 'Sua própria senha é trocada em Conta.';
+  if (code === 'inactive') return 'Reative a pessoa antes de gerar uma nova senha temporária.';
   if (status === 400) return 'Confira o nome e o e-mail.';
   if (status === 403) return 'Só uma pessoa responsável pode fazer isso.';
   if (status === 404) return 'Essa pessoa não está na equipe.';
@@ -439,7 +454,7 @@ export function Team() {
                             ))}
                           </DropdownMenuGroup>
                           <DropdownMenuSeparator />
-                          {!self && (
+                          {!self && m.active && (
                             <DropdownMenuItem onClick={() => void newTemporaryPassword(m)}>
                               <KeyRoundIcon aria-hidden="true" /> Gerar nova senha temporária
                             </DropdownMenuItem>

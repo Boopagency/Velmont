@@ -233,7 +233,7 @@ describe('editor', () => {
   });
 
   test('publish rejects stale versions and incomplete articles', async () => {
-    assert.equal(await outcome(as(db, 'authenticated', editor, (q) => q(`select public.publish_article($1, 42)`, [ids.draft]))), '40001');
+    assert.equal(await outcome(as(db, 'authenticated', editor, (q) => q(`select public.publish_article($1, 42)`, [ids.draft]))), 'PT409');
     const incomplete = await outcome(as(db, 'authenticated', editor, async (q) => {
       const row = await q(`insert into public.articles (title, slug) values ('Oi', 'vazio') returning id`);
       await q(`select public.publish_article($1, 1)`, [row.rows[0].id]);

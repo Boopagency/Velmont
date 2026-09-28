@@ -10,7 +10,7 @@ export const supabase = createClient(publicEnv.supabaseUrl || 'https://not-confi
 });
 
 /** Calls a Vercel Function with the current access token. */
-export async function adminApi(path: '/api/admin/media' | '/api/admin/rebuild' | '/api/admin/publish' | '/api/admin/staff', init: RequestInit) {
+export async function adminApi(path: '/api/admin/media' | '/api/admin/rebuild' | '/api/admin/publish' | '/api/admin/staff' | '/api/admin/first-access', init: RequestInit) {
   const { data } = await supabase.auth.getSession();
   const token = data.session?.access_token;
   if (!token) throw new Error('Sessão expirada. Entre novamente.');
@@ -36,6 +36,7 @@ export function explain(error: { code?: string; message?: string } | null | unde
   const map: Record<string, string> = {
     '42501': 'Você não tem permissão para esta ação.',
     '40001': 'Este artigo foi alterado por outra pessoa. Recarregue para ver a versão mais recente.',
+    PT409: 'Este artigo foi alterado por outra pessoa. Recarregue para ver a versão mais recente.',
     '23505': 'Este endereço (slug) já está em uso por outro artigo.',
     '23514': 'Algum campo está fora do formato permitido.',
     P0002: 'Registro não encontrado.',

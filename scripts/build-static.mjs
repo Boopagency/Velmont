@@ -30,8 +30,15 @@ const env={
 if(!/^https:\/\/[a-z0-9.-]+$/.test(env.NEXT_PUBLIC_SITE_URL)&&!(process.env.VERCEL!=='1'&&/^http:\/\/127\.0\.0\.1:\d+$/.test(env.NEXT_PUBLIC_SITE_URL)))throw new Error('NEXT_PUBLIC_SITE_URL must be an https origin without a path.');
 if(process.env.VERCEL_ENV==='production'&&env.NEXT_PUBLIC_SITE_URL.endsWith('.vercel.app'))throw new Error('Production NEXT_PUBLIC_SITE_URL must be the official domain, not a vercel.app URL.');
 if(env.NEXT_PUBLIC_SUPABASE_URL&&!/^https:\/\/[a-z0-9.-]+$/.test(env.NEXT_PUBLIC_SUPABASE_URL)&&!(process.env.VERCEL!=='1'&&/^http:\/\/127\.0\.0\.1:\d+$/.test(env.NEXT_PUBLIC_SUPABASE_URL)))throw new Error('NEXT_PUBLIC_SUPABASE_URL must be an https origin.');
-if(/service_role/.test(Buffer.from((env.NEXT_PUBLIC_SUPABASE_ANON_KEY.split('.')[1]||''),'base64url').toString()))throw new Error('NEXT_PUBLIC_SUPABASE_ANON_KEY holds a service_role key. Use the anon/publishable key.');
+// Public variables ship to every browser: refuse anything that is a secret
+// (a service_role JWT, or a new-format Supabase secret key sb_secret_…).
+for(const [key,value] of Object.entries(process.env)){
+ if(!key.startsWith('NEXT_PUBLIC_')||!value)continue;
+ if(/sb_secret_/i.test(value))throw new Error(`${key} holds a Supabase secret key (sb_secret_…). Public variables may only hold public configuration.`);
+ for(const part of value.split(/\s+/)){let claims={};try{claims=JSON.parse(Buffer.from(part.split('.')[1]||'','base64url').toString());}catch{}if(claims&&claims.role==='service_role')throw new Error(`${key} holds a service_role key. Use the anon/publishable key.`);}
+}
 if(env.NEXT_PUBLIC_LEAD_CAPTURE==='true'&&!env.NEXT_PUBLIC_SUPABASE_URL)throw new Error('NEXT_PUBLIC_LEAD_CAPTURE requires the CMS to be configured.');
+if(env.NEXT_PUBLIC_LEAD_CAPTURE==='true'&&!env.NEXT_PUBLIC_TURNSTILE_SITE_KEY)throw new Error('NEXT_PUBLIC_LEAD_CAPTURE requires NEXT_PUBLIC_TURNSTILE_SITE_KEY (Cloudflare Turnstile); /api/leads refuses submissions without verification.');
 await fs.rm(output,{recursive:true,force:true});
 await fs.mkdir(cache,{recursive:true});await fs.mkdir(path.join(output,'assets'),{recursive:true});
 const define={'process.env.NODE_ENV':JSON.stringify('production'),...Object.fromEntries(Object.entries(env).map(([k,v])=>[`process.env.${k}`,JSON.stringify(v)]))};
@@ -77,7 +84,7 @@ for(const {route,post,data:pageData} of pages){
 // Only indexable pages whose canonical is their own URL belong in the sitemap.
 const dateOf=post=>post.modifiedAt||post.publishedAt;
 const latest=posts.map(dateOf).filter(Boolean).sort().at(-1);
-const sitemapEntries=[{loc:`${siteUrl}/`},{loc:`${siteUrl}${BLOG_BASE}`,lastmod:latest},{loc:`${siteUrl}/privacidade`},...posts.filter(p=>p.seo.index&&(!p.seo.canonical||p.seo.canonical===siteUrl+postPath(p.slug))).map(p=>({loc:siteUrl+postPath(p.slug),lastmod:dateOf(p)}))];
+const sitemapEntries=[{loc:`${siteUrl}/`},{loc:`${siteUrl}${BLOG_BASE}`,lastmod:latest},{loc:`${siteUrl}/privacidade`},...posts.filter(p=>p.seo.index&&pageSeo(postPath(p.slug),p).canonical===siteUrl+postPath(p.slug)).map(p=>({loc:siteUrl+postPath(p.slug),lastmod:dateOf(p)}))];
 await fs.writeFile(path.join(output,'sitemap.xml'),`<?xml version="1.0" encoding="UTF-8"?><urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">${sitemapEntries.map(e=>`<url><loc>${escape(e.loc)}</loc>${e.lastmod?`<lastmod>${escape(new Date(e.lastmod).toISOString())}</lastmod>`:''}</url>`).join('')}</urlset>`);
 await fs.writeFile(path.join(output,'robots.txt'),`User-agent: *\nAllow: /\nDisallow: /api/\n\nSitemap: ${siteUrl}/sitemap.xml\n`);
 // Optional convenience index for tools that read llms.txt. Not a ranking factor.
@@ -100,4 +107,9 @@ await fs.mkdir(path.join(output,'admin/preview'),{recursive:true});
 await fs.writeFile(path.join(output,'admin/index.html'),`<!doctype html><html lang="pt-BR"><head>${adminHead('Painel | Velmont')}<link rel="preload" href="/fonts/manrope-latin.woff2" as="font" type="font/woff2" crossorigin><link rel="stylesheet" href="/assets/${adminCssName}"></head><body><div id="admin"></div><noscript>O painel precisa de JavaScript.</noscript><script type="module" src="/assets/${adminEntry('admin')}"></script></body></html>`);
 await fs.writeFile(path.join(output,'admin/preview/index.html'),`<!doctype html><html lang="pt-BR"><head>${adminHead('Pré-visualização | Velmont')}<link rel="stylesheet" href="/assets/${cssName}"><style>.preview-bar{display:block;position:sticky;top:0;z-index:50;margin:0;padding:10px 16px;background:#ddc5a1;color:#210b12;font:600 12px/1.4 Manrope,Arial,sans-serif;letter-spacing:.04em;text-align:center}.preview-bar a{color:inherit}</style></head><body><div id="app"></div><script type="module" src="/assets/${adminEntry('preview')}"></script></body></html>`);
 await fs.writeFile(path.join(output,'build-info.json'),JSON.stringify({builtAt:new Date().toISOString(),articles:posts.length,source:origin}));
+// The deployed files must never contain a server secret. On Vercel the real
+// values are present during the build, so this checks the actual bundle.
+const secrets=['SUPABASE_SERVICE_ROLE_KEY','RATE_LIMIT_SALT','TURNSTILE_SECRET_KEY','VERCEL_DEPLOY_HOOK_URL'].map(k=>[k,(process.env[k]||'').trim()]).filter(([,v])=>v.length>=8);
+const outputFiles=async dir=>{const found=[];for(const e of await fs.readdir(dir,{withFileTypes:true})){const p=path.join(dir,e.name);if(e.isDirectory())found.push(...await outputFiles(p));else found.push(p);}return found;};
+for(const file of secrets.length?await outputFiles(output):[]){const body=await fs.readFile(file);for(const [key,value] of secrets)if(body.includes(value))throw new Error(`${key} leaked into ${path.relative(root,file)}. The build was stopped.`);}
 console.log(`Built ${pages.length} prerendered pages in ${relativeOutput}/ (${posts.length} articles from ${origin}). JavaScript ${Math.round(client.output.reduce((n,c)=>n+(c.code?.length||0),0)/1024)} KB; CSS ${Math.round(result.css.length/1024)} KB.`);

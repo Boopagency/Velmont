@@ -6,7 +6,7 @@ import { plainText, publicMedia } from '@/lib/blog/inline';
 import { BLOG_BASE, type BlogPost } from '@/lib/blog/types';
 import { coverFor, uploadedImage } from '@/lib/blog/visuals';
 import { publicEnv } from './public-env';
-import { organization, siteUrl } from './site';
+import { organization, sameSiteUrl, siteUrl } from './site';
 const absolute = (src: string) => (src.startsWith('http') ? src : siteUrl + src);
 export function pageSeo(path: string, article: BlogPost | null = null) {
   const defaults: Record<string, [string, string]> = {
@@ -18,7 +18,7 @@ export function pageSeo(path: string, article: BlogPost | null = null) {
   const media = publicMedia(publicEnv.supabaseUrl);
   const cover = article && (uploadedImage(article.seo.ogImage, media) || coverFor(article, media));
   const url = `${siteUrl}${path === '/' ? '/' : path}`;
-  return { title, description, ogTitle: article?.seo.ogTitle || title, ogDescription: article?.seo.ogDescription || description, url, canonical: article?.seo.canonical || url, image: cover ? absolute(cover.src) : `${siteUrl}/images/velmont-social.png`, imageAlt: cover ? cover.alt || article.title : 'Velmont — Marca é patrimônio', imageWidth: cover ? cover.width : 1536, imageHeight: cover ? cover.height : 1024, index: path !== '/404' && (article ? article.seo.index : true), article };
+  return { title, description, ogTitle: article?.seo.ogTitle || title, ogDescription: article?.seo.ogDescription || description, url, canonical: sameSiteUrl(article?.seo.canonical) || url, image: cover ? absolute(cover.src) : `${siteUrl}/images/velmont-social.png`, imageAlt: cover ? cover.alt || article.title : 'Velmont — Marca é patrimônio', imageWidth: cover ? cover.width : 1536, imageHeight: cover ? cover.height : 1024, index: path !== '/404' && (article ? article.seo.index : true), article };
 }
 export function nextMetadata(path: string, article: BlogPost | null = null): Metadata {
   const data = pageSeo(path, article);

@@ -1,14 +1,16 @@
 import assert from 'node:assert/strict';
-import { afterEach, beforeEach, describe, test } from 'node:test';
+import { afterEach, before, beforeEach, describe, test } from 'node:test';
 import { POST as submitLead } from '../../api/leads';
 import { DELETE as deleteMedia, POST as uploadMedia } from '../../api/admin/media';
 import { POST as rebuild } from '../../api/admin/rebuild';
 import { POST as publish } from '../../api/admin/publish';
 import { POST as staffAccess } from '../../api/admin/staff';
 import { GET as blogFallback } from '../../api/blog-fallback';
-import { sniffImage } from '../../server/image';
+import { POST as firstAccess } from '../../api/admin/first-access';
+import { rateLimitSubject } from '../../server/http';
+import { hasMetadata, sniffImage } from '../../server/image';
 import { clean } from '../../server/leads';
-import { temporaryPassword } from '../../server/staff';
+import { matchesDigest, passwordDigest, temporaryPassword } from '../../server/staff';
 
 // The Supabase client talks HTTP; these tests stand in for PostgREST,
 // Storage, Turnstile and the deploy hook by intercepting fetch.
@@ -25,8 +27,16 @@ let usageCount = 0;
 let publishError: { code: string; message: string } | null = null;
 let unreferenced: string[] = [];
 let foundUser: { user_id: string; is_member: boolean } | null = null;
-let members: { user_id: string }[] = [];
-let authRefuses: 'create' | 'password' | null = null;
+let members: { user_id: string; active: boolean }[] = [];
+let authRefuses: 'create' | 'password' | 'weak' | null = null;
+let publishCheck: { code: string; message: string } | null = null;
+let deleteRefusal: { code: string; message: string } | null = null;
+let firstState: Record<string, unknown> = {};
+let firstSecret: { issue_id: string; digest: string } | null = null;
+let completeError: { code: string; message: string } | null = null;
+let beginError: { code: string; message: string } | null = null;
+const TEMPORARY = 'Abcde-fghij-kmn23-45678';
+let TEMPORARY_DIGEST = '';
 const COVER = '0f8fad5b-d9cb-469f-a165-70867728950e';
 const INLINE = '1f8fad5b-d9cb-469f-a165-70867728950e';
 const OTHER = '2f8fad5b-d9cb-469f-a165-70867728950e';
@@ -34,7 +44,25 @@ const ARTICLE = '3f8fad5b-d9cb-469f-a165-70867728950e';
 const OWNER = '4f8fad5b-d9cb-469f-a165-70867728950e';
 const PERSON = '5f8fad5b-d9cb-469f-a165-70867728950e';
 const FACTOR = '6f8fad5b-d9cb-469f-a165-70867728950e';
+const SESSION = '7f8fad5b-d9cb-469f-a165-70867728950e';
+const ISSUE = '8f8fad5b-d9cb-469f-a165-70867728950e';
 const realFetch = globalThis.fetch;
+
+before(async () => {
+  TEMPORARY_DIGEST = await passwordDigest(TEMPORARY);
+});
+
+/** Runs fn and returns what it wrote to the console (structured logs). */
+async function captureLogs<T>(fn: () => Promise<T>) {
+  const lines: string[] = [];
+  const saved = [console.log, console.warn, console.error];
+  console.log = console.warn = console.error = (...args: unknown[]) => void lines.push(args.map(String).join(' '));
+  try {
+    return { result: await fn(), logs: lines.join('\n') };
+  } finally {
+    [console.log, console.warn, console.error] = saved;
+  }
+}
 
 function reply(status: number, body: unknown, headers: Record<string, string> = {}) {
   return new Response(body === null ? null : JSON.stringify(body), { status, headers: { 'content-type': 'application/json', ...headers } });
@@ -52,6 +80,12 @@ beforeEach(() => {
   foundUser = null;
   members = [];
   authRefuses = null;
+  publishCheck = null;
+  deleteRefusal = null;
+  firstState = { user_id: PERSON, session_id: SESSION, aal2: true, member: true, pending: true, expired: false, mfa_verified: true };
+  firstSecret = { issue_id: ISSUE, digest: TEMPORARY_DIGEST };
+  completeError = null;
+  beginError = null;
   Object.assign(process.env, {
     NEXT_PUBLIC_SITE_URL: SITE,
     NEXT_PUBLIC_SUPABASE_URL: SUPABASE,
@@ -59,7 +93,7 @@ beforeEach(() => {
     SUPABASE_SERVICE_ROLE_KEY: 'service-key',
     RATE_LIMIT_SALT: 'a-long-random-test-salt',
     NEXT_PUBLIC_LEAD_CAPTURE: 'true',
-    TURNSTILE_SECRET_KEY: '',
+    TURNSTILE_SECRET_KEY: 'turnstile-secret',
     VERCEL_DEPLOY_HOOK_URL: 'https://api.vercel.com/v1/integrations/deploy/prj_abc/hook123',
   });
   globalThis.fetch = (async (input: RequestInfo | URL, init?: RequestInit) => {
@@ -73,14 +107,24 @@ beforeEach(() => {
     if (path === '/rest/v1/rpc/admin_context') return context === 'invalid' ? reply(401, { message: 'JWT expired' }) : reply(200, context);
     if (path === '/rest/v1/rpc/hit_rate_limit') return reply(200, rateAllowed);
     if (path === '/rest/v1/rpc/staff_find_user') return reply(200, foundUser);
-    if (path === '/rest/v1/rpc/staff_issue_temporary_password') return JSON.parse(body).p_email === 'duplicada@velmont.test' ? reply(409, { code: '23505', message: 'duplicate key' }) : reply(200, '2026-09-27T18:00:00+00:00');
+    if (path === '/rest/v1/rpc/staff_issue_temporary_access') return JSON.parse(body).p_email === 'duplicada@velmont.test' ? reply(409, { code: '23505', message: 'duplicate key' }) : reply(200, { expires_at: '2026-09-27T18:00:00+00:00', issue_id: ISSUE });
     if (path === '/rest/v1/rpc/staff_temporary_password_failed') return reply(200, null);
+    if (path === '/rest/v1/rpc/staff_log_event') return reply(200, null);
+    if (path === '/rest/v1/rpc/first_access_state') return reply(200, firstState);
+    if (path === '/rest/v1/rpc/staff_first_access_secret') return reply(200, firstSecret);
+    if (path === '/rest/v1/rpc/staff_begin_first_access') return beginError ? reply(400, beginError) : reply(200, null);
+    if (path === '/rest/v1/rpc/staff_complete_first_access') return completeError ? reply(400, completeError) : reply(200, null);
+    if (path === '/rest/v1/rpc/can_publish_article') return publishCheck ? reply(400, publishCheck) : reply(200, null);
+    if (path === '/rest/v1/rpc/media_rollback_public') return reply(200, (JSON.parse(body).p_ids as string[]).map((id) => `${id}.webp`));
+    if (path === '/rest/v1/rpc/delete_media') return deleteRefusal ? reply(409, deleteRefusal) : reply(200, { path: `${JSON.parse(body).p_id}.webp` });
     if (path === '/rest/v1/admin_users' && request.method === 'GET') return reply(200, members);
     if (path === '/auth/v1/admin/users' && request.method === 'POST') return authRefuses === 'create' ? reply(422, { code: 422, msg: 'refused' }) : reply(200, { id: PERSON, email: JSON.parse(body).email, aud: 'authenticated' });
     if (/^\/auth\/v1\/admin\/users\/[0-9a-f-]{36}\/factors$/.test(path)) return reply(200, [{ id: FACTOR, factor_type: 'totp', status: 'verified' }]);
     if (/^\/auth\/v1\/admin\/users\/[0-9a-f-]{36}\/factors\/[0-9a-f-]{36}$/.test(path) && request.method === 'DELETE') return reply(200, {});
-    if (/^\/auth\/v1\/admin\/users\/[0-9a-f-]{36}$/.test(path) && request.method === 'PUT')
-      return authRefuses === 'password' && JSON.parse(body).password ? reply(422, { code: 422, msg: 'refused' }) : reply(200, { id: path.split('/').pop(), aud: 'authenticated' });
+    if (/^\/auth\/v1\/admin\/users\/[0-9a-f-]{36}$/.test(path) && request.method === 'PUT') {
+      if (authRefuses === 'weak' && JSON.parse(body).password) return reply(422, { code: 422, error_code: 'weak_password', msg: 'Password should be at least 12 characters.' }, { 'x-supabase-api-version': '2024-01-01' });
+      return authRefuses === 'password' && JSON.parse(body).password ? reply(500, { code: 500, msg: 'refused' }) : reply(200, { id: path.split('/').pop(), aud: 'authenticated' });
+    }
     if (path === '/rest/v1/rpc/resolve_slug_redirect') return reply(200, JSON.parse(body).p_slug === 'nome-antigo' ? 'nome-novo' : null);
     if (path === '/rest/v1/leads' && request.method === 'POST') return reply(201, null);
     if (path === '/rest/v1/site_builds') return reply(201, null);
@@ -109,7 +153,9 @@ afterEach(() => {
 
 const leadRequest = (body: unknown, headers: Record<string, string> = {}) =>
   new Request(`${SITE}/api/leads`, { method: 'POST', headers: { 'content-type': 'application/json', origin: SITE, 'x-real-ip': '203.0.113.9', ...headers }, body: typeof body === 'string' ? body : JSON.stringify(body) });
-const validLead = { name: '  Maria\u0000  da   Silva ', company: 'Empresa', interest: 'Marcas', website: '', landing_page: '/blog/x', referrer: 'https://www.google.com', utm_source: 'google' };
+const validLead = { name: '  Maria\u0000  da   Silva ', company: 'Empresa', interest: 'Marcas', website: '', landing_page: '/blog/x', referrer: 'https://www.google.com', utm_source: 'google', turnstileToken: 'token-from-the-widget' };
+const rateKeys = () => calls.filter((c) => c.url.pathname === '/rest/v1/rpc/hit_rate_limit').map((c) => JSON.parse(c.body).p_key as string);
+const cloudflare = () => calls.filter((c) => c.url.host === 'challenges.cloudflare.com');
 const inserted = () => calls.filter((c) => c.url.pathname === '/rest/v1/leads');
 
 describe('POST /api/leads', () => {
@@ -171,12 +217,72 @@ describe('POST /api/leads', () => {
     assert.equal(inserted().length, 0);
   });
 
-  test('requires a valid Turnstile token when configured', async () => {
-    process.env.TURNSTILE_SECRET_KEY = 'secret';
+  test('requires a valid Turnstile token, checked by the server with the secret', async () => {
+    const { turnstileToken: _omit, ...withoutToken } = validLead;
+    const missing = await submitLead(leadRequest(withoutToken));
+    assert.equal(missing.status, 403);
+    assert.deepEqual(await missing.json(), { error: 'verification_required' });
+    assert.equal(cloudflare().length, 0, 'no token: refused before calling Cloudflare');
     turnstileOk = false;
-    assert.equal((await submitLead(leadRequest({ ...validLead, turnstileToken: 'bad' }))).status, 403);
+    assert.equal((await submitLead(leadRequest({ ...validLead, turnstileToken: 'forged' }))).status, 403);
+    const verify = new URLSearchParams(cloudflare()[0].body);
+    assert.equal(verify.get('secret'), 'turnstile-secret');
+    assert.equal(verify.get('response'), 'forged');
     turnstileOk = true;
-    assert.equal((await submitLead(leadRequest({ ...validLead, turnstileToken: 'good' }))).status, 201);
+    assert.equal((await submitLead(leadRequest(validLead))).status, 201);
+    assert.equal(inserted().length, 1);
+  });
+
+  test('fails closed when lead capture is on but Turnstile is not configured (the Origin header is no bot protection)', async () => {
+    process.env.TURNSTILE_SECRET_KEY = '';
+    const { result, logs } = await captureLogs(() => submitLead(leadRequest(validLead)));
+    assert.equal(result.status, 503);
+    assert.deepEqual(await result.json(), { error: 'not_configured' }, 'the caller never learns which setting is missing');
+    assert.match(logs, /"event":"not_configured".*TURNSTILE_SECRET_KEY/, 'the Runtime Logs name it');
+    assert.equal(inserted().length, 0);
+  });
+
+  test('only verified submissions reach the global budget; unverified ones cannot use it up', async () => {
+    const { turnstileToken: _omit, ...withoutToken } = validLead;
+    await submitLead(leadRequest(withoutToken));
+    assert.deepEqual(rateKeys(), [], 'no token: no database work at all');
+    turnstileOk = false;
+    await submitLead(leadRequest(validLead));
+    assert.equal(rateKeys().length, 1);
+    assert.match(rateKeys()[0], /^lead:ip:[0-9a-f]{40}$/);
+    turnstileOk = true;
+    calls = [];
+    await submitLead(leadRequest(validLead));
+    assert.deepEqual(rateKeys().map((k) => k.replace(/[0-9a-f]{40}$/, '…')), ['lead:ip:…', 'lead:global']);
+  });
+
+  test('IPv6 addresses of one /64 share a counter; another /64 does not', async () => {
+    const keyFor = async (ip: string) => {
+      calls = [];
+      await submitLead(leadRequest(validLead, { 'x-real-ip': ip }));
+      return rateKeys()[0];
+    };
+    const a = await keyFor('2001:db8:abcd:12::1');
+    assert.equal(await keyFor('2001:0db8:abcd:0012:ffff:ffff:ffff:ffff'), a);
+    assert.equal(await keyFor('2001:db8:abcd:12:1:2:3:4'), a);
+    assert.notEqual(await keyFor('2001:db8:abcd:13::1'), a);
+    assert.notEqual(await keyFor('203.0.113.9'), await keyFor('203.0.113.10'));
+    assert.equal(await keyFor('::ffff:203.0.113.9'), await keyFor('203.0.113.9'));
+  });
+
+  test('refusals leave one structured log line with no personal data', async () => {
+    rateAllowed = false;
+    const { result, logs } = await captureLogs(() => submitLead(leadRequest({ ...validLead, name: 'Fulana Sigilosa', company: 'Empresa Secreta' })));
+    assert.equal(result.status, 429);
+    const line = JSON.parse(logs.split('\n').find((l) => l.includes('api_refused'))!);
+    assert.deepEqual(line, { level: 'warn', event: 'api_refused', route: '/api/leads', method: 'POST', status: 429, error: 'too_many_requests' });
+    rateAllowed = true;
+    const invalid = await captureLogs(() => submitLead(leadRequest({ ...validLead, name: 'Fulana Sigilosa', interest: 'x' })));
+    assert.equal(invalid.result.status, 400);
+    assert.match(invalid.logs, /"event":"lead_invalid","fields":\["interest"\]/);
+    for (const text of [logs, invalid.logs]) {
+      assert.ok(!/Fulana|Sigilosa|Empresa|203\.0\.113|token-from-the-widget|turnstile-secret/.test(text), text);
+    }
   });
 
   test('is disabled unless lead capture is switched on', async () => {
@@ -256,6 +362,28 @@ describe('POST /api/admin/media', () => {
     rateAllowed = false;
     assert.equal((await uploadMedia(upload(new Blob([webp()]), 'a.webp'))).status, 429);
   });
+
+  test('strips EXIF and GPS from a JPEG sent straight to the API (not only in the browser)', async () => {
+    const { default: sharp } = (await import('sharp')) as unknown as { default: (options: object) => { jpeg(): { withExif(exif: object): { toBuffer(): Promise<Buffer> } } } };
+    const original = await sharp({ create: { width: 64, height: 48, channels: 3, background: { r: 200, g: 20, b: 20 } } })
+      .jpeg()
+      .withExif({ IFD0: { Make: 'GPS-TEST-CAM' }, IFD3: { GPSLatitudeRef: 'S', GPSLatitude: '25/1 25/1 0/1' } })
+      .toBuffer();
+    const bytes = new Uint8Array(original);
+    assert.ok(hasMetadata(bytes, sniffImage(bytes)!), 'the test image carries EXIF');
+    assert.equal((await uploadMedia(upload(new Blob([bytes], { type: 'image/jpeg' }), 'foto.jpg'))).status, 201);
+    const stored = calls.find((c) => /^\/storage\/v1\/object\/media-private\/.+\.jpg$/.test(c.url.pathname))!;
+    assert.ok(stored, 'stored in the private bucket');
+    assert.ok(!stored.body.includes('Exif') && !stored.body.includes('GPS-TEST-CAM'), 'no EXIF/GPS left');
+    const row = JSON.parse(calls.find((c) => c.url.pathname === '/rest/v1/media' && c.method === 'POST')!.body);
+    assert.deepEqual([row.mime_type, row.width, row.height], ['image/jpeg', 64, 48]);
+  });
+
+  test('keeps clean images byte for byte (no needless re-encoding)', async () => {
+    assert.equal((await uploadMedia(upload(new Blob([webp()]), 'a.webp'))).status, 201);
+    const stored = calls.find((c) => c.url.pathname.startsWith('/storage/v1/object/media-private/'))!;
+    assert.equal(stored.body.length, new TextDecoder().decode(webp()).length);
+  });
 });
 
 describe('DELETE /api/admin/media', () => {
@@ -265,14 +393,17 @@ describe('DELETE /api/admin/media', () => {
     assert.equal((await deleteMedia(del("x',featured_image_id.neq.null"))).status, 400);
   });
 
-  test('refuses to delete an image still in use', async () => {
-    usageCount = 1;
+  test('refuses to delete an image still in use (checked by the database, not only here)', async () => {
+    deleteRefusal = { code: '23503', message: 'media_in_use' };
     assert.equal((await deleteMedia(del('0f8fad5b-d9cb-469f-a165-70867728950e'))).status, 409);
     assert.equal(calls.filter((c) => c.method === 'DELETE').length, 0);
   });
 
-  test('deletes unused images from the table and storage', async () => {
+  test('deletes through the database function as the user, then removes both stored copies', async () => {
     assert.equal((await deleteMedia(del('0f8fad5b-d9cb-469f-a165-70867728950e'))).status, 200);
+    const rpc = calls.find((c) => c.url.pathname === '/rest/v1/rpc/delete_media')!;
+    assert.equal(rpc.auth, 'Bearer header.payload.signature-long-enough', 'runs as the user (RLS + audit)');
+    assert.ok(!calls.some((c) => c.url.pathname === '/rest/v1/media' && c.method === 'DELETE'), 'never a direct table delete');
     assert.ok(calls.some((c) => c.method === 'DELETE' && c.url.pathname === '/storage/v1/object/media-private'));
     assert.ok(calls.some((c) => c.method === 'DELETE' && c.url.pathname === '/storage/v1/object/media'), 'public copy removed too');
   });
@@ -317,7 +448,21 @@ describe('POST /api/admin/rebuild', () => {
     assert.equal(build().status, 'failed');
   });
 
-  test('missing server settings answer 503 with their names only', async () => {
+  test('anonymous callers never learn which settings are missing (V-04)', async () => {
+    process.env.RATE_LIMIT_SALT = 'short';
+    const anonymous = new Request(`${SITE}/api/admin/rebuild`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: '{}' });
+    const { result, logs } = await captureLogs(() => rebuild(anonymous));
+    assert.ok([401, 403, 503].includes(result.status));
+    assert.ok(!JSON.stringify(await result.json()).includes('RATE_LIMIT_SALT'));
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY = '';
+    const unconfigured = await captureLogs(() => rebuild(new Request(`${SITE}/api/admin/rebuild`, { method: 'POST', headers: { origin: SITE, 'content-type': 'application/json' }, body: '{}' })));
+    assert.equal(unconfigured.result.status, 503);
+    assert.deepEqual(await unconfigured.result.json(), { error: 'not_configured' });
+    assert.match(unconfigured.logs, /NEXT_PUBLIC_SUPABASE_ANON_KEY/, 'the name goes to the Runtime Logs');
+    assert.ok(!logs.includes('a-long-random-test-salt') && !unconfigured.logs.includes('service-key'), 'never a value');
+  });
+
+  test('missing server settings answer 503 with their names only to MFA-verified staff', async () => {
     process.env.SUPABASE_SERVICE_ROLE_KEY = '';
     process.env.RATE_LIMIT_SALT = 'short';
     const res = await rebuild(req());
@@ -388,7 +533,37 @@ describe('POST /api/admin/publish', () => {
     const rpc = calls.find((c) => c.url.pathname === '/rest/v1/rpc/publish_article')!;
     assert.equal(rpc.auth, 'Bearer header.payload.signature-long-enough', 'status change runs as the user');
     const order = calls.map((c) => c.url.pathname);
+    assert.ok(order.indexOf('/rest/v1/rpc/can_publish_article') < order.indexOf('/storage/v1/object/copy'), 'checked before any copy');
     assert.ok(order.indexOf('/rest/v1/rpc/media_mark_public') < order.indexOf('/rest/v1/rpc/publish_article'));
+    assert.ok(!order.includes('/rest/v1/rpc/media_rollback_public'));
+  });
+
+  test('an article the database would refuse is refused before any image is copied (V-03)', async () => {
+    for (const [code, message, status, error] of [
+      ['22023', 'incomplete', 422, 'invalid_article'],
+      ['22023', 'archived', 422, 'invalid_article'],
+      ['22023', 'media_missing', 422, 'invalid_media'],
+      ['PT409', 'version_conflict', 409, 'version_conflict'],
+    ] as const) {
+      calls = [];
+      publishCheck = { code, message };
+      const res = await publish(req({ id: ARTICLE, action: 'publish', expectedVersion: 3 }));
+      assert.equal(res.status, status, message);
+      assert.equal(((await res.json()) as { error: string }).error, error);
+      assert.equal(copies().length, 0, `${message}: nothing copied`);
+      assert.ok(!calls.some((c) => c.url.pathname === '/rest/v1/rpc/publish_article'));
+    }
+  });
+
+  test('if publishing is refused after the copies, the copies made by this attempt are removed at once', async () => {
+    publishError = { code: 'PT409', message: 'version_conflict' };
+    const res = await publish(req({ id: ARTICLE, action: 'publish', expectedVersion: 3 }));
+    assert.equal(res.status, 409);
+    const rollback = calls.find((c) => c.url.pathname === '/rest/v1/rpc/media_rollback_public')!;
+    assert.deepEqual(JSON.parse(rollback.body).p_ids.sort(), [COVER, INLINE].sort());
+    const removal = calls.find((c) => c.method === 'DELETE' && c.url.pathname === '/storage/v1/object/media')!;
+    assert.deepEqual(JSON.parse(removal.body).prefixes.sort(), [`${COVER}.webp`, `${INLINE}.webp`].sort());
+    assert.ok(!calls.some((c) => c.url.host === 'api.vercel.com'), 'no rebuild for a refused publish');
   });
 
   test('refuses stale versions before copying anything', async () => {
@@ -409,6 +584,7 @@ describe('POST /api/admin/publish', () => {
     const res = await publish(req({ id: ARTICLE, action: 'publish', expectedVersion: 3 }));
     assert.equal(res.status, 422);
     assert.equal(((await res.json()) as { error: string }).error, 'invalid_media');
+    assert.ok(calls.some((c) => c.url.pathname === '/rest/v1/rpc/media_rollback_public'));
   });
 
   test('requires staff, same origin and a valid request', async () => {
@@ -455,7 +631,15 @@ describe('POST /api/admin/staff (team access with temporary passwords)', () => {
     asOwner();
     assert.equal((await staffAccess(req(create, { origin: 'https://evil.test' }))).status, 403);
     assert.equal(auth().length, 0);
-    assert.equal(calls.filter((c) => c.url.pathname.includes('staff_')).length, 0);
+    assert.deepEqual(calls.filter((c) => c.url.pathname.includes('staff_')).map((c) => c.url.pathname), ['/rest/v1/rpc/staff_log_event'], 'only the refusal is recorded');
+    const denied = JSON.parse(calls.find((c) => c.url.pathname === '/rest/v1/rpc/staff_log_event')!.body);
+    assert.deepEqual(denied, { p_actor: 'u1', p_action: 'staff.access_denied', p_resource_id: 'u1', p_metadata: {} });
+  });
+
+  test('a refused editor is rate limited per person before anything is recorded', async () => {
+    rateAllowed = false;
+    assert.equal((await staffAccess(req(create))).status, 429);
+    assert.ok(!calls.some((c) => c.url.pathname === '/rest/v1/rpc/staff_log_event'), 'nothing written once the limit is reached');
   });
 
   test('creates access for a new person: locked and banned first, then the password is set and the ban lifted', async () => {
@@ -476,13 +660,15 @@ describe('POST /api/admin/staff (team access with temporary passwords)', () => {
     assert.match(body.password, pattern);
     assert.equal(body.expires_at, '2026-09-27T18:00:00+00:00');
 
-    const issued = JSON.parse(calls.find((c) => c.url.pathname === '/rest/v1/rpc/staff_issue_temporary_password')!.body);
+    const { p_digest, ...issued } = JSON.parse(calls.find((c) => c.url.pathname === '/rest/v1/rpc/staff_issue_temporary_access')!.body);
     assert.deepEqual(issued, { p_actor: OWNER, p_user_id: PERSON, p_hours: 48, p_email: 'nova.pessoa@velmont.test', p_display_name: 'Nova Pessoa', p_role: 'editor' });
+    assert.match(p_digest, /^scrypt\$/, 'only a salted digest reaches the database');
+    assert.ok(await matchesDigest(body.password, p_digest));
     const flow = calls.filter((c) => c.url.pathname.startsWith('/auth') || c.url.pathname.includes('staff_')).map(step);
     assert.deepEqual(flow, [
       'POST /rest/v1/rpc/staff_find_user',
       `POST /auth/v1/admin/users ${JSON.stringify({ email: 'nova.pessoa@velmont.test', email_confirm: true, ban_duration: '1h' })}`,
-      'POST /rest/v1/rpc/staff_issue_temporary_password',
+      'POST /rest/v1/rpc/staff_issue_temporary_access',
       'GET /auth/v1/admin/users/:id/factors ',
       'DELETE /auth/v1/admin/users/:id/factors/:id ',
       `PUT /auth/v1/admin/users/:id ${JSON.stringify({ password: body.password, email_confirm: true, ban_duration: 'none' })}`,
@@ -513,18 +699,19 @@ describe('POST /api/admin/staff (team access with temporary passwords)', () => {
 
   test('a new temporary password for a member: checked first, then banned, locked, authenticator removed, password set', async () => {
     asOwner();
-    members = [{ user_id: PERSON }];
+    members = [{ user_id: PERSON, active: true }];
     const response = await staffAccess(req({ action: 'reset', user_id: PERSON }));
     assert.equal(response.status, 200);
     const body = (await response.json()) as { password: string };
     assert.match(body.password, pattern);
-    const issued = JSON.parse(calls.find((c) => c.url.pathname === '/rest/v1/rpc/staff_issue_temporary_password')!.body);
+    const { p_digest, ...issued } = JSON.parse(calls.find((c) => c.url.pathname === '/rest/v1/rpc/staff_issue_temporary_access')!.body);
     assert.deepEqual(issued, { p_actor: OWNER, p_user_id: PERSON, p_hours: 48 });
+    assert.ok(await matchesDigest(body.password, p_digest));
     const flow = calls.filter((c) => c.url.pathname.startsWith('/auth') || c.url.pathname.includes('staff_') || c.url.pathname === '/rest/v1/admin_users').map((c) => `${c.method} ${c.url.pathname.replace(/[0-9a-f-]{36}/g, ':id')}`);
     assert.deepEqual(flow, [
       'GET /rest/v1/admin_users',
       'PUT /auth/v1/admin/users/:id',
-      'POST /rest/v1/rpc/staff_issue_temporary_password',
+      'POST /rest/v1/rpc/staff_issue_temporary_access',
       'GET /auth/v1/admin/users/:id/factors',
       'DELETE /auth/v1/admin/users/:id/factors/:id',
       'PUT /auth/v1/admin/users/:id',
@@ -537,6 +724,16 @@ describe('POST /api/admin/staff (team access with temporary passwords)', () => {
     members = [];
     assert.equal((await staffAccess(req({ action: 'reset', user_id: PERSON }))).status, 404);
     assert.equal(auth().length, 0);
+  });
+
+  test('never for a deactivated member: reactivate first (H-02)', async () => {
+    asOwner();
+    members = [{ user_id: PERSON, active: false }];
+    const response = await staffAccess(req({ action: 'reset', user_id: PERSON }));
+    assert.equal(response.status, 409);
+    assert.deepEqual(await response.json(), { error: 'inactive' });
+    assert.equal(auth().length, 0);
+    assert.ok(!calls.some((c) => c.url.pathname === '/rest/v1/rpc/staff_issue_temporary_access'));
   });
 
   test('validates input strictly', async () => {
@@ -579,5 +776,141 @@ describe('POST /api/admin/staff (team access with temporary passwords)', () => {
   test('a duplicate caught by the database is reported as such', async () => {
     asOwner();
     assert.equal((await staffAccess(req({ ...create, email: 'duplicada@velmont.test' }))).status, 409);
+  });
+});
+
+describe('POST /api/admin/first-access (V-01, H-03)', () => {
+  const NEW = 'minha-senha-pessoal-2026';
+  const req = (body: unknown, headers: Record<string, string> = {}) =>
+    new Request(`${SITE}/api/admin/first-access`, { method: 'POST', headers: { origin: SITE, 'content-type': 'application/json', authorization: 'Bearer header.payload.signature-long-enough', ...headers }, body: JSON.stringify(body) });
+  const valid = { temporary_password: TEMPORARY, new_password: NEW };
+  const path = (c: Call) => c.url.pathname;
+  const passwordSet = () => calls.filter((c) => /^\/auth\/v1\/admin\/users\/[0-9a-f-]{36}$/.test(path(c)) && c.method === 'PUT');
+  const deniedWith = () => calls.filter((c) => path(c) === '/rest/v1/rpc/staff_log_event').map((c) => JSON.parse(c.body).p_metadata.reason);
+
+  test('unlocks only after the temporary password matches and the database checked MFA, then sets the own password and lets the database decide', async () => {
+    const res = await firstAccess(req(valid));
+    assert.equal(res.status, 200);
+    const flow = calls.map((c) => `${c.method} ${path(c).replace(/[0-9a-f-]{36}/g, ':id')}`).filter((s) => !s.includes('hit_rate_limit'));
+    assert.deepEqual(flow, [
+      'POST /rest/v1/rpc/first_access_state',
+      'POST /rest/v1/rpc/staff_first_access_secret',
+      'POST /rest/v1/rpc/staff_begin_first_access',
+      'PUT /auth/v1/admin/users/:id',
+      'POST /rest/v1/rpc/staff_complete_first_access',
+    ]);
+    assert.equal(calls[0].auth, 'Bearer header.payload.signature-long-enough', 'state read with the person’s own token');
+    assert.deepEqual(JSON.parse(calls.find((c) => path(c) === '/rest/v1/rpc/staff_begin_first_access')!.body), { p_user_id: PERSON, p_issue_id: ISSUE, p_session_id: SESSION });
+    assert.deepEqual(JSON.parse(passwordSet()[0].body), { password: NEW });
+    assert.deepEqual(JSON.parse(calls.find((c) => path(c) === '/rest/v1/rpc/staff_complete_first_access')!.body), { p_user_id: PERSON, p_issue_id: ISSUE });
+    assert.equal(calls.filter((c) => c.body.includes(TEMPORARY)).length, 0, 'the temporary password is compared on the server, never sent anywhere');
+  });
+
+  test('a password changed through a recovery e-mail does not help: the temporary password itself is required', async () => {
+    const { result, logs } = await captureLogs(() => firstAccess(req({ temporary_password: 'the-password-the-attacker-set', new_password: NEW })));
+    assert.equal(result.status, 403);
+    assert.deepEqual(await result.json(), { error: 'wrong_temporary_password' });
+    assert.equal(passwordSet().length, 0);
+    assert.ok(!calls.some((c) => path(c) === '/rest/v1/rpc/staff_complete_first_access'));
+    assert.deepEqual(deniedWith(), ['wrong_temporary_password'], 'recorded in the audit log');
+    assert.ok(!logs.includes('the-password-the-attacker-set') && !logs.includes(NEW));
+  });
+
+  test('without MFA (aal1, no verified authenticator or no live session) nothing happens', async () => {
+    for (const change of [{ aal2: false }, { mfa_verified: false }, { session_id: null }]) {
+      calls = [];
+      firstState = { ...firstState, aal2: true, mfa_verified: true, session_id: SESSION, ...change };
+      const res = await firstAccess(req(valid));
+      assert.equal(res.status, 403, JSON.stringify(change));
+      assert.deepEqual(await res.json(), { error: 'mfa_required' });
+      assert.ok(!calls.some((c) => path(c) === '/rest/v1/rpc/staff_first_access_secret'));
+      assert.equal(passwordSet().length, 0);
+    }
+  });
+
+  test('an expired or no longer pending temporary password never unlocks', async () => {
+    firstState = { ...firstState, pending: false, expired: true };
+    assert.deepEqual(await (await firstAccess(req(valid))).json(), { error: 'expired' });
+    firstState = { ...firstState, pending: false, expired: false };
+    assert.equal((await firstAccess(req(valid))).status, 409);
+    firstState = { ...firstState, pending: true };
+    firstSecret = null;
+    assert.deepEqual(await (await firstAccess(req(valid))).json(), { error: 'not_pending' });
+    assert.equal(passwordSet().length, 0);
+  });
+
+  test('the temporary password cannot become the definitive one', async () => {
+    const res = await firstAccess(req({ temporary_password: TEMPORARY, new_password: TEMPORARY }));
+    assert.equal(res.status, 422);
+    assert.deepEqual(await res.json(), { error: 'same_as_temporary' });
+    assert.equal(passwordSet().length, 0);
+  });
+
+  test('a weak password is refused by Supabase Auth and the account stays locked', async () => {
+    authRefuses = 'weak';
+    const res = await firstAccess(req(valid));
+    assert.equal(res.status, 422);
+    assert.deepEqual(await res.json(), { error: 'weak_password' });
+    assert.ok(!calls.some((c) => path(c) === '/rest/v1/rpc/staff_complete_first_access'));
+  });
+
+  test('the database has the final word (a newer temporary password, or MFA gone meanwhile)', async () => {
+    beginError = { code: '42501', message: 'mfa_required' };
+    assert.deepEqual(await (await firstAccess(req(valid))).json(), { error: 'mfa_required' });
+    assert.equal(passwordSet().length, 0, 'the database check comes before any password change');
+    beginError = { code: 'PT409', message: 'stale' };
+    assert.deepEqual(await (await firstAccess(req(valid))).json(), { error: 'stale' });
+    assert.equal(passwordSet().length, 0);
+    beginError = null;
+    completeError = { code: 'PT409', message: 'stale' };
+    assert.deepEqual(await (await firstAccess(req(valid))).json(), { error: 'stale' });
+    completeError = { code: '42501', message: 'mfa_required' };
+    assert.deepEqual(await (await firstAccess(req(valid))).json(), { error: 'mfa_required' });
+    completeError = { code: '55000', message: 'password_not_set' };
+    const res = await firstAccess(req(valid));
+    assert.equal(res.status, 500);
+    assert.deepEqual(await res.json(), { error: 'not_completed' }, 'the password was set but the account stays locked, and the person is told so');
+  });
+
+  test('requires the same origin, a token, strict input and is rate limited', async () => {
+    assert.equal((await firstAccess(req(valid, { origin: 'https://evil.test' }))).status, 403);
+    assert.equal((await firstAccess(req(valid, { authorization: '' }))).status, 401);
+    for (const body of [{ ...valid, new_password: 'curta' }, { ...valid, extra: 1 }, { new_password: NEW }]) assert.equal((await firstAccess(req(body))).status, 400, JSON.stringify(body));
+    rateAllowed = false;
+    assert.equal((await firstAccess(req(valid))).status, 429);
+    assert.equal(passwordSet().length, 0);
+  });
+});
+
+describe('remediation helpers', () => {
+  test('rateLimitSubject groups IPv6 by /64 and keeps IPv4', () => {
+    assert.equal(rateLimitSubject('2001:db8:abcd:12::1'), '2001:0db8:abcd:0012::/64');
+    assert.equal(rateLimitSubject('2001:DB8:ABCD:12:FFFF:1:2:3'), '2001:0db8:abcd:0012::/64');
+    assert.equal(rateLimitSubject('::1'), '0000:0000:0000:0000::/64');
+    assert.equal(rateLimitSubject('fe80::1%eth0'), 'fe80:0000:0000:0000::/64');
+    assert.equal(rateLimitSubject('::ffff:198.51.100.7'), '198.51.100.7');
+    assert.equal(rateLimitSubject('198.51.100.7'), '198.51.100.7');
+    assert.equal(rateLimitSubject('not-an-ip'), 'not-an-ip');
+  });
+
+  test('temporary-password digests are salted and verify only the right password', async () => {
+    const a = await passwordDigest(TEMPORARY);
+    assert.notEqual(a, await passwordDigest(TEMPORARY), 'salted');
+    assert.ok(!a.includes(TEMPORARY));
+    assert.ok(await matchesDigest(TEMPORARY, a));
+    assert.ok(!(await matchesDigest(`${TEMPORARY}x`, a)));
+    assert.ok(!(await matchesDigest(TEMPORARY, 'not-a-digest')));
+  });
+
+  test('hasMetadata spots EXIF/XMP/text chunks and leaves clean images alone', () => {
+    const png = (chunk: string) => {
+      const b = new Uint8Array(33 + 12 + 1);
+      b.set([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 0, 0, 0, 13, 0x49, 0x48, 0x44, 0x52, 0, 0, 0, 1, 0, 0, 0, 1]);
+      b.set([0, 0, 0, 1, ...new TextEncoder().encode(chunk)], 33);
+      return b;
+    };
+    assert.equal(hasMetadata(png('tEXt'), sniffImage(png('tEXt'))!), true);
+    assert.equal(hasMetadata(png('IEND'), sniffImage(png('IEND'))!), false);
+    assert.equal(hasMetadata(webp(), sniffImage(webp())!), false);
   });
 });

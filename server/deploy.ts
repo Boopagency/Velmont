@@ -1,5 +1,6 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import type { ServerEnv } from './env.js';
+import { logEvent } from './http.js';
 
 // The deploy hook URL is a secret: only authorized server code triggers a
 // new static build of the public site. Pinned to Vercel (SSRF guard); the
@@ -41,6 +42,6 @@ export async function requestDeploy(env: ServerEnv, service: SupabaseClient, use
     deployment: job,
     detail,
   });
-  if (error) console.error('api_error', `site_builds: ${error.message}`);
+  if (error) logEvent('error', 'site_builds_insert_failed', { message: error.message });
   return result;
 }

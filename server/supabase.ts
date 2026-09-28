@@ -13,6 +13,14 @@ export const userClient = (env: ServerEnv, token: string) =>
 
 export const anonClient = (env: ServerEnv) => createClient(env.supabaseUrl, env.supabaseAnonKey, options);
 
+/** The access token from `Authorization: Bearer …` (shape only; the database verifies it). */
+export function bearerToken(request: Request) {
+  const header = request.headers.get('authorization') || '';
+  const token = /^Bearer ([A-Za-z0-9._-]{20,4096})$/.exec(header)?.[1];
+  if (!token) throw new HttpError(401, 'unauthenticated');
+  return token;
+}
+
 export type Staff = { userId: string; role: 'owner' | 'editor'; client: SupabaseClient };
 
 /**
@@ -21,10 +29,7 @@ export type Staff = { userId: string; role: 'owner' | 'editor'; client: Supabase
  * trusted beyond the signed JWT.
  */
 export async function requireStaff(request: Request, env: ServerEnv): Promise<Staff> {
-  const header = request.headers.get('authorization') || '';
-  const token = /^Bearer ([A-Za-z0-9._-]{20,4096})$/.exec(header)?.[1];
-  if (!token) throw new HttpError(401, 'unauthenticated');
-  const client = userClient(env, token);
+  const client = userClient(env, bearerToken(request));
   const { data, error } = await client.rpc('admin_context');
   if (error) throw new HttpError(401, 'unauthenticated');
   const context = data as { user_id?: string; is_staff?: boolean; role?: 'owner' | 'editor' } | null;

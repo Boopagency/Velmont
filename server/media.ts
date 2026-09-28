@@ -13,7 +13,8 @@ type ArticleRefs = { id: string; version: number; featured_image_id: string | nu
 /**
  * Copies every image the article references to the public bucket and records
  * it, so publish_article (which re-checks this) can publish the snapshot.
- * Reads go through the staff client, so RLS still applies.
+ * Reads go through the staff client, so RLS still applies. Returns the ids
+ * whose public copy this call created, for rollbackPublicCopies.
  */
 export async function makeArticleMediaPublic(staff: SupabaseClient, service: SupabaseClient, articleId: string, expectedVersion: number) {
   const { data, error } = await staff.from('articles').select('id, version, featured_image_id, og_image_id, content').eq('id', articleId).maybeSingle();
@@ -21,16 +22,36 @@ export async function makeArticleMediaPublic(staff: SupabaseClient, service: Sup
   const article = data as ArticleRefs;
   if (article.version !== expectedVersion) throw new HttpError(409, 'version_conflict');
   const ids = [...new Set([article.featured_image_id, article.og_image_id, ...(article.content.blocks || []).filter((b) => b?.type === 'image').map((b) => b.mediaId)].filter(isUuid))];
-  if (!ids.length) return 0;
+  const created: string[] = [];
+  if (!ids.length) return created;
   const { data: media, error: mediaError } = await staff.from('media').select('id, path').in('id', ids);
   if (mediaError || (media || []).length !== ids.length) throw new HttpError(422, 'media_missing');
-  for (const item of media as { id: string; path: string }[]) {
-    const copy = await service.storage.from(PRIVATE_BUCKET).copy(item.path, item.path, { destinationBucket: PUBLIC_BUCKET });
-    if (copy.error && !/exist|duplicate/i.test(copy.error.message)) throw new HttpError(502, 'media_copy_failed');
+  try {
+    for (const item of media as { id: string; path: string }[]) {
+      const copy = await service.storage.from(PRIVATE_BUCKET).copy(item.path, item.path, { destinationBucket: PUBLIC_BUCKET });
+      if (!copy.error) created.push(item.id);
+      else if (!/exist|duplicate/i.test(copy.error.message)) throw new HttpError(502, 'media_copy_failed');
+    }
+    const mark = await service.rpc('media_mark_public', { p_ids: ids });
+    if (mark.error) throw new Error('media_mark_failed');
+  } catch (failure) {
+    await rollbackPublicCopies(service, created);
+    throw failure;
   }
-  const mark = await service.rpc('media_mark_public', { p_ids: ids });
-  if (mark.error) throw new Error('media_mark_failed');
-  return ids.length;
+  return created;
+}
+
+/**
+ * A publish attempt failed after copying: removes, right away, the public
+ * copies it created, unless a publication already uses them.
+ */
+export async function rollbackPublicCopies(service: SupabaseClient, ids: string[]) {
+  if (!ids.length) return 0;
+  const { data, error } = await service.rpc('media_rollback_public', { p_ids: ids });
+  if (error) throw new Error('media_rollback_failed');
+  const paths = ((data as string[] | null) || []).filter((p) => typeof p === 'string');
+  if (paths.length && (await service.storage.from(PUBLIC_BUCKET).remove(paths)).error) throw new Error('media_rollback_failed');
+  return paths.length;
 }
 
 /**

@@ -22,6 +22,7 @@ const messages: Record<string, string> = {
   not_found: 'Essa pessoa não faz parte da equipe.',
   auth_create_failed: 'O Supabase Auth recusou a criação do usuário.',
   auth_update_failed: 'O Supabase Auth recusou a atualização. O acesso continua bloqueado; rode o comando de novo.',
+  inactive: 'Essa pessoa está desativada. Reative o acesso no painel (Equipe) antes de gerar uma nova senha.',
 };
 
 function stop(message: string): never {
@@ -67,7 +68,7 @@ try {
       `Válida até:        ${until} (${TEMPORARY_PASSWORD_HOURS} h, horário de Brasília)`,
       '',
       'Envie diretamente para a pessoa, por um canal privado. A senha não será mostrada de novo.',
-      'No primeiro acesso ela cadastra o aplicativo autenticador e cria a própria senha.',
+      'No primeiro acesso ela cadastra o aplicativo autenticador e, informando esta senha, cria a própria.',
       '',
     ].join('\n'),
   );

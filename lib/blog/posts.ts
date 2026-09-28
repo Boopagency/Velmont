@@ -1,3 +1,4 @@
+import { sameSiteUrl } from '@/lib/site';
 import { plainText } from './inline';
 import type { ArticleContent, BlogPost } from './types';
 import type { PublishedRow } from './schema';
@@ -30,7 +31,8 @@ export function postFromRow(row: PublishedRow): BlogPost {
     seo: {
       title: row.seo_title,
       description: row.seo_description,
-      canonical: row.canonical_url,
+      // Only this site's own origin: a canonical on another domain is dropped.
+      canonical: sameSiteUrl(row.canonical_url),
       ogTitle: row.og_title,
       ogDescription: row.og_description,
       ogImage: row.og_image,

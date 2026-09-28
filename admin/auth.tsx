@@ -4,7 +4,7 @@ import { ClockAlertIcon, KeyRoundIcon, ShieldCheckIcon } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Spinner } from '@/components/ui/spinner';
-import { supabase } from './supabase';
+import { adminApi, supabase } from './supabase';
 import { Field, formText, fullDate } from './ui';
 import type { Role } from './types';
 
@@ -33,10 +33,12 @@ export function AuthGate({ children }: { children: ReactNode }) {
   const [staff, setStaff] = useState<Staff | null>(null);
   const [expiresAt, setExpiresAt] = useState<string | null>(null);
   const [email, setEmail] = useState('');
+  const [notice, setNotice] = useState('');
 
   const evaluate = useCallback(async (session: Session | null) => {
     if (!session) {
       setStaff(null);
+      setNotice('');
       setStage('signed-out');
       return;
     }
@@ -104,9 +106,21 @@ export function AuthGate({ children }: { children: ReactNode }) {
     );
   if (stage === 'signed-out') return <Login />;
   if (stage === 'enroll') return <EnrollMfa onDone={() => void supabase.auth.getSession().then(({ data }) => evaluate(data.session))} />;
-  if (stage === 'verify') return <VerifyMfa />;
+  if (stage === 'verify') return <VerifyMfa notice={notice} />;
   if (stage === 'no-access') return <NoAccess />;
-  if (stage === 'new-password') return <NewPassword email={email} expiresAt={expiresAt} />;
+  if (stage === 'new-password')
+    return (
+      <NewPassword
+        email={email}
+        expiresAt={expiresAt}
+        onDone={async (password) => {
+          // Setting the password ended every session: sign in again with it, then the authenticator code.
+          setNotice('Senha criada. Para entrar, digite o código do aplicativo autenticador.');
+          const { error } = await supabase.auth.signInWithPassword({ email, password });
+          if (error) await supabase.auth.signOut({ scope: 'local' });
+        }}
+      />
+    );
   if (stage === 'temporary-expired') return <TemporaryExpired expiresAt={expiresAt} />;
   return <StaffContext.Provider value={staff}>{children}</StaffContext.Provider>;
 }
@@ -265,7 +279,7 @@ function EnrollMfa({ onDone }: { onDone: () => void }) {
   );
 }
 
-function VerifyMfa() {
+function VerifyMfa({ notice }: { notice?: string }) {
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
   async function verify(e: SubmitEvent<HTMLFormElement>) {
@@ -281,6 +295,7 @@ function VerifyMfa() {
   }
   return (
     <AuthShell title="Verificação em duas etapas" description="Digite o código de 6 dígitos que aparece no seu aplicativo autenticador.">
+      {notice && <output className="mb-4 block rounded-lg bg-muted px-3 py-2 text-[13px]">{notice}</output>}
       <form onSubmit={verify} className="grid gap-4">
         <Field label="Código do aplicativo autenticador" id="code">
           {codeInput}
@@ -307,37 +322,53 @@ function NoAccess() {
   );
 }
 
-// Error codes only arrive when the API version header is readable, so the
-// Supabase Auth messages are matched too.
-const passwordProblem = (error: { code?: string; message: string }) =>
-  error.code === 'same_password' || /different from the old password/i.test(error.message)
-    ? 'A nova senha precisa ser diferente da senha temporária.'
-    : error.code === 'weak_password' || /weak|pwned|leaked|at least/i.test(error.message)
-      ? 'Senha fraca ou exposta em vazamentos conhecidos. Escolha outra.'
-      : 'Não foi possível salvar a senha. Tente novamente.';
+// Answers of /api/admin/first-access (never shows internals).
+const firstAccessProblem: Record<string, string> = {
+  wrong_temporary_password: 'A senha temporária não confere. Digite exatamente a que você recebeu.',
+  same_as_temporary: 'A nova senha precisa ser diferente da senha temporária.',
+  weak_password: 'Senha fraca ou exposta em vazamentos conhecidos. Escolha outra.',
+  mfa_required: 'Confirme o aplicativo autenticador antes de criar a senha. Saia e entre de novo.',
+  expired: 'A senha temporária expirou. Peça uma nova à pessoa responsável pela equipe.',
+  not_pending: 'Esta senha temporária não vale mais. Peça uma nova à pessoa responsável pela equipe.',
+  stale: 'Uma nova senha temporária foi gerada para você. Use a mais recente.',
+  not_completed: 'A nova senha foi salva, mas o acesso ainda não foi liberado. Saia, entre com a nova senha e repita este passo.',
+  too_many_requests: 'Muitas tentativas. Aguarde alguns minutos.',
+};
 
-/** First access, after MFA: the temporary password is replaced by a personal one. */
-function NewPassword({ email, expiresAt }: { email: string; expiresAt: string | null }) {
+/**
+ * First access, after MFA: the person proves the temporary password and
+ * chooses their own. The server checks both; only then the account opens.
+ */
+function NewPassword({ email, expiresAt, onDone }: { email: string; expiresAt: string | null; onDone: (password: string) => Promise<void> }) {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
   async function submit(e: SubmitEvent<HTMLFormElement>) {
     e.preventDefault();
     const form = new FormData(e.currentTarget);
+    const temporary = formText(form, 'temporary-password').trim();
     const password = formText(form, 'new-password');
     if (password.length < 12) return setError('Use pelo menos 12 caracteres.');
     if (password !== formText(form, 'new-password-confirm')) return setError('As senhas não conferem.');
+    if (password === temporary) return setError(firstAccessProblem.same_as_temporary);
     setBusy(true);
     setError('');
-    // On success Supabase Auth emits USER_UPDATED and the gate checks access again.
-    const { error: updateError } = await supabase.auth.updateUser({ password });
+    const result = await adminApi('/api/admin/first-access', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ temporary_password: temporary, new_password: password }),
+    }).catch(() => null);
+    if (result?.ok) return onDone(password);
     setBusy(false);
-    if (updateError) setError(passwordProblem(updateError));
+    setError(firstAccessProblem[String(result?.body.error)] || 'Não foi possível salvar a senha. Tente novamente.');
   }
   return (
-    <AuthShell title="Crie sua senha" description="A senha temporária só vale para este primeiro acesso. Escolha uma senha pessoal, que só você vai saber.">
+    <AuthShell title="Crie sua senha" description="Para concluir o primeiro acesso, informe a senha temporária que você recebeu e escolha uma senha pessoal, que só você vai saber.">
       <form onSubmit={submit} className="grid gap-4">
         {/* Lets password managers save the new password under the right account. */}
         <input type="email" autoComplete="username" value={email} readOnly hidden />
+        <Field label="Senha temporária" id="temporary-password-current">
+          <Input id="temporary-password-current" name="temporary-password" type="password" autoComplete="current-password" required maxLength={200} className="h-10" />
+        </Field>
         <Field label="Nova senha" id="new-password" hint="Pelo menos 12 caracteres. Uma frase longa é fácil de lembrar e difícil de adivinhar.">
           <Input id="new-password" name="new-password" type="password" autoComplete="new-password" required minLength={12} maxLength={200} aria-describedby="new-password-hint" className="h-10" />
         </Field>

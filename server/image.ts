@@ -75,3 +75,70 @@ export function extensionMatches(fileName: string, info: ImageInfo) {
   const allowed: Record<ImageInfo['ext'], string[]> = { jpg: ['jpg', 'jpeg'], png: ['png'], webp: ['webp'], avif: ['avif'] };
   return Boolean(ext && allowed[info.ext].includes(ext));
 }
+
+const includes = (b: Uint8Array, text: string) => Buffer.from(b.buffer, b.byteOffset, b.byteLength).includes(text, 0, 'latin1');
+
+/**
+ * Whether the file carries metadata that can identify people or places:
+ * EXIF (GPS, camera, dates), XMP, IPTC, comments or PNG text chunks.
+ */
+export function hasMetadata(b: Uint8Array, info: ImageInfo) {
+  if (info.ext === 'jpg') {
+    for (let i = 2; i + 4 <= b.length; ) {
+      if (b[i] !== 0xff) return true; // unexpected layout: treat as unsafe
+      const marker = b[i + 1];
+      if (marker === 0xff) {
+        i++;
+        continue;
+      }
+      if (marker === 0xd8 || marker === 0x01 || (marker >= 0xd0 && marker <= 0xd7)) {
+        i += 2;
+        continue;
+      }
+      if (marker === 0xda || marker === 0xd9) return false; // image data: metadata comes before it
+      const length = u16be(b, i + 2);
+      // APP1..APP15 (EXIF, XMP, IPTC…) and comments. APP0 (JFIF), APP2 (ICC colour
+      // profile) and APP14 (Adobe colour transform) describe only how to draw the image.
+      if ((marker >= 0xe1 && marker <= 0xef && marker !== 0xe2 && marker !== 0xee) || marker === 0xfe) return true;
+      i += 2 + length;
+    }
+    return false;
+  }
+  if (info.ext === 'png') {
+    for (let i = 8; i + 8 <= b.length; ) {
+      const type = ascii(b, i + 4, 4);
+      if (['eXIf', 'tEXt', 'zTXt', 'iTXt', 'tIME'].includes(type)) return true;
+      if (type === 'IEND') return false;
+      i += 12 + u32be(b, i);
+    }
+    return false;
+  }
+  if (info.ext === 'webp') {
+    for (let i = 12; i + 8 <= b.length; ) {
+      const type = ascii(b, i, 4);
+      if (type === 'EXIF' || type === 'XMP ') return true;
+      const size = (b[i + 4] | (b[i + 5] << 8) | (b[i + 6] << 16) | (b[i + 7] << 24)) >>> 0;
+      i += 8 + size + (size % 2);
+    }
+    return false;
+  }
+  // AVIF keeps EXIF/XMP as items of the container.
+  return includes(b, 'Exif') || includes(b, 'xmpmeta') || includes(b, 'application/rdf+xml');
+}
+
+/**
+ * Re-encodes the image without any metadata (orientation applied first).
+ * AVIF becomes WebP. Used when an upload carries metadata, whoever sent it.
+ */
+// Only the calls used here (the project's type setup stubs the 'sharp' module).
+type Pipeline = { rotate(): Pipeline; png(): Pipeline; jpeg(options: { quality: number; mozjpeg: boolean }): Pipeline; webp(options: { quality: number }): Pipeline; toBuffer(): Promise<Buffer> };
+type Sharp = (input: Uint8Array, options: { limitInputPixels: number; failOn: 'error' }) => Pipeline;
+
+export async function withoutMetadata(bytes: Uint8Array, info: ImageInfo): Promise<{ bytes: Uint8Array; info: ImageInfo } | null> {
+  const { default: sharp } = (await import('sharp')) as unknown as { default: Sharp };
+  const image = sharp(bytes, { limitInputPixels: MAX_PIXELS, failOn: 'error' }).rotate();
+  const output = info.ext === 'png' ? await image.png().toBuffer() : info.ext === 'jpg' ? await image.jpeg({ quality: 90, mozjpeg: true }).toBuffer() : await image.webp({ quality: 90 }).toBuffer();
+  const clean = new Uint8Array(output);
+  const next = sniffImage(clean);
+  return next && !hasMetadata(clean, next) ? { bytes: clean, info: next } : null;
+}

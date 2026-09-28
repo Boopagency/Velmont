@@ -30,12 +30,14 @@ Navegador ──► Vercel (estático: dist/)
               ├─ / , /blog, /blog/<slug>, /privacidade   HTML pré-renderizado (sem consulta ao banco)
               ├─ /admin, /admin/preview                   SPA privada (shell sem dados, noindex)
               └─ /api/*  Vercel Functions (Node 22)
-                   ├─ POST /api/leads            público: valida, rate limit, grava lead
-                   ├─ POST|DELETE /api/admin/media   upload (bucket privado) / exclusão (staff)
+                   ├─ POST /api/leads            público: Turnstile, valida, rate limit, grava lead
+                   ├─ POST|DELETE /api/admin/media   upload (bucket privado, sem EXIF/GPS) / exclusão
+                   │                             pela função delete_media (recusa imagem em uso)
                    ├─ POST /api/admin/publish    publica/despublica/arquiva: copia só as imagens do
                    │                             artigo para o bucket público, limpa as sem uso, rebuild
                    ├─ POST /api/admin/rebuild    limpeza de mídia pública + Deploy Hook (staff)
                    ├─ POST /api/admin/staff      acesso da equipe com senha temporária (owner)
+                   ├─ POST /api/admin/first-access  conclui o primeiro acesso (MFA + senha temporária)
                    └─ GET  /api/blog-fallback    301 de slug antigo / 404
 Admin (navegador) ──► Supabase Auth (senha + TOTP), PostgREST (RLS decide tudo)
                       e Storage: imagens de rascunho só por URL assinada que expira
@@ -70,6 +72,9 @@ Migrations em `supabase/migrations/`:
 - `20260922120100_import_launch_articles.sql`: importa os 3 artigos atuais, sem inventar datas (gerado por `scripts/generate-legacy-import.ts`).
 - `20260923090000_private_draft_media.sql`: bucket privado `media-private`, policies de Storage, coluna `media.public_since` e publicação de imagens controlada (seção 4.1).
 - `20260923150000_site_build_status.sql`: ciclo de vida de `site_builds` (`pending`/`success`/`failed`) e `finish_site_builds`, chamada só pela service role no build de produção.
+- `20260925180000_temporary_password_access.sql`: senha temporária e bloqueio até o primeiro acesso (seção 8).
+- `20260928120000_security_remediation.sql`: correções da auditoria white-box (primeiro acesso explícito, exclusão de mídia só por `delete_media`, publicação validada antes de copiar imagens, `add_staff_member` desativada, auditoria de rebuild e de tentativas recusadas, conflitos de versão com `PT409`).
+- `20260928120100_auth_audit_events.sql`: registra no `audit_log` autenticador cadastrado/removido e sessões encerradas (triggers em `auth.mfa_factors` e `auth.sessions` que nunca bloqueiam o Supabase Auth).
 
 | Tabela | Conteúdo |
 |---|---|
@@ -89,7 +94,7 @@ Integridade garantida no banco (não no navegador):
 - CHECK constraints validam o JSON do conteúdo, referências (`https?://`), tags, slugs e tamanhos.
 - Triggers forçam `created_by`, `updated_by`, datas e `version`, gravam revisões e auditoria, impedem alterar dados enviados de um lead e impedem remover o último owner ativo.
 - Mudanças de status só acontecem pelas funções `publish_article`, `unpublish_article`, `archive_article`, `submit_article_for_review` e `return_article_to_draft`.
-- `publish_article(id, expected_version)` recusa publicar se outra pessoa editou depois (`40001`) e cria o redirect quando o slug publicado muda.
+- `publish_article(id, expected_version)` recusa publicar se outra pessoa editou depois (`PT409`, HTTP 409) e cria o redirect quando o slug publicado muda. O código `40001` não é usado: o PostgREST trata `40001` como falha de serialização e repete a chamada sem fim.
 
 ## 4. Políticas RLS
 
@@ -100,9 +105,9 @@ RLS ativa em **todas** as 10 tabelas. Os privilégios começam do zero (`revoke 
 | `published_articles` | anon + authenticated | — (só via `publish_article`) | — | — |
 | `articles` | staff | staff (colunas editáveis) | staff (colunas editáveis; `status` só por função) | **owner** |
 | `article_revisions`, `slug_redirects`, `site_builds` | staff | — (trigger/serviço) | — | — |
-| `media` | staff | staff (upload valida via API) | staff (só `alt`; `public_since` nunca) | staff (API verifica uso) |
+| `media` | staff | staff (upload valida via API) | staff (só `alt`; `public_since` nunca) | — (só `delete_media`, que recusa imagem usada por rascunho ou publicação) |
 | `leads` | staff | **ninguém** (só service role via `/api/leads`) | staff (só `status` e `notes`) | **owner** |
-| `admin_users` | staff | — (só `add_staff_member`, owner) | — (só `update_staff_member`, owner) | — |
+| `admin_users` | staff | — (só o servidor, com `staff_issue_temporary_access`; `add_staff_member` desativada) | — (só `update_staff_member`, owner) | — |
 | `audit_log` | **owner** | — (triggers/funções) | bloqueado até para service role | bloqueado até para service role |
 | `rate_limits` | — | — | — | — (só service role) |
 
@@ -130,25 +135,28 @@ Os testes provam isso com uma policy "libera tudo" presente no banco de teste.
 
 **Fluxo de publicação** (`POST /api/admin/publish`):
 
-1. Autentica e autoriza a pessoa (staff) e confere a versão do artigo (bloqueio otimista).
+1. Autentica e autoriza a pessoa (staff) e roda `can_publish_article` **como a usuária**: as mesmas regras de `publish_article` (versão, status, campos, imagens existentes e coerentes), **antes de qualquer cópia**. Um artigo que seria recusado não expõe nenhuma imagem.
 2. Lê, **como a usuária** (RLS), as imagens que o artigo referencia: capa, imagem social e blocos de imagem. Só essas são copiadas de `media-private` para `media`, no mesmo caminho; nenhuma outra mídia privada sai do bucket.
 3. A service role marca essas imagens com `media_mark_public` (função executável só pela service role).
 4. `publish_article` roda **como a usuária** e revalida no banco:
    - toda imagem referenciada existe e está marcada como pública;
    - cada bloco de imagem aponta para o `path` da própria mídia.
    Se não, recusa (`media_not_public` / `media_mismatch`). Assim, chamar a RPC direto, sem passar pela API, não publica imagem privada.
+   Se a publicação ainda for recusada (corrida com outra edição), as cópias feitas **nesta tentativa** são desfeitas na hora (`media_rollback_public` + remoção do bucket público), sem esperar a limpeza.
 5. `media_unpublish_unreferenced` desmarca e devolve as imagens que nenhum artigo publicado usa mais, e a API as **apaga do bucket público**. Isso roda em toda publicação, despublicação, arquivamento e em "Atualizar site agora".
    - Há uma carência de 2 minutos, para não apagar a cópia de uma publicação em andamento. Um *advisory lock* serializa publicação e limpeza.
    - Se a remoção falhar, a imagem volta a ser marcada e a próxima limpeza tenta de novo.
 6. Dispara o rebuild. O HTML estático aponta apenas para `…/storage/v1/object/public/media/<path>`. O teste verifica que a página pública nunca contém `media-private` nem `token=`.
 
-**No painel**, miniaturas, capa, imagens do editor e o preview usam `createSignedUrls` com validade de 10 minutos. O Storage só assina se a RLS permitir a leitura para aquele JWT. Excluir uma mídia remove o original privado e a eventual cópia pública, e é recusado enquanto algum artigo a usar.
+**No painel**, miniaturas, capa, imagens do editor e o preview usam `createSignedUrls` com validade de 10 minutos. O Storage só assina se a RLS permitir a leitura para aquele JWT. Excluir uma mídia passa pela função `delete_media` (o `DELETE` direto na tabela foi revogado): ela recusa a imagem usada como capa, imagem social, bloco de rascunho ou por uma publicação, e só então a API remove o original privado e a eventual cópia pública.
+
+**Metadados.** O upload remove EXIF/XMP no servidor (sharp) sempre que o arquivo os contém (inclusive GPS), além da recodificação feita no navegador. O objeto publicado nunca carrega esses metadados (coberto pelo E2E).
 
 ## 5. Autenticação
 
 - **Supabase Auth** com e-mail e senha (mínimo de 12 caracteres), sem cadastro público.
 - **MFA TOTP obrigatório para todo mundo.** No primeiro acesso, o painel exige o cadastro do aplicativo autenticador. Sem `aal2`, o banco não devolve nenhum dado privado, mesmo com a senha correta (coberto por testes).
-- Recuperação de senha pelo link do e-mail, que leva a `/admin/conta?senha=nova` depois da verificação TOTP. A mensagem é sempre genérica, para não revelar se o e-mail existe. Abra o link **no mesmo navegador** em que pediu a recuperação (fluxo PKCE).
+- Recuperação de senha pelo link do e-mail, que leva a `/admin/conta?senha=nova` depois da verificação TOTP. A mensagem é sempre genérica, para não revelar se o e-mail existe. Abra o link **no mesmo navegador** em que pediu a recuperação (fluxo PKCE). **Uma conta bloqueada no primeiro acesso nunca é liberada por recuperação, magic link, OTP ou `updateUser`**: a troca de senha fica registrada, e a conta continua bloqueada (seção 8).
 - "Sair de todos os dispositivos" em **Conta** encerra todas as sessões.
 - Autorização no servidor: as Functions validam o token chamando `admin_context()` no próprio banco (assinatura, expiração, MFA, sessão e papel). O navegador não decide nada sozinho.
 - Sessão guardada no `localStorage` do domínio (padrão do supabase-js), protegida por uma CSP sem scripts de terceiros no admin.
@@ -163,13 +171,15 @@ Veja `.env.example`.
 | `NEXT_PUBLIC_SUPABASE_URL` | Build + Functions | não | URL do projeto Supabase. |
 | `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Build + Functions | não (pública por design) | Chave anon/publishable. O build **recusa** uma chave `service_role` aqui. |
 | `NEXT_PUBLIC_LEAD_CAPTURE` | Build + Functions | não | `true` ativa o registro de leads (e o texto correspondente da privacidade). |
-| `NEXT_PUBLIC_TURNSTILE_SITE_KEY` | Build | não | Opcional (Cloudflare Turnstile). |
+| `NEXT_PUBLIC_TURNSTILE_SITE_KEY` | Build | não | Cloudflare Turnstile. **Obrigatória com `NEXT_PUBLIC_LEAD_CAPTURE=true`.** |
 | `SUPABASE_SERVICE_ROLE_KEY` | **Functions apenas** | **sim** | Grava leads e objetos de storage, sempre depois da validação. |
 | `RATE_LIMIT_SALT` | Functions | **sim** | ≥ 32 caracteres aleatórios (`openssl rand -hex 32`). |
-| `TURNSTILE_SECRET_KEY` | Functions | **sim** | Opcional, junto com a site key. |
+| `TURNSTILE_SECRET_KEY` | Functions apenas | **sim** | **Obrigatória com a captura ativa**: sem ela, `/api/leads` responde 503 (`not_configured`, nome da variável só nos Runtime Logs) e nada é gravado sem verificação. |
 | `VERCEL_DEPLOY_HOOK_URL` | Functions | **sim** | Deploy Hook da produção. Só URLs `https://api.vercel.com/v1/integrations/deploy/…` são aceitas. |
 
-Nunca use `NEXT_PUBLIC_` em segredos. O `scripts/verify.mjs` varre o `dist/` procurando os valores secretos e JWTs `service_role`.
+Nunca use `NEXT_PUBLIC_` em segredos. O build **falha** se qualquer variável `NEXT_PUBLIC_*` contiver uma chave `sb_secret_…` ou um JWT `service_role`, e **falha** se o valor de `SUPABASE_SERVICE_ROLE_KEY`, `RATE_LIMIT_SALT`, `TURNSTILE_SECRET_KEY` ou `VERCEL_DEPLOY_HOOK_URL` aparecer em qualquer arquivo gerado. O `scripts/verify.mjs` também varre o `dist/`.
+
+**Ambientes na Vercel.** As variáveis **secretas** (`SUPABASE_SERVICE_ROLE_KEY`, `RATE_LIMIT_SALT`, `TURNSTILE_SECRET_KEY`, `VERCEL_DEPLOY_HOOK_URL`) ficam **somente em Production**. Um deploy de Preview (qualquer branch) roda código ainda não revisado; com a service role ele leria e alteraria os dados reais. As variáveis `NEXT_PUBLIC_*` (configuração) podem continuar em Preview. Sem os segredos, o Preview mostra o site e o painel, e as Functions respondem 503 genérico.
 
 ## 7. Configuração do Supabase (passo a passo)
 
@@ -179,6 +189,7 @@ Nunca use `NEXT_PUBLIC_` em segredos. O `scripts/verify.mjs` varre o `dist/` pro
    - **Desative "Allow new users to sign up".**
    - E-mail ativo; confirmações de e-mail ativas.
    - Tamanho mínimo de senha **12**; ative **Leaked password protection** (Pro).
+   - **Authentication → Emails**: ative as **notificações de segurança** (senha alterada, autenticador cadastrado/removido) quando disponíveis no plano, e configure um **SMTP próprio** (Settings → Auth → SMTP) para que esses avisos e a recuperação saiam do domínio da Velmont.
 4. **Authentication → Multi-Factor**: **TOTP habilitado (enroll + verify).** No CLI local ele vem desabilitado; o `supabase/config.toml` do repositório já o habilita.
 5. **Authentication → URL Configuration**:
    - *Site URL* = `https://www.grupovelmont.com`;
@@ -195,15 +206,15 @@ Nunca use `NEXT_PUBLIC_` em segredos. O `scripts/verify.mjs` varre o `dist/` pro
 O acesso não depende de link por e-mail. Cada pessoa recebe uma **senha temporária única**, gerada pelo servidor:
 
 - 20 caracteres aleatórios (cerca de 116 bits), sem caracteres ambíguos, nunca repetida;
-- **só abre o primeiro acesso**: até a pessoa cadastrar o aplicativo autenticador (MFA) **e** criar a própria senha, o banco não libera nenhum dado (RLS), nem pela API;
+- **só abre o primeiro acesso**: até a pessoa cadastrar o aplicativo autenticador (MFA) **e** concluir o primeiro acesso, o banco não libera nenhum dado (RLS), nem pela API;
 - **vale 48 horas**. Depois disso, nem uma troca de senha feita direto no Supabase Auth libera a conta; só uma nova senha temporária;
-- aparece **uma única vez** para quem a pediu. Não fica gravada no banco, nos logs nem no registro de atividades (o Supabase Auth guarda apenas o hash).
+- aparece **uma única vez** para quem a pediu. Não fica gravada em texto em lugar nenhum: o banco guarda só um *digest* scrypt com sal, em `private.staff_first_access` (fora de qualquer schema exposto pela API, sem acesso nem para a service role direta), apagado quando o primeiro acesso termina. Nunca aparece em logs nem no registro de atividades.
 
 Uma "senha padrão" igual para todos não é usada de propósito: o MFA é cadastrado no primeiro login, então quem entrasse antes com uma senha conhecida cadastraria o próprio autenticador e ficaria com a conta.
 
 **Primeira pessoa responsável** (ainda não há ninguém para liberar pelo painel):
 
-1. Aplique a migration `20260925180000_temporary_password_access.sql` (seção 7, passo 2).
+1. Aplique as migrations (seção 7, passo 2).
 2. Localmente, com as variáveis de produção (`vercel env pull .env.local`):
 
    ```bash
@@ -214,11 +225,23 @@ Uma "senha padrão" igual para todos não é usada de propósito: o MFA é cadas
 
 **Demais pessoas**: **Equipe → Criar acesso** (só responsáveis). O painel mostra a senha temporária uma vez, com o botão "Copiar mensagem".
 
-**Primeiro acesso**: `https://www.grupovelmont.com/admin` → e-mail + senha temporária → cadastro do aplicativo autenticador → criação da própria senha → painel.
+**Primeiro acesso** (`https://www.grupovelmont.com/admin`):
 
-**Esqueceu a senha ou perdeu o celular**: um responsável usa **Gerar nova senha temporária** na lista da Equipe (ou `scripts/staff-access.ts nova-senha --email …`). A senha e o autenticador antigos deixam de valer, e todas as sessões abertas da pessoa são encerradas na hora. O "Esqueci minha senha" por e-mail continua disponível e depende da URL Configuration da seção 7.
+1. e-mail + senha temporária;
+2. cadastro do aplicativo autenticador (sessão `aal2`);
+3. **Crie sua senha**: a pessoa digita de novo a senha temporária e escolhe a própria;
+4. `POST /api/admin/first-access` confere, nesta ordem: sessão viva em `aal2` com autenticador verificado; a senha temporária contra o digest (não contra a senha atual da conta, que um e-mail de recuperação poderia ter trocado); nova senha diferente da temporária; o banco confirma MFA e sessão para **esta** emissão (`staff_begin_first_access`); o servidor define a senha pela Admin API; o banco só libera se a senha mudou **depois** da própria checagem e o autenticador continua verificado (`staff_complete_first_access`);
+5. a troca de senha encerra **todas** as sessões: o painel entra de novo com a nova senha e pede o código do autenticador.
 
-**Suspeita de conta comprometida**: primeiro **Desativar acesso** (bloqueio imediato), depois gere a nova senha temporária e reative.
+Qualquer falha no meio deixa a conta bloqueada. Uma nova senha temporária emitida durante o processo invalida a tentativa em andamento (`stale`). Uma senha temporária emitida **antes** desta versão não tem digest: gere uma nova.
+
+**Esqueceu a senha ou perdeu o celular**: um responsável usa **Gerar nova senha temporária** na lista da Equipe (ou `scripts/staff-access.ts nova-senha --email …`). A senha e o autenticador antigos deixam de valer, e todas as sessões abertas da pessoa são encerradas na hora. O "Esqueci minha senha" por e-mail continua disponível para contas já liberadas e depende da URL Configuration da seção 7.
+
+**Suspeita de conta comprometida**: use **Gerar nova senha temporária** imediatamente. Isso bloqueia a conta, encerra todas as sessões, remove o autenticador e invalida a senha atual; o evento fica no registro de atividades. Confirme com a pessoa por um canal fora do e-mail antes de entregar a nova senha. **Desativar acesso** é para desligamento: uma pessoa desativada não recebe senha temporária (o servidor recusa com `inactive`); para devolver o acesso, reative e depois gere a nova senha temporária.
+
+**Registro de atividades** (Equipe): senha temporária emitida (novo acesso ou redefinição), autenticador cadastrado/removido, senha alterada, primeiro acesso concluído, sessões encerradas, tentativas recusadas (senha temporária errada, sem MFA, expirada, acesso negado à gestão da equipe) e pedidos/falhas de atualização do site. Nunca guarda senhas, segredos TOTP, JWTs ou chaves.
+
+**Aprovação dupla** para redefinir acesso de um responsável não foi implementada: com duas pessoas na equipe, ela bloquearia a recuperação quando uma delas estiver indisponível. A mitigação é o registro de atividades acima e as notificações de segurança por e-mail do Supabase (seção 7).
 
 **Qual e-mail usar**: o e-mail é o login. Prefira o e-mail da Velmont: se alguém sair, a empresa continua controlando a caixa usada para recuperar o acesso. Quem já recebeu um convite antigo por e-mail pode receber a senha temporária nesse mesmo endereço, porque o usuário existente é reaproveitado.
 
@@ -229,20 +252,22 @@ Uma "senha padrão" igual para todos não é usada de propósito: o MFA é cadas
 1. **Settings → Environment Variables** (Production): as variáveis da seção 6, com `NEXT_PUBLIC_SITE_URL=https://www.grupovelmont.com`. Sem ela, o build usa esse mesmo domínio; um build de produção com uma URL `*.vercel.app` falha de propósito. Depois de criar ou alterar variáveis, faça um **Redeploy**: as Functions só leem os valores do deploy em que foram publicadas.
 2. **Settings → Git → Deploy Hooks**: crie um hook com o branch **`main`** e salve a URL em `VERCEL_DEPLOY_HOOK_URL`. Um hook de outro branch geraria um deploy de Preview, e o site público não mudaria.
    - Cada pedido de atualização fica em `site_builds`: `pending` quando a Vercel aceita o hook; `success` ou `failed` quando o build de produção termina (o `scripts/build.mjs` informa o resultado com a `service_role`); `failed` imediato se o hook não estiver configurado ou recusar.
-   - Se o painel mostrar erro ao atualizar o site, a resposta de `/api/admin/rebuild` traz o nome da variável que falta (nunca o valor), e o mesmo aparece nos Runtime Logs.
+   - Se o painel mostrar erro ao atualizar o site, a resposta de `/api/admin/rebuild` traz o nome da variável que falta (nunca o valor) **apenas para staff autenticado**; um visitante anônimo recebe só um erro genérico. O nome também aparece nos Runtime Logs.
 3. Build e saída continuam `pnpm build` → `dist`; o `vercel.json` já declara as Functions (`api/**/*.ts`, Node 22).
 4. Faça o deploy (merge do PR). Depois confira:
    - `/blog` e os 3 artigos; `/insights/...` responde **301**.
    - `/admin`: login → MFA → Dashboard (3 publicados).
    - Headers: `Content-Security-Policy`, `Strict-Transport-Security` e, em `/admin`, `X-Robots-Tag: noindex` e `Cache-Control: no-store`.
-5. **Leads.** Só ative `NEXT_PUBLIC_LEAD_CAPTURE=true` depois da revisão jurídica do texto de privacidade. Depois, faça um redeploy.
+5. **Leads.** Só ative `NEXT_PUBLIC_LEAD_CAPTURE=true` depois da revisão jurídica do texto de privacidade, **junto com** `NEXT_PUBLIC_TURNSTILE_SITE_KEY` e `TURNSTILE_SECRET_KEY` (Cloudflare → Turnstile → Add widget, domínios `grupovelmont.com` e `www.grupovelmont.com`, modo *Managed*). Depois, faça um redeploy (os valores `NEXT_PUBLIC_*` entram no build).
+   - Sem token do Turnstile, ou com token inválido, `/api/leads` responde **403** sem gravar; a Origin sozinha não é proteção contra bots. A verificação é feita no servidor (`siteverify`).
+   - O WhatsApp abre sempre. Se o registro falhar (400/403/429/503), o formulário **não** diz que o lead foi salvo, e a recusa fica nos Runtime Logs como uma linha JSON `{"event":"api_refused","route":"/api/leads","status":…,"error":…}`, sem nome, empresa, telefone ou e-mail.
 6. **Domínio definitivo.** Atualize `NEXT_PUBLIC_SITE_URL`, a Site URL e as Redirect URLs do Supabase, e reenvie o sitemap no Search Console.
 7. **Supabase com domínio customizado.** Se usar, troque `https://*.supabase.co` pelo domínio nas duas CSPs do `vercel.json`.
 8. **Região das Functions.** Recomendado `gru1` (São Paulo), perto do banco (Settings → Functions).
 
 ### WAF / rate limit no painel da Vercel (Firewall)
 
-A aplicação já limita no banco: 5 leads por cliente a cada 10 min, 300 por hora no total, 60 uploads por hora por pessoa e 30 atualizações do site por hora. Regras complementares recomendadas em **Firewall → Custom Rules**:
+A aplicação já limita no banco: 5 leads por cliente a cada 10 min (IPv4 por endereço; **IPv6 agrupado por /64**, que costuma ser de um mesmo assinante), 300 leads verificados por hora no total, 60 uploads por hora por pessoa e 30 atualizações do site por hora. Regras complementares recomendadas em **Firewall → Custom Rules**:
 
 | Regra | Condição | Ação |
 |---|---|---|
@@ -319,13 +344,13 @@ A interface usa shadcn/ui sobre os tokens da Velmont. O sistema visual está em 
 
 | Suite | Comando | Resultado |
 |---|---|---|
-| RLS / banco (PostgreSQL 16 real, com os privilégios padrão permissivos do Supabase reproduzidos) | `pnpm test:db` | **50/50** tabelas + **10/10** Storage/mídia + **9/9** senha temporária |
-| APIs (leads, upload, publish, rebuild, staff, fallback) | `pnpm test:unit` | **48/48** APIs + **10/10** renderer/schema |
-| Build com CMS falso (XSS, noindex, canonical, sitemap, JSON-LD, falha do CMS, chave service_role) | `pnpm test` | **8/8** |
-| **E2E** com Supabase Auth (GoTrue v2.186) + PostgREST v13 + Postgres reais, build real, emulação da Vercel e Chromium | `GOTRUE_BIN=… POSTGREST_BIN=… pnpm test:e2e` | **31/31** |
+| RLS / banco (PostgreSQL real, com os privilégios padrão permissivos do Supabase reproduzidos; rodado em 16 e 17.10) | `pnpm test:db` | **50/50** tabelas + **10/10** Storage/mídia + **11/11** senha temporária/primeiro acesso + **11/11** remediação = **82/82** |
+| APIs (leads, Turnstile, upload, publish, rebuild, staff, first-access, fallback) + renderer/schema | `pnpm test:unit` | **70/70** + **10/10** |
+| Build com CMS falso (XSS, noindex, canonical, sitemap, JSON-LD, falha do CMS, chaves secretas, Turnstile obrigatório com captura) | `pnpm test` | **12/12** (total de `pnpm test`: **174/174**) |
+| **E2E** com Supabase Auth (GoTrue v2.186) + PostgREST v13 + Postgres reais (16 e 17.10), build real, emulação da Vercel e Chromium | `GOTRUE_BIN=… POSTGREST_BIN=… pnpm test:e2e` | **40/40** |
 | Páginas, links, orçamento de bundle, isolamento do admin, varredura de segredos | `pnpm verify` | PASS |
 | Functions compiladas arquivo a arquivo e carregadas como Node ESM (como na Vercel) | `pnpm check:functions` | PASS |
-| typecheck / lint / build / `pnpm audit` | — | limpos / 0 vulnerabilidades |
+| typecheck / lint / build / `pnpm audit` / `pnpm audit --prod` | — | limpos / 0 vulnerabilidades |
 
 Os cenários pedidos estão cobertos:
 
@@ -361,10 +386,20 @@ Os cenários pedidos estão cobertos:
   - nunca é oferecida para a própria conta;
   - só owners com MFA emitem, com origem verificada e limite de uso;
   - a senha não aparece em logs nem no registro de atividades;
+- primeiro acesso contra o Supabase Auth real:
+  - recuperação por e-mail + `updateUser` + autenticador do atacante: a conta continua bloqueada;
+  - sem MFA a etapa é recusada, e uma troca direta de senha não libera;
+  - senha temporária expirada nunca libera;
+  - corrida com uma nova senha temporária termina bloqueada;
+  - falha depois de remover o autenticador deixa a conta inacessível;
+- lead do formulário público com UTMs → API → banco → `/admin/leads`, com os mesmos dados;
+- Turnstile obrigatório (sem token e token forjado: 403), 429 registrado sem dados pessoais;
+- `DELETE` direto em `media` recusado; publicação recusada não cria cópia pública; EXIF/GPS removidos;
+- conflito de versão respondido na hora com 409;
 - ausência de violações de CSP;
 - 390 px sem rolagem horizontal.
 
-O E2E precisa dos binários `auth` (github.com/supabase/auth/releases) e `postgrest` (github.com/PostgREST/postgrest/releases). O CI roda todas as outras suites, com um serviço Postgres.
+O E2E precisa dos binários `auth` (github.com/supabase/auth/releases) e `postgrest` (github.com/PostgREST/postgrest/releases). O CI (`.github/workflows/quality.yml`) roda as suites com Postgres 17 e `pnpm audit --audit-level moderate`, e um job separado roda o E2E com PostgreSQL 17 (PGDG), GoTrue v2.186.0 e PostgREST v13.0.7, sempre com chaves locais descartáveis, nunca com credenciais de produção.
 
 ## 13. Decisões de segurança e revisão adversarial
 
@@ -376,15 +411,15 @@ Pergunta feita: *"Sem credenciais, como eu acessaria o painel, os leads ou o ban
 - **Senha temporária interceptada.**
   - Ela vale 48 h e é única por pessoa.
   - Mesmo com o MFA cadastrado, não lê nada até ser trocada: `private.current_staff_role()` exige `must_change_password = false`.
-  - A troca é detectada no banco por um trigger em `auth.users`, nunca informada pelo navegador.
+  - Nenhuma troca de senha libera a conta (recuperação, magic link, OTP, `updateUser`): o trigger em `auth.users` só registra. Só o fluxo explícito do servidor libera (seção 8), com o banco como barreira final.
   - Uma troca depois do prazo não desbloqueia.
   - O responsável vê "Aguardando primeiro acesso" na Equipe e pode gerar outra senha: a anterior, o autenticador e as sessões deixam de valer.
   - Durante a emissão, o usuário fica banido no Auth e as sessões são apagadas antes da senha nova. Não há janela para alguém entrar com a senha antiga no meio do processo.
 - **Token roubado.** Deixa de valer no logout ou na revogação de sessões (a sessão é verificada no banco). Caso contrário, expira em 1 h.
 - **XSS no painel ou no site.** Não há HTML de usuário. A CSP do admin é `script-src 'self'`, sem terceiros. A CSP pública libera só o script inline por hash, e o build falha se o hash divergir.
 - **Clickjacking.** `frame-ancestors 'none'` + `X-Frame-Options: DENY`.
-- **Spam e bots no formulário.** Honeypot, validação estrita, limites de tamanho, rate limit no banco (IP com hash) e Turnstile opcional. Uma falha nunca bloqueia o WhatsApp.
-- **Uploads.** Tipo detectado pelos bytes, extensão coerente, sem SVG e limites de tamanho e de pixels; a imagem também é recodificada no navegador (remove metadados como GPS). O arquivo vai para o bucket **privado**.
+- **Spam e bots no formulário.** Turnstile obrigatório (verificado no servidor, *fail-closed*), honeypot, validação estrita, limites de tamanho e rate limit no banco (IP ou /64 IPv6 com hash). Uma falha nunca bloqueia o WhatsApp, e nunca é silenciosa.
+- **Uploads.** Tipo detectado pelos bytes, extensão coerente, sem SVG e limites de tamanho e de pixels; a imagem é recodificada no navegador e, se ainda trouxer EXIF/XMP (ex.: envio direto à API), o servidor remove os metadados. O arquivo vai para o bucket **privado**.
 - **Mídia de rascunho.** Nunca é pública. A leitura exige staff com MFA (RLS do Storage), por URL assinada de 10 min. Só as imagens de artigos publicados são copiadas para o bucket público, e são removidas quando deixam de ser usadas.
 - **Segredos.** Service role só nas Functions. O build recusa uma chave service_role em variável pública. O `verify` varre o `dist/`.
 
@@ -396,11 +431,21 @@ Achados corrigidos durante a própria revisão (detectados pelos testes):
 4. O login não era auditado (query builder lazy). Corrigido.
 5. O fallback de 404 buscava o host vindo da requisição. Agora usa a origem configurada.
 
+Corrigidos na remediação da auditoria white-box (2026-09-28):
+
+- **V-01**: um e-mail de recuperação liberava o primeiro acesso sem a senha temporária. Agora nenhuma troca de senha libera; só o fluxo explícito da seção 8.
+- **H-03 / B-02 / B-05 / D-03**: primeiro acesso exige MFA verificado no banco; corrida com nova emissão e falha parcial terminam bloqueadas; a senha temporária não pode virar a definitiva.
+- **V-02**: Turnstile obrigatório com a captura ativa.
+- **V-03**: validação antes de copiar imagens e rollback imediato. **B-03**: exclusão de mídia só por `delete_media`. **H-10**: EXIF/GPS removidos no servidor.
+- **V-04**: o rebuild não revela nomes de variáveis a anônimos. **H-04**: `add_staff_member` desativada. **H-05**: canonical e `og:url` só na origem do site. **H-09**: o build recusa segredos em `NEXT_PUBLIC_*`.
+- **H-02**: redefinição recusada para conta desativada, eventos de segurança no registro de atividades.
+- Novo: `publish_article` usava `40001` para conflito de versão, e o PostgREST repetia a chamada sem fim (a requisição travava). Agora `PT409`.
+
 Limitações conhecidas e assumidas:
 
 - Uma URL assinada já emitida continua válida até expirar (no máximo 10 min), mesmo se a pessoa sair ou perder o acesso nesse intervalo. Esse prazo curto é o limite aceito.
 - Depois de despublicar, a cópia pública é apagada na próxima limpeza, que roda em toda publicação e em "Atualizar site agora", respeitada a carência de 2 min.
-- O servidor não recodifica imagens: a validação é por assinatura e dimensões, e o conteúdo é servido pelo domínio do Supabase com o tipo correto.
+- O servidor só recodifica imagens que trazem metadados (EXIF/XMP). As demais são validadas por assinatura e dimensões e servidas pelo domínio do Supabase com o tipo correto.
 - O limite global de leads por hora pode ser esgotado por um atacante insistente, o que só afeta o registro; o WhatsApp continua funcionando. A regra de WAF da seção 9 mitiga isso.
 - Uma publicação só aparece no site depois do rebuild (1–2 min). Se o Deploy Hook falhar, o painel avisa e oferece "Atualizar site agora".
 
@@ -411,7 +456,9 @@ Limitações conhecidas e assumidas:
 - [ ] Criar o projeto Supabase e aplicar as migrations (seção 7).
 - [ ] Desativar o cadastro público, habilitar TOTP e configurar a senha mínima, a Site URL e as Redirect URLs.
 - [ ] Convidar Lisandra e Dani e liberar o primeiro owner via SQL (seção 8).
-- [ ] Definir as variáveis na Vercel e criar o Deploy Hook (seção 9).
+- [ ] Definir as variáveis na Vercel e criar o Deploy Hook (seção 9). Segredos **somente em Production** (seção 6).
+- [ ] Turnstile: criar o widget na Cloudflare e definir `NEXT_PUBLIC_TURNSTILE_SITE_KEY` e `TURNSTILE_SECRET_KEY` antes de `NEXT_PUBLIC_LEAD_CAPTURE=true`.
+- [ ] Supabase Auth: notificações de segurança por e-mail e SMTP próprio (seção 7).
 - [ ] Regras de Firewall/WAF da Vercel (seção 9).
 - [ ] Revisão jurídica do novo texto de privacidade antes de `NEXT_PUBLIC_LEAD_CAPTURE=true`.
 - [ ] Definir a política de retenção de leads (ex.: excluir após 24 meses sem relacionamento). O owner pode excluir pelo painel.
@@ -426,6 +473,7 @@ Limitações conhecidas e assumidas:
 - **Voltar ao código anterior**: `git revert` do merge; `/insights` volta a existir (remova os redirects).
 - **Mídia privada**: para voltar ao modelo anterior, seria preciso reverter `20260923090000_private_draft_media.sql` e tornar o upload público de novo. **Não recomendado**: rascunhos voltariam a ser acessíveis a quem obtivesse a URL.
 - **Banco**: as migrations só criam objetos novos, não alteram nada existente. Reverter = `drop` das tabelas, tipos e funções criadas, e do schema `private`. Faça backup antes; os leads são dados pessoais.
+- **Remediação de 2026-09-28** (`20260928120000_security_remediation.sql` e `20260928120100_auth_audit_events.sql`): são aditivas (funções novas, corpos de função substituídos, privilégios revogados). Reverter o código sem reverter o banco quebra o primeiro acesso e a exclusão de mídia do painel antigo (as funções antigas continuam existindo, mas o `DELETE` direto em `media` e `add_staff_member` ficam revogados). Para voltar de verdade: reaplicar as definições anteriores de `private.auth_password_changed` e `publish_article` (das migrations de 2026-09-25 e 2026-09-23), `grant delete on public.media to authenticated`, `drop trigger site_builds_audit on public.site_builds`, `drop trigger velmont_mfa_changed on auth.mfa_factors`, `drop trigger velmont_sessions_revoked on auth.sessions`. **Não recomendado**: reabre o V-01 (recuperação de senha libera o primeiro acesso).
 - **Artigo publicado por engano**: **Despublicar** no painel (o site se atualiza sozinho); o histórico permite recuperar versões anteriores.
 
 ## 16. Desenvolvimento local

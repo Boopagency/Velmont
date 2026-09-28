@@ -72,10 +72,10 @@ function Motion() {
 
 function ContactForm() {
   const [interest, setInterest] = useState<string | null>('Marcas');
-  return <form className="contact-form" onSubmit={e => {
+  return <form className="contact-form" onSubmit={async e => {
     e.preventDefault(); const data = new FormData(e.currentTarget);
     const message = `Olá, Velmont! Gostaria de solicitar uma análise estratégica.\nNome: ${(data.get('name') as string).trim()}\nEmpresa ou projeto: ${((data.get('company') as string) || 'Ainda em estruturação').trim()}\nInteresse: ${interest || 'Preciso de orientação'}`;
-    if (publicEnv.leadCapture) submitLead({ name: data.get('name'), company: data.get('company'), interest, website: data.get('website') });
+    if (publicEnv.leadCapture) await submitLead({ name: data.get('name'), company: data.get('company'), interest, website: data.get('website') });
     window.location.assign(whatsappUrl(message));
   }}>
     <div className="form-title">Conte um pouco sobre o seu momento.</div>

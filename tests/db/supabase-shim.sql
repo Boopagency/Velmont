@@ -17,7 +17,16 @@ create table auth.users (
 create table auth.sessions (
   id uuid primary key default gen_random_uuid(),
   user_id uuid not null,
-  not_after timestamptz
+  not_after timestamptz,
+  aal text default 'aal2'
+);
+
+-- Supabase Auth's authenticators (status becomes 'verified' after the first code).
+create table auth.mfa_factors (
+  id uuid primary key default gen_random_uuid(),
+  user_id uuid not null,
+  factor_type text not null default 'totp',
+  status text not null default 'unverified'
 );
 
 create function auth.jwt()

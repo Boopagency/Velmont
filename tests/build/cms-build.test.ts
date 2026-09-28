@@ -54,6 +54,7 @@ const rows = [
   }),
   row({ slug: 'rascunho-interno', title: 'Nota interna', robots_index: false, published_at: '2026-09-20T12:00:00Z' }),
   row({ slug: 'republicado', title: 'Republicado', canonical_url: 'https://outro.example/original', published_at: '2026-09-10T12:00:00Z' }),
+  row({ slug: 'consolidado', title: 'Consolidado', canonical_url: 'https://www.velmont.test/blog/marca-e-dominio', published_at: '2026-09-11T12:00:00Z' }),
 ];
 
 let server: http.Server;
@@ -132,10 +133,18 @@ describe('static build from the CMS', () => {
     const sitemap = read('sitemap.xml');
     assert.match(sitemap, /<loc>https:\/\/www.velmont.test\/blog\/marca-e-dominio<\/loc><lastmod>2026-10-05T09:30:00.000Z<\/lastmod>/);
     assert.ok(!sitemap.includes('rascunho-interno'));
-    assert.ok(!sitemap.includes('republicado'));
+    assert.ok(!sitemap.includes('consolidado'), 'canonical to another page of the site');
     assert.ok(!sitemap.includes('/admin'));
     assert.match(read('blog/rascunho-interno/index.html'), /<meta name="robots" content="noindex,follow">/);
-    assert.match(read('blog/republicado/index.html'), /<link rel="canonical" href="https:\/\/outro.example\/original">/);
+    assert.match(read('blog/consolidado/index.html'), /<link rel="canonical" href="https:\/\/www.velmont.test\/blog\/marca-e-dominio">/);
+  });
+
+  test('a canonical or social URL on another domain is ignored: the page points to itself (H-05)', () => {
+    const html = read('blog/republicado/index.html');
+    assert.ok(!html.includes('outro.example'));
+    assert.match(html, /<link rel="canonical" href="https:\/\/www.velmont.test\/blog\/republicado">/);
+    assert.match(html, /<meta property="og:url" content="https:\/\/www.velmont.test\/blog\/republicado">/);
+    assert.match(read('sitemap.xml'), /<loc>https:\/\/www.velmont.test\/blog\/republicado<\/loc>/);
   });
 
   test('robots allows search and AI search crawlers', () => {
@@ -154,5 +163,21 @@ describe('static build from the CMS', () => {
   test('refuses a service_role key in the public variable', async () => {
     const payload = Buffer.from(JSON.stringify({ role: 'service_role' })).toString('base64url');
     await assert.rejects(build({ NEXT_PUBLIC_SUPABASE_ANON_KEY: `x.${payload}.y` }), /service_role/);
+  });
+
+  test('refuses a new-format Supabase secret key in any public variable (H-09)', async () => {
+    // Assembled at runtime so no secret-shaped literal sits in the repository.
+    const fake = (c: string) => ['sb', 'secret', c.repeat(24)].join('_');
+    await assert.rejects(build({ NEXT_PUBLIC_SUPABASE_ANON_KEY: fake('x') }), /NEXT_PUBLIC_SUPABASE_ANON_KEY holds a Supabase secret key/);
+    await assert.rejects(build({ NEXT_PUBLIC_TURNSTILE_SITE_KEY: fake('y') }), /NEXT_PUBLIC_TURNSTILE_SITE_KEY holds a Supabase secret key/);
+  });
+
+  test('lead capture cannot ship without the Turnstile site key (V-02, fail-closed)', async () => {
+    await assert.rejects(build({ NEXT_PUBLIC_LEAD_CAPTURE: 'true', NEXT_PUBLIC_TURNSTILE_SITE_KEY: '' }), /NEXT_PUBLIC_LEAD_CAPTURE requires NEXT_PUBLIC_TURNSTILE_SITE_KEY/);
+  });
+
+  test('stops the build if a server secret would ship in the output', async () => {
+    const value = 'e2e-site-key-that-is-also-a-secret';
+    await assert.rejects(build({ NEXT_PUBLIC_LEAD_CAPTURE: 'true', NEXT_PUBLIC_TURNSTILE_SITE_KEY: value, TURNSTILE_SECRET_KEY: value }), /TURNSTILE_SECRET_KEY leaked into/);
   });
 });

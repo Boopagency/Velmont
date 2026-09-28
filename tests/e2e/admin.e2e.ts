@@ -4,7 +4,9 @@ import { promisify } from 'node:util';
 import { createRequire } from 'node:module';
 import fs from 'node:fs';
 import path from 'node:path';
+import { pathToFileURL } from 'node:url';
 import { startStack, totp, type Stack } from './stack';
+import { TURNSTILE_PASS, turnstileScript } from './turnstile-stub';
 
 // End-to-end: real Auth/PostgREST/Postgres, the real build, the Vercel
 // emulation and Chromium. Run: GOTRUE_BIN=… POSTGREST_BIN=… pnpm test:e2e
@@ -30,11 +32,13 @@ try {
   const env = {
     ...process.env, VERCEL: '', VELMONT_OUTPUT: out, PORT: '3100', NEXT_PUBLIC_SITE_URL: 'http://127.0.0.1:3100', NEXT_PUBLIC_SUPABASE_URL: stack.url, NEXT_PUBLIC_SUPABASE_ANON_KEY: stack.anonKey,
     NEXT_PUBLIC_LEAD_CAPTURE: 'true', SUPABASE_SERVICE_ROLE_KEY: stack.serviceKey, RATE_LIMIT_SALT: 'e2e-salt-e2e-salt-e2e-salt', VERCEL_DEPLOY_HOOK_URL: '',
+    // Turnstile is mandatory with lead capture on; the stub answers Cloudflare's siteverify locally.
+    NEXT_PUBLIC_TURNSTILE_SITE_KEY: 'e2e-site-key', TURNSTILE_SECRET_KEY: 'e2e-turnstile-secret',
   };
   // Async: the gateway lives in this process and must keep answering during the build.
   const build = () => promisify(execFile)(process.execPath, ['scripts/build-static.mjs'], { cwd: root, env });
   await build();
-  server = spawn(process.execPath, ['--import', 'tsx', 'scripts/dev-server.ts'], { cwd: root, env, stdio: 'pipe' });
+  server = spawn(process.execPath, ['--import', 'tsx', '--import', pathToFileURL(path.join(root, 'tests/e2e/turnstile-stub.ts')).href, 'scripts/dev-server.ts'], { cwd: root, env, stdio: 'pipe' });
   await new Promise<void>((resolve) => server!.stdout!.on('data', (d: Buffer) => d.toString().includes('http://') && resolve()));
   server.stderr!.on('data', (d: Buffer) => serverLog.push(d.toString()));
   const site = 'http://127.0.0.1:3100';
@@ -51,33 +55,64 @@ try {
     if (/Content Security Policy|Refused to/.test(m.text())) cspErrors.push(`${page.url()}: ${m.text()}`);
   });
   await page.route('https://wa.me/**', (route) => route.fulfill({ status: 200, body: 'whatsapp' }));
+  await context.route('https://challenges.cloudflare.com/turnstile/v0/api.js*', (route) => route.fulfill({ contentType: 'text/javascript', body: turnstileScript }));
   fs.mkdirSync(shots, { recursive: true });
 
-  // 1. Public site still works and records the lead without blocking WhatsApp.
-  await page.goto(`${site}/?utm_source=google&utm_campaign=marcas`);
-  await page.fill('#name', 'Maria <script>alert(1)</script>');
-  await page.fill('#company', 'Empresa Teste');
+  // 1. The public form, end to end: page with campaign tags → form → /api/leads
+  //    (Turnstile, validation, limits) → database → (later, section 7) the panel.
+  const qa = { name: 'QA Velmont Lead Test', company: 'Empresa QA <b>teste</b>', interest: 'Patentes' };
+  const utms = { utm_source: 'qa', utm_medium: 'test', utm_campaign: 'velmont_lead_test', utm_content: 'form', utm_term: 'marca' };
+  await page.goto(`${site}/?${new URLSearchParams(utms)}`, { referer: 'https://www.google.com/search?q=velmont' });
+  await page.fill('#name', qa.name);
+  await page.fill('#company', qa.company);
+  await page.locator('#interest').click();
+  await page.getByRole('option', { name: qa.interest, exact: true }).click();
+  // The form hands off to WhatsApp right after sending (keepalive), so the API
+  // answer is observed by passing the request through Playwright.
+  const leadCall: { status: number; token?: string } = { status: 0 };
+  await page.route(`${site}/api/leads`, async (route) => {
+    leadCall.token = JSON.parse(route.request().postData() || '{}').turnstileToken;
+    const response = await route.fetch();
+    leadCall.status = response.status();
+    await route.fulfill({ response });
+  });
   const wa = page.waitForURL(/wa\.me/);
   await page.click('button.form-submit');
   await wa;
-  assert.match(decodeURIComponent(page.url()), /Nome: Maria/);
-  let lead = { rows: [] as { name: string; utm_source: string; landing_page: string }[] };
-  for (let i = 0; i < 30 && !lead.rows.length; i++) {
-    lead = await stack.db.query('select name, utm_source, landing_page from public.leads');
-    await page.waitForTimeout(100);
-  }
-  assert.deepEqual(lead.rows[0], { name: 'Maria <script>alert(1)</script>', utm_source: 'google', landing_page: '/' });
-  ok('contact form still opens WhatsApp and stores the lead with UTM attribution');
+  for (let i = 0; i < 50 && !leadCall.status; i++) await new Promise((r) => setTimeout(r, 100));
+  assert.equal(leadCall.status, 201, 'the API accepted the lead');
+  assert.equal(leadCall.token, TURNSTILE_PASS, 'sent with the Turnstile token');
+  await page.unroute(`${site}/api/leads`);
+  const whatsapp = decodeURIComponent(page.url());
+  assert.match(whatsapp, /Nome: QA Velmont Lead Test/);
+  assert.match(whatsapp, /Interesse: Patentes/);
+  const [stored] = (
+    await stack.db.query(
+      `select id, name, company, interest, landing_page, referrer, utm_source, utm_medium, utm_campaign, utm_content, utm_term, status, source, channel,
+       created_at > now() - interval '5 minutes' as recent from public.leads`,
+    )
+  ).rows;
+  const leadId = stored.id as string;
+  assert.deepEqual({ ...stored, id: undefined }, {
+    id: undefined, name: qa.name, company: qa.company, interest: qa.interest, landing_page: '/', referrer: 'https://www.google.com', ...utms,
+    status: 'new', source: 'site-contact-form', channel: 'whatsapp', recent: true,
+  });
+  ok('public form → API (201, Turnstile) → database: every field and UTM stored, WhatsApp still opens');
 
+  const post = (body: Record<string, unknown>) =>
+    fetch(`${site}/api/leads`, { method: 'POST', headers: { origin: site, 'content-type': 'application/json' }, body: JSON.stringify({ interest: 'Marcas', ...body }) }).then((r) => r.status);
+  assert.equal(await post({ name: 'Sem Token' }), 403, 'Origin alone is no bot protection');
+  assert.equal(await post({ name: 'Token Forjado', turnstileToken: 'forged' }), 403);
   const burst: number[] = [];
-  for (let i = 0; i < 7; i++) {
-    const r = await fetch(`${site}/api/leads`, { method: 'POST', headers: { origin: site, 'content-type': 'application/json' }, body: JSON.stringify({ name: `Spam ${i}`, interest: 'Marcas' }) });
-    burst.push(r.status);
-  }
-  assert.deepEqual(burst.slice(0, 4), [201, 201, 201, 201]);
-  assert.ok(burst.slice(4).every((code) => code === 429), burst.join(','));
+  for (let i = 0; i < 5; i++) burst.push(await post({ name: `Spam ${i}`, turnstileToken: TURNSTILE_PASS }));
+  // This network may send 5 per 10 minutes: the form, the forged token and three more.
+  assert.deepEqual(burst, [201, 201, 201, 429, 429]);
   await stack.db.query(`delete from public.leads where name like 'Spam %'`);
-  ok('excessive submissions from one client are rate limited (429) by the database-backed limiter');
+  const refusals = serverLog.join('');
+  assert.match(refusals, /"event":"api_refused","route":"\/api\/leads","method":"POST","status":429,"error":"too_many_requests"/);
+  assert.match(refusals, /"status":403,"error":"verification_required"/);
+  assert.ok(!/Spam|Token Forjado|Sem Token|QA Velmont|Empresa QA/.test(refusals), 'no personal data in the logs');
+  ok('Turnstile is mandatory (no or forged token: 403), limits answer 429, every refusal is logged without personal data');
 
   // 2. Admin is private and not indexable.
   const adminResponse = await page.goto(`${site}/admin`);
@@ -272,11 +307,23 @@ try {
   assert.match(home, /Marca e nome empresarial: qual a diferença\?/);
   ok('rebuilt site serves the article as static HTML (escaped, JSON-LD, sitemap lastmod, home card)');
 
-  // 7. Leads area.
+  // 7. Leads area: the lead from the public form, exactly as stored.
   await page.goto(`${site}/admin/leads`);
-  await page.getByRole('link', { name: /Maria/ }).click();
-  await page.getByRole('dialog').getByText('Empresa Teste').first().waitFor();
-  assert.equal(await page.locator('script:has-text("alert(1)")').count(), 0);
+  await page.getByRole('link', { name: /QA Velmont Lead Test/ }).click();
+  await page.waitForURL(new RegExp(`/admin/leads/${leadId}$`));
+  const sheet = page.getByRole('dialog');
+  const detail = async (label: string) => ((await sheet.locator('dt', { hasText: new RegExp(`^${label}$`) }).locator('xpath=following-sibling::dd[1]').textContent()) || '').trim();
+  await sheet.locator('dt', { hasText: /^Nome$/ }).waitFor();
+  assert.equal(await detail('Nome'), stored.name);
+  assert.equal(await detail('Empresa ou projeto'), stored.company);
+  assert.equal(await detail('Interesse'), stored.interest);
+  assert.equal(await detail('Página de entrada'), stored.landing_page);
+  assert.equal(await detail('Site de origem'), stored.referrer);
+  for (const key of Object.keys(utms)) assert.equal(await detail(key), stored[key], key);
+  assert.ok((await detail('Recebido em')).length > 0, 'date and time shown');
+  await sheet.getByText('Novo', { exact: true }).first().waitFor();
+  assert.equal(await sheet.locator('b').count(), 0, 'markup typed in the form is shown as text');
+  ok('the same lead in /admin/leads: name, company, interest, landing page, referrer, every UTM, date and status "Novo" match the database');
   await page.selectOption('#lead-status', 'contacted');
   await page.fill('#lead-notes', 'Retornar na segunda.');
   await page.click('button:has-text("Salvar")');
@@ -305,7 +352,7 @@ try {
   const thumbs = await page.locator('.media-card img').evaluateAll((els) => els.map((e) => (e as HTMLImageElement).src));
   assert.ok(thumbs.every((src) => src.includes('/storage/v1/object/sign/media-private/') && src.includes('token=')), thumbs.join('\n'));
   assert.ok(await page.locator('.media-card img').first().evaluate((img) => (img as HTMLImageElement).naturalWidth > 0), 'signed thumbnail loads');
-  const [first] = (await stack.db.query('select path from public.media order by created_at limit 1')).rows as { path: string }[];
+  const [first] = (await stack.db.query('select id, path from public.media order by created_at limit 1')).rows as { id: string; path: string }[];
   const privateKey = first.path;
   assert.notEqual((await fetch(`${stack.url}/storage/v1/object/public/media-private/${privateKey}`)).status, 200);
   assert.equal((await fetch(`${stack.url}/storage/v1/object/public/media/${privateKey}`)).status, 404);
@@ -363,6 +410,55 @@ try {
   assert.ok(keys().includes(`media-private/${cover.path}`), 'the private original is kept');
   ok('after unpublishing, the public copy is removed and the image is private again');
 
+  // Media and publication hardening, through the real APIs.
+  const rest = (p: string, token: string, init: RequestInit = {}) =>
+    fetch(`${stack.url}/rest/v1${p}`, { ...init, headers: { apikey: stack.anonKey, authorization: `Bearer ${token}`, 'content-type': 'application/json', prefer: 'return=representation', ...(init.headers as Record<string, string>) } });
+  const directDelete = await rest(`/media?id=eq.${first.id}`, staffToken, { method: 'DELETE' });
+  assert.ok([401, 403].includes(directDelete.status), `direct DELETE -> ${directDelete.status}`);
+  assert.equal((await stack.db.query('select count(*)::int as n from public.media where id = $1', [first.id])).rows[0].n, 1);
+  const apiDelete = await fetch(`${site}/api/admin/media`, { method: 'DELETE', headers: { origin: site, authorization: `Bearer ${staffToken}`, 'content-type': 'application/json' }, body: JSON.stringify({ id: first.id }) });
+  assert.equal(apiDelete.status, 409, 'still the cover of a draft');
+  ok('media rows cannot be deleted directly through the API key; deletion goes through the checked function (in use: 409)');
+
+  const publicBefore = keys().filter((k) => k.startsWith('media/')).length;
+  const [refused] = (await (await rest('/articles', staffToken, { method: 'POST', body: JSON.stringify({ title: 'Incompleto', slug: 'incompleto-com-imagem', excerpt: 'curto', featured_image_id: first.id }) })).json()) as { id: string }[];
+  const refusedPublish = await fetch(`${site}/api/admin/publish`, { method: 'POST', headers: { origin: site, authorization: `Bearer ${staffToken}`, 'content-type': 'application/json' }, body: JSON.stringify({ id: refused.id, action: 'publish', expectedVersion: 1 }) });
+  assert.equal(refusedPublish.status, 422);
+  assert.equal(keys().filter((k) => k.startsWith('media/')).length, publicBefore, 'no new public object');
+  assert.equal((await fetch(`${stack.url}/storage/v1/object/public/media/${first.path}`)).status, 404);
+  assert.equal((await stack.db.query('select public_since from public.media where id = $1', [first.id])).rows[0].public_since, null);
+  ok('a publication the database refuses never exposes the draft image (no public copy, not marked public)');
+
+  // A stale version is answered at once (with SQLSTATE 40001, PostgREST retried the call without end).
+  const quick = { signal: AbortSignal.timeout(15000) };
+  const stalePublish = await fetch(`${site}/api/admin/publish`, { ...quick, method: 'POST', headers: { origin: site, authorization: `Bearer ${staffToken}`, 'content-type': 'application/json' }, body: JSON.stringify({ id: refused.id, action: 'publish', expectedVersion: 99 }) });
+  assert.equal(stalePublish.status, 409);
+  assert.deepEqual(await stalePublish.json(), { error: 'version_conflict' });
+  const staleRpc = await rest('/rpc/publish_article', staffToken, { ...quick, method: 'POST', body: JSON.stringify({ p_id: refused.id, p_expected_version: 99 }) });
+  assert.equal(staleRpc.status, 409, 'the database function itself');
+  ok('a stale version is refused with 409 at once, by the API and by the database function itself');
+
+  const { default: sharp } = (await import('sharp')) as unknown as { default: (options: object) => { jpeg(): { withExif(exif: object): { toBuffer(): Promise<Buffer> } } } };
+  const exifJpeg = await sharp({ create: { width: 320, height: 200, channels: 3, background: { r: 90, g: 26, b: 44 } } })
+    .jpeg()
+    .withExif({ IFD0: { Make: 'GPS-TEST-CAM' }, IFD3: { GPSLatitudeRef: 'S', GPSLatitude: '25/1 25/1 0/1' } })
+    .toBuffer();
+  assert.ok(exifJpeg.includes('Exif') && exifJpeg.includes('GPS-TEST-CAM'));
+  const form = new FormData();
+  form.set('file', new Blob([new Uint8Array(exifJpeg)], { type: 'image/jpeg' }), 'foto-com-gps.jpg');
+  form.set('alt', 'Foto de teste');
+  const uploaded = await fetch(`${site}/api/admin/media`, { method: 'POST', headers: { origin: site, authorization: `Bearer ${staffToken}` }, body: form });
+  assert.equal(uploaded.status, 201);
+  const gpsMedia = ((await uploaded.json()) as { media: { id: string; path: string } }).media;
+  const [withPhoto] = (await (await rest('/articles', staffToken, { method: 'POST', body: JSON.stringify({ title: 'Artigo com foto', slug: 'artigo-com-foto', excerpt: 'Um artigo para conferir a foto publicada sem metadados.', featured_image_id: gpsMedia.id, content: { version: 1, blocks: [{ type: 'paragraph', text: 'Texto.' }] } }) })).json()) as { id: string }[];
+  const photoPublish = await fetch(`${site}/api/admin/publish`, { method: 'POST', headers: { origin: site, authorization: `Bearer ${staffToken}`, 'content-type': 'application/json' }, body: JSON.stringify({ id: withPhoto.id, action: 'publish', expectedVersion: 1 }) });
+  assert.equal(photoPublish.status, 200);
+  const publicPhoto = stack.storage.get(`media/${gpsMedia.path}`)!;
+  assert.ok(publicPhoto, 'published copy exists');
+  assert.ok(!publicPhoto.body.includes('Exif') && !publicPhoto.body.includes('GPS-TEST-CAM'), 'no EXIF/GPS in the public object');
+  assert.equal((await fetch(`${stack.url}/storage/v1/object/public/media/${gpsMedia.path}`)).status, 200);
+  ok('a JPEG with EXIF/GPS sent straight to the API is stored and published without its metadata');
+
   // 9. Session: token reuse after sign-out is rejected by the API.
   const token = await page.evaluate(() => JSON.parse(localStorage.getItem('velmont-admin') || '{}').access_token as string);
   await page.getByRole('button', { name: 'Sair' }).click();
@@ -408,7 +504,8 @@ try {
   assert.equal((await stack.db.query(`select count(*)::int as n from public.audit_log where metadata::text like $1`, [`%${temporary}%`])).rows[0].n, 0, 'never in the audit log');
   assert.equal((await stack.db.query(`select count(*)::int as n from auth.users where id = $1 and banned_until > now()`, [newbieId])).rows[0].n, 0, 'ban lifted');
   await page.getByRole('dialog').getByRole('button', { name: 'Concluir' }).click();
-  await page.getByText('Aguardando primeiro acesso').waitFor();
+  // The status is rendered twice (table column and, on small screens, under the name): the visible one.
+  await page.getByText('Aguardando primeiro acesso').filter({ visible: true }).first().waitFor();
 
   const second = await browser.newContext({ viewport: { width: 1360, height: 900 } });
   const newbie = await second.newPage();
@@ -425,12 +522,20 @@ try {
     await newbie.click('button[type=submit]');
   };
   await signIn(temporary);
-  await enroll(newbie);
+  const newbieSecret = await enroll(newbie);
   await newbie.getByRole('heading', { name: 'Crie sua senha' }).waitFor();
   const lockedToken = await tokenOf(newbie);
   assert.deepEqual(await leadsWith(lockedToken), [], 'MFA verified, temporary password: nothing readable');
   const lockedApi = await fetch(`${site}/api/admin/rebuild`, { method: 'POST', headers: { origin: site, authorization: `Bearer ${lockedToken}`, 'content-type': 'application/json' }, body: '{}' });
   assert.equal(lockedApi.status, 403);
+  await newbie.fill('#temporary-password-current', 'Errada-errad-errad-12345');
+  await newbie.fill('#new-password', 'minha-senha-pessoal-2026');
+  await newbie.fill('#new-password-confirm', 'minha-senha-pessoal-2026');
+  await newbie.click('button[type=submit]');
+  await newbie.getByText('A senha temporária não confere').waitFor();
+  await newbie.screenshot({ path: path.join(shots, 'admin-first-access.png') });
+  assert.equal((await stack.db.query('select must_change_password from public.admin_users where user_id = $1', [newbieId])).rows[0].must_change_password, true);
+  await newbie.fill('#temporary-password-current', temporary);
   await newbie.fill('#new-password', temporary);
   await newbie.fill('#new-password-confirm', temporary);
   await newbie.click('button[type=submit]');
@@ -438,11 +543,21 @@ try {
   await newbie.fill('#new-password', 'minha-senha-pessoal-2026');
   await newbie.fill('#new-password-confirm', 'minha-senha-pessoal-2026');
   await newbie.click('button[type=submit]');
+  // Setting the password ended every session: the browser signs in again with it and asks for the code.
+  await newbie.getByRole('heading', { name: 'Verificação em duas etapas' }).waitFor();
+  await newbie.getByText('Senha criada.').waitFor();
+  await newbie.screenshot({ path: path.join(shots, 'admin-first-access-sign-in-again.png') });
+  assert.deepEqual(await leadsWith(lockedToken), [], 'the session of the first access was ended');
+  await newbie.fill('#code', totp(newbieSecret));
+  await newbie.click('button[type=submit]');
   await newbie.getByRole('heading', { name: /Olá, Nova/ }).waitFor();
   assert.equal((await stack.db.query('select must_change_password from public.admin_users where user_id = $1', [newbieId])).rows[0].must_change_password, false);
   assert.deepEqual((await stack.db.query(`select actor_id from public.audit_log where action = 'auth.password_set' and resource_id = $1`, [newbieId])).rows, [{ actor_id: newbieId }]);
-  assert.ok((await leadsWith(await tokenOf(newbie))).length >= 1, "reads leads once unlocked");
-  ok('first access with a temporary password: MFA first, then a personal password; nothing is readable before that');
+  assert.deepEqual((await stack.db.query(`select metadata from public.audit_log where action = 'auth.first_access_denied' and resource_id = $1`, [newbieId])).rows, [{ metadata: { reason: 'wrong_temporary_password' } }]);
+  assert.ok((await leadsWith(await tokenOf(newbie))).length >= 1, 'reads leads once unlocked');
+  const signedIn = await fetch(`${stack.url}/auth/v1/token?grant_type=password`, { method: 'POST', headers: { apikey: stack.anonKey, 'content-type': 'application/json' }, body: JSON.stringify({ email: 'nova@velmont.test', password: 'minha-senha-pessoal-2026' }) });
+  assert.equal(signedIn.status, 200, 'the personal password is the account password now');
+  ok('first access: MFA, then the temporary password and a personal one (checked by the server), then a new sign-in with both; nothing is readable before that');
 
   // A new temporary password from an owner: sessions end, the authenticator and the old password stop working.
   const liveToken = await tokenOf(newbie);
@@ -473,6 +588,84 @@ try {
   assert.equal((await stack.db.query('select must_change_password from public.admin_users where user_id = $1', [newbieId])).rows[0].must_change_password, true);
   await second.close();
   ok('an expired temporary password unlocks nothing, not even by changing it directly in Supabase Auth');
+
+  // 10c. Attacks on the first access, against real Supabase Auth (V-01, H-03, B-02, B-05).
+  const ownerToken = await tokenOf(page);
+  const auth = (p: string, body: unknown, token?: string, key = stack.anonKey) =>
+    fetch(`${stack.url}/auth/v1${p}`, { method: p === '/user' ? 'PUT' : 'POST', headers: { apikey: key, 'content-type': 'application/json', ...(token ? { authorization: `Bearer ${token}` } : {}) }, body: JSON.stringify(body) })
+      .then(async (r) => ({ status: r.status, body: (await r.json().catch(() => ({}))) as Record<string, unknown> & { access_token?: string } }));
+  const adminPost = (p: string, token: string, body: unknown) =>
+    fetch(`${site}${p}`, { method: 'POST', headers: { origin: site, authorization: `Bearer ${token}`, 'content-type': 'application/json' }, body: JSON.stringify(body) });
+  const grantAccess = async (email: string, name: string, role: 'owner' | 'editor') => {
+    const r = await adminPost('/api/admin/staff', ownerToken, { action: 'create', email, name, role });
+    assert.equal(r.status, 201, `create ${email}`);
+    return (await r.json()) as { user_id: string; password: string };
+  };
+  const passwordToken = async (email: string, password: string) => (await auth('/token?grant_type=password', { email, password })).body.access_token!;
+  const enrollTotp = async (token: string) => {
+    const factor = (await auth('/factors', { factor_type: 'totp' }, token)).body as { id: string; totp: { secret: string } };
+    const challenge = (await auth(`/factors/${factor.id}/challenge`, {}, token)).body as { id: string };
+    return (await auth(`/factors/${factor.id}/verify`, { challenge_id: challenge.id, code: totp(factor.totp.secret) }, token)).body.access_token!;
+  };
+  const locked = async (userId: string) => (await stack.db.query('select must_change_password from public.admin_users where user_id = $1', [userId])).rows[0].must_change_password as boolean;
+
+  // An attacker controls the person's inbox: recovery link → new password → own authenticator.
+  const target = await grantAccess('alvo@velmont.test', 'Alvo Responsável', 'owner');
+  const link = await auth('/admin/generate_link', { type: 'recovery', email: 'alvo@velmont.test' }, stack.serviceKey, stack.serviceKey);
+  const recovery = await auth('/verify', { type: 'recovery', token_hash: link.body.hashed_token });
+  assert.equal(recovery.status, 200, 'the recovery link gives a session (as it did before)');
+  assert.equal((await auth('/user', { password: 'senha-do-atacante-2026' }, recovery.body.access_token)).status, 200, 'no authenticator yet: Auth lets the password change');
+  assert.equal(await locked(target.user_id), true, 'V-01: the password change does not unlock the account');
+  const attackerAal2 = await enrollTotp(recovery.body.access_token!);
+  assert.ok(attackerAal2, 'the attacker reached aal2 with their own authenticator');
+  assert.deepEqual(await leadsWith(attackerAal2), [], 'still reads nothing');
+  assert.equal((await adminPost('/api/admin/staff', attackerAal2, { action: 'reset', user_id: owner })).status, 403, 'cannot take over other accounts');
+  for (const guess of ['senha-do-atacante-2026', 'Abcde-fghij-kmn23-45678']) {
+    const attempt = await adminPost('/api/admin/first-access', attackerAal2, { temporary_password: guess, new_password: 'outra-senha-do-atacante' });
+    assert.equal(attempt.status, 403);
+    assert.deepEqual(await attempt.json(), { error: 'wrong_temporary_password' });
+  }
+  assert.equal(await locked(target.user_id), true);
+  ok('recovery e-mail + updateUser + the attacker’s own MFA: the account stays locked; only the temporary password completes the first access (V-01)');
+
+  // Without MFA: the step is refused, and a direct password change unlocks nothing.
+  const noMfa = await grantAccess('sem-mfa@velmont.test', 'Sem MFA', 'editor');
+  const aal1 = await passwordToken('sem-mfa@velmont.test', noMfa.password);
+  const refusedAal1 = await adminPost('/api/admin/first-access', aal1, { temporary_password: noMfa.password, new_password: 'b-senha-pessoal-2026' });
+  assert.equal(refusedAal1.status, 403);
+  assert.deepEqual(await refusedAal1.json(), { error: 'mfa_required' });
+  assert.equal((await auth('/user', { password: 'b-direta-senha-2026' }, aal1)).status, 200);
+  assert.equal(await locked(noMfa.user_id), true);
+  assert.deepEqual(await leadsWith(aal1), []);
+  ok('without MFA the first access cannot be completed, and a direct password change unlocks nothing (H-03)');
+
+  // A first access racing with a new temporary password from an owner ends locked.
+  const racer = await grantAccess('corrida@velmont.test', 'Corrida', 'editor');
+  const racerAal2 = await enrollTotp(await passwordToken('corrida@velmont.test', racer.password));
+  const [finish, reissue] = await Promise.all([
+    adminPost('/api/admin/first-access', racerAal2, { temporary_password: racer.password, new_password: 'corrida-senha-pessoal-2026' }),
+    adminPost('/api/admin/staff', ownerToken, { action: 'reset', user_id: racer.user_id }),
+  ]);
+  assert.equal(reissue.status, 200);
+  assert.ok([200, 403, 409].includes(finish.status), `first access -> ${finish.status}`);
+  assert.equal(await locked(racer.user_id), true, 'final state: locked');
+  assert.deepEqual(await leadsWith(racerAal2), []);
+  ok('a first access racing with a new temporary password always ends locked (B-02)');
+
+  // The Auth update fails after the authenticator was removed: that temporary password is void.
+  const { passwordDigest } = await import('../../server/staff');
+  const service = (fn: string, args: Record<string, unknown>) =>
+    fetch(`${stack.url}/rest/v1/rpc/${fn}`, { method: 'POST', headers: { apikey: stack.serviceKey, authorization: `Bearer ${stack.serviceKey}`, 'content-type': 'application/json' }, body: JSON.stringify(args) }).then((r) => r.status);
+  const lost = 'Perdi-daaaa-seeee-nhaaa';
+  assert.equal(await service('staff_issue_temporary_access', { p_actor: owner, p_user_id: noMfa.user_id, p_hours: 48, p_digest: await passwordDigest(lost) }), 200);
+  assert.equal(await service('staff_temporary_password_failed', { p_user_id: noMfa.user_id }), 204);
+  const oldPasswordAal2 = await enrollTotp(await passwordToken('sem-mfa@velmont.test', 'b-direta-senha-2026'));
+  const afterFailure = await adminPost('/api/admin/first-access', oldPasswordAal2, { temporary_password: lost, new_password: 'b-senha-pessoal-2026' });
+  assert.equal(afterFailure.status, 403);
+  assert.deepEqual(await afterFailure.json(), { error: 'expired' });
+  assert.equal(await locked(noMfa.user_id), true);
+  assert.deepEqual(await leadsWith(oldPasswordAal2), []);
+  ok('if the Auth update fails after the authenticator is removed, the account stays inaccessible until a new, complete issue (B-05)');
 
   // 11. Responsive checks.
   const mobile = await browser.newContext({ viewport: { width: 390, height: 844 }, deviceScaleFactor: 2 });
