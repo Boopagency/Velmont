@@ -95,6 +95,13 @@ Camadas:
 - **Revelação e clareza:** ré maior, sinos posicionados no estéreo conforme o rótulo em tela, o acorde da marca e um pulso lento.
 - **Resolução:** pedal grave, *swell* até *patrimônio*, acorde pleno, sino na assinatura e o som do ponto inicial no fim.
 
+## No site
+
+- **Home, logo após o hero:** o arquivo final aprovado, sem alteração (`public/film/relevo-1080p.mp4`). Para telas pequenas há uma cópia em 720p (`relevo-720p.mp4`) com a imagem reduzida a partir do master 4K e o áudio copiado bit a bit (mesmo MD5). Comportamento descrito em `docs/motion.md`.
+- **`/filme`:** a versão desenhada em tempo real no navegador, com a narração em texto.
+- **Poster:** o quadro de 21,9 s (`relevo-poster-1920.webp` e `-960.webp`).
+- **Legendas:** `relevo-pt.vtt`, 39 trechos curtos que acompanham a voz. Gere de novo com `pnpm film:captions` se os tempos mudarem.
+
 ## Direção de arte
 
 - Paleta do site: fundo tinta e vinho, linhas em marfim e identificação em champanhe (acento, não dourado). Manrope para rótulos, Instrument Serif para as palavras em destaque.

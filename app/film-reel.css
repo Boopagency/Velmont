@@ -1,0 +1,62 @@
+/* Relevo on the home page: a card that rises out of the hero, holds, and hands over to the next section. */
+.reel{--reel-hold:58svh;position:relative;height:calc(100svh + var(--reel-hold));background:linear-gradient(180deg,#1e0b12 0%,var(--background) 22%)}
+.reel-stage{position:sticky;top:0;height:100svh;display:grid;place-items:center;isolation:isolate}
+.reel-stage::before{content:'';position:absolute;inset:8% 0;z-index:-1;background:radial-gradient(ellipse 55% 50% at 50% 55%,#5a2233 0%,#3d101e66 45%,transparent 75%);opacity:calc(.25 + var(--reel-in,1) * .75 - var(--reel-out,0) * .6);pointer-events:none}
+.reel-frame{width:min(88vw,1560px,calc((100svh - 190px) * 16 / 9));transform-origin:50% 100%}
+.reel-meta{display:flex;justify-content:space-between;align-items:baseline;gap:24px;margin-bottom:18px}
+.reel-meta .eyebrow{font-size:11px}
+.reel-length{font-size:11px;letter-spacing:.14em;color:var(--muted);opacity:.75}
+.reel-card{position:relative;aspect-ratio:16/9;border-radius:12px;overflow:hidden;background:#140a0d;box-shadow:0 0 0 1px #ffffff14,0 50px 120px -50px #07020499,0 30px 60px -40px #3d101e}
+.reel-video,.reel-poster{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;display:block}
+.reel-poster{transition:opacity 1.4s ease;pointer-events:none}
+.reel-card.is-live .reel-poster{opacity:0}
+
+/* Scroll choreography (only when motion is welcome; values come from film-reel.tsx). */
+html[data-motion=ready] .reel-frame{transform:perspective(1600px) translate3d(0,calc((1 - var(--reel-in,1)) * 20svh - var(--reel-out,0) * 5svh),0) rotateX(calc((1 - var(--reel-in,1)) * 4deg)) scale(calc(.91 + var(--reel-in,1) * .09 - var(--reel-out,0) * .06));opacity:calc(.3 + var(--reel-in,1) * .7 - var(--reel-out,0) * .45);will-change:transform,opacity}
+
+/* Minimal controls: play/pause and sound, a hairline of progress. */
+.reel-controls{position:absolute;left:0;right:0;bottom:0;display:flex;justify-content:space-between;align-items:flex-end;padding:18px 20px;background:linear-gradient(180deg,transparent,#0b04074d);opacity:.72;transition:opacity .35s}
+.reel-card:hover .reel-controls,.reel-card:focus-within .reel-controls,.reel-card:not(.is-playing) .reel-controls{opacity:1}
+.reel-button,.reel-sound{display:inline-flex;align-items:center;justify-content:center;gap:10px;min-width:44px;height:44px;border:1px solid #f4efe633;border-radius:999px;background:#140a0d8c;color:var(--ivory);padding:0 12px;font-size:12px;letter-spacing:.04em;backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px);transition:background .25s,border-color .25s}
+.reel-button{width:44px;padding:0}
+.reel-button:hover,.reel-sound:hover{background:#3d101ecc;border-color:#ddc5a180}
+.reel-button .vm-icon,.reel-sound .vm-icon{width:18px;height:18px}
+.reel-sound.is-muted{padding:0 16px 0 14px}
+.reel-sound:not(.is-muted){width:44px;padding:0}
+.reel-sound:not(.is-muted) span{display:none}
+.reel-progress{position:absolute;left:0;right:0;bottom:0;height:2px;background:#ffffff0f;pointer-events:none}
+.reel-progress>span{position:absolute;inset:0;background:var(--champagne);opacity:.7;transform:scaleX(0);transform-origin:0 50%;transition:transform .3s linear}
+.reel-start{position:absolute;inset:0;margin:auto;width:max-content;height:max-content;display:flex;align-items:center;gap:18px;background:none;border:0;color:var(--ivory);font-size:17px;letter-spacing:-.01em}
+.reel-start-icon{display:grid;place-items:center;width:76px;height:76px;border:1px solid var(--champagne);border-radius:50%;color:var(--champagne);transition:background .3s,color .3s}
+.reel-start-icon .vm-icon{width:24px;height:24px;margin-left:3px}
+.reel-start:hover .reel-start-icon,.reel-start:focus-visible .reel-start-icon{background:var(--champagne);color:var(--ink)}
+.reel-end{position:absolute;left:0;right:0;bottom:15%;display:flex;justify-content:center;align-items:center;gap:36px;flex-wrap:wrap;padding:0 24px}
+.reel-again{display:inline-flex;align-items:center;gap:12px;background:none;border:0;border-bottom:1px solid var(--champagne);color:var(--ivory);font-size:14px;padding:10px 0}
+.reel-again .vm-icon{width:18px;height:18px}
+
+/* Tablet: a shorter hold. */
+@media(max-width:1100px){.reel{--reel-hold:34svh}.reel-frame{width:min(92vw,calc((100svh - 170px) * 16 / 9))}}
+/* Mobile: no pinning; the card simply rises into place, large and legible. */
+@media(max-width:767px){
+ .reel{height:auto;padding:28px 0 8px}
+ .reel-stage{position:relative;height:auto;display:block;place-items:normal}
+ .reel-stage::before{inset:-10% 0}
+ .reel-frame{width:auto;margin:0 12px}
+ html[data-motion=ready] .reel-frame{transform:translate3d(0,calc((1 - var(--reel-in,1)) * 7svh),0) scale(calc(.95 + var(--reel-in,1) * .05));opacity:calc(.4 + var(--reel-in,1) * .6)}
+ .reel-meta{margin:0 6px 14px;gap:14px}
+ .reel-meta .eyebrow{font-size:9px;gap:12px}
+ .reel-length{display:none}
+ .reel-card{border-radius:10px}
+ .reel-controls{padding:8px;opacity:1;background:none}
+ .reel-button,.reel-sound{position:relative;height:34px;min-width:34px;font-size:10.5px;gap:7px}
+ .reel-button{width:34px}.reel-sound:not(.is-muted){width:34px}
+ .reel-button::after,.reel-sound::after{content:'';position:absolute;inset:-6px}
+ .reel-button .vm-icon,.reel-sound .vm-icon{width:15px;height:15px}
+ .reel-sound.is-muted{padding:0 12px 0 10px}
+ .reel-start{font-size:15px;gap:12px}.reel-start-icon{width:56px;height:56px}
+ .reel-end{bottom:auto;top:12%;gap:18px}.reel-end .text-link{display:none}.reel-again{font-size:12px;padding:6px 0}
+}
+/* Short landscape screens: keep the whole card and its label in view. */
+@media(min-width:768px) and (max-height:620px){.reel-frame{width:min(88vw,calc((100svh - 120px) * 16 / 9))}.reel-meta{margin-bottom:10px}}
+/* Reduced motion: no pinning, no travel; the film is simply there, and it never starts on its own. */
+@media(prefers-reduced-motion:reduce){.reel{height:auto;padding:70px 0 20px}.reel-stage{position:relative;height:auto;padding-block:20px}.reel-poster,.reel-controls,.reel-progress>span{transition:none}}
