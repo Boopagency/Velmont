@@ -20,3 +20,7 @@ Títulos, conteúdo de serviços, etapas, depoimentos e retratos entram com tran
 - Scroll listener passivo, agrupamento em `requestAnimationFrame` e `IntersectionObserver`.
 - Mobile elimina parallax e sticky da narrativa.
 - Nenhum vídeo, canvas ou sequência de centenas de imagens é necessário.
+
+## Filme Relevo
+
+O filme em `/filme` é desenhado em canvas e só roda quando o visitante aperta o play. Não afeta a home. Com `prefers-reduced-motion`, os movimentos de câmera viram cortes. Ver `docs/brand-film.md`.

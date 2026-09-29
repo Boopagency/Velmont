@@ -5,6 +5,7 @@ import { authors } from '@/lib/blog/authors';
 import { plainText, publicMedia } from '@/lib/blog/inline';
 import { BLOG_BASE, type BlogPost } from '@/lib/blog/types';
 import { coverFor, uploadedImage } from '@/lib/blog/visuals';
+import { voice } from '@/components/velmont/film/narration';
 import { publicEnv } from './public-env';
 import { organization, sameSiteUrl, siteUrl } from './site';
 const absolute = (src: string) => (src.startsWith('http') ? src : siteUrl + src);
@@ -12,13 +13,14 @@ export function pageSeo(path: string, article: BlogPost | null = null) {
   const defaults: Record<string, [string, string]> = {
     '/': ['Registro de marcas, patentes e software | Velmont', 'Consultoria em propriedade intelectual em Curitiba, com atendimento digital. Registro de marcas, patentes e software com análise de riscos e acompanhamento.'],
     [BLOG_BASE]: ['Guias sobre marcas, patentes e software | Velmont', 'Entenda o registro de marca, a proteção de software e os critérios de uma patente. Conteúdos da Velmont para decidir com clareza sobre propriedade intelectual.'],
+    '/filme': ['Relevo, um filme da Velmont | Velmont', 'Um filme curto sobre aquilo que um negócio constrói: marca, desenho, software, invenção e reputação, e o que precisa ser identificado e protegido.'],
     '/privacidade': ['Privacidade e uso de dados | Velmont', 'Saiba como o site da Velmont prepara sua mensagem de contato, quais dados utiliza e como falar com a equipe sobre privacidade.'],
   };
   const [title, description] = article ? [article.seo.title || `${article.title} | Velmont`, article.seo.description || article.excerpt] : defaults[path] || ['Página não encontrada | Velmont', 'Esta página não está disponível. Acesse a Velmont ou consulte nossos conteúdos sobre marcas, patentes e software.'];
   const media = publicMedia(publicEnv.supabaseUrl);
   const cover = article && (uploadedImage(article.seo.ogImage, media) || coverFor(article, media));
   const url = `${siteUrl}${path === '/' ? '/' : path}`;
-  return { title, description, ogTitle: article?.seo.ogTitle || title, ogDescription: article?.seo.ogDescription || description, url, canonical: sameSiteUrl(article?.seo.canonical) || url, image: cover ? absolute(cover.src) : `${siteUrl}/images/velmont-social.png`, imageAlt: cover ? cover.alt || article.title : 'Velmont — Marca é patrimônio', imageWidth: cover ? cover.width : 1536, imageHeight: cover ? cover.height : 1024, index: path !== '/404' && (article ? article.seo.index : true), article };
+  return { title, description, ogTitle: article?.seo.ogTitle || title, ogDescription: article?.seo.ogDescription || description, url, canonical: sameSiteUrl(article?.seo.canonical) || url, image: cover ? absolute(cover.src) : `${siteUrl}/images/velmont-social.png`, imageAlt: cover ? cover.alt || article.title : 'Velmont — Marca é patrimônio', imageWidth: cover ? cover.width : 1536, imageHeight: cover ? cover.height : 1024, index: path !== '/404' && (path !== '/filme' || !!voice.src) && (article ? article.seo.index : true), article };
 }
 export function nextMetadata(path: string, article: BlogPost | null = null): Metadata {
   const data = pageSeo(path, article);
@@ -39,7 +41,7 @@ export function pageSchema(path: string, article: BlogPost | null = null) {
     { '@type': 'Person', '@id': `${siteUrl}/#lisandra`, name: 'Lisandra Ferreira dos Santos', jobTitle: 'Founder & CEO', url: `${siteUrl}/#fundadoras`, image: `${siteUrl}/images/lisandra-velmont-1024.webp`, worksFor: { '@id': orgId } },
   ];
   if (path !== '/') {
-    const crumbs = [{ name: 'Início', item: `${siteUrl}/` }, ...(data.article ? [{ name: 'Insights', item: `${siteUrl}${BLOG_BASE}` }] : []), { name: data.article?.title || (path === BLOG_BASE ? 'Insights' : 'Privacidade'), item: data.url }];
+    const crumbs = [{ name: 'Início', item: `${siteUrl}/` }, ...(data.article ? [{ name: 'Insights', item: `${siteUrl}${BLOG_BASE}` }] : []), { name: data.article?.title || (path === BLOG_BASE ? 'Insights' : path === '/filme' ? 'Filme' : 'Privacidade'), item: data.url }];
     graph.push({ '@type': 'BreadcrumbList', '@id': `${data.url}#breadcrumb`, itemListElement: crumbs.map((crumb, index) => ({ '@type': 'ListItem', position: index + 1, ...crumb })) });
   }
   if (path === '/') {

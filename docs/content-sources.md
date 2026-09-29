@@ -50,3 +50,10 @@ Textos novos e informativos escritos para esta implementação, fundamentados no
 ## Limites preservados
 
 Sem aprovação garantida, taxa de sucesso, quantidade de clientes, assinatura, preço, prazo comercial ou parceiro inventado. Sem formulários que simulem envio ao CRM. Sem alegação de uma auditoria Lighthouse que não tenha sido executada.
+
+## Filme Relevo
+
+- Roteiro de narração escrito para esta implementação a partir do briefing do filme. Não contém promessas de registro, métricas nem provas sociais.
+- Bwise (contabilidade e estrutura empresarial) e Boop (marca, digital e crescimento) aparecem como parceiros conforme o briefing do filme. Os logos oficiais não foram fornecidos, então o filme usa os nomes em tipografia e não recria nenhum logo.
+- Imagens: o logo Velmont original e a montanha já documentada acima. O relevo, as linhas e todo o som são gerados por código.
+- Direção completa em `docs/brand-film.md`.
