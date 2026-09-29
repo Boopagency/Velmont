@@ -2,3 +2,6 @@ allowBuilds:
   esbuild: true
   sharp: true
   workerd: true
+# GHSA-3wwx-pv8p-q78v: miniflare (dev only) pins undici 7.29.0; drop once it ships >= 7.29.1.
+overrides:
+  undici@7.29.0: 7.29.1
