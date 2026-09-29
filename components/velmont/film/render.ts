@@ -30,21 +30,37 @@ function cameraKeys(): [number, Cam][] {
   const { T } = cues();
   const s = relief().summit;
   const top = (dist: number, x = 0, y = 0): Cam => ({ x, y, z: 0, yaw: -90, pitch: 89.5, dist });
+  const cam = (yaw: number, pitch: number, dist: number, z = 0.26): Cam => ({ x: 0, y: 0, z, yaw, pitch, dist });
+  const side = (dist: number): Cam => ({ x: 0, y: 0, z: 0.4, yaw: -90, pitch: 1.5, dist });
+  const oblique = cam(-67, 30, 3.75, 0.28);
   keys = [
     [0, top(1.0, s.x, s.y)],
-    [T.trabalho, top(0.86, s.x, s.y)],
-    [T.forma + 0.5, { x: s.x * 0.6, y: s.y * 0.6, z: 0.1, yaw: -84, pitch: 72, dist: 2.3 }],
-    [T.usuarios + 0.9, { x: 0, y: 0, z: 0.24, yaw: -64, pitch: 50, dist: 3.8 }],
-    [T.valor + 0.3, { x: 0, y: 0, z: 0.3, yaw: -50, pitch: 37, dist: 3.95 }],
-    [T.balanco + 0.6, { x: 0, y: 0, z: 0.4, yaw: -90, pitch: 1.5, dist: 4.4 }],
-    [T.olhar, { x: 0, y: 0, z: 0.4, yaw: -90, pitch: 1.5, dist: 4.05 }],
-    [T.marca + 0.7, { x: 0, y: 0, z: 0.28, yaw: -67, pitch: 30, dist: 3.9 }],
-    [T.revelacaoEnd, { x: 0, y: 0, z: 0.22, yaw: -52, pitch: 34, dist: 4.2 }],
-    [T.ativosEnd, { x: 0, y: 0, z: 0.2, yaw: -47, pitch: 36, dist: 4.35 }],
-    [T.velmont + 1.5, top(5.4)],
-    [T.velmontEnd, top(5.1)],
-    [T.olhares + 1.3, top(10.8, 0, -0.5)],
-    [T.jornadaEnd, top(11.2, 0, -0.5)],
+    [T.trabalhoWord - 0.05, top(0.84, s.x, s.y)],
+    // "Então vem o trabalho": the camera lifts off with the word.
+    [T.forma + 0.35, { x: s.x * 0.6, y: s.y * 0.6, z: 0.1, yaw: -84, pitch: 70, dist: 2.3 }],
+    [T.usuarios + 0.5, cam(-62, 47, 3.95)],
+    // Reputação, espaço, valor: three short pushes, one per hit.
+    [T.reputacao, cam(-61, 46, 3.9)],
+    [T.reputacao + 0.45, cam(-57, 42, 3.75, 0.28)],
+    [T.espaco, cam(-56.5, 41.5, 3.73, 0.28)],
+    [T.espaco + 0.45, cam(-53, 39, 3.6, 0.3)],
+    [T.valor, cam(-52.5, 38.5, 3.58, 0.3)],
+    [T.valor + 0.45, cam(-49, 36, 3.45, 0.3)],
+    [T.muito + 0.2, cam(-48, 35, 3.5, 0.3)],
+    [T.balanco + 0.7, side(4.4)],
+    // The question: everything holds, and the frame barely breathes.
+    [T.olhar - 0.001, side(4.1)],
+    // "Olhe de novo": a hard cut to a new composition.
+    [T.olhar, oblique],
+    [T.revelacaoEnd, cam(-52, 34, 4.2, 0.22)],
+    [T.ativosEnd + 0.6, cam(-47, 36, 4.35, 0.2)],
+    // "A Velmont olha…": the brand's point of view, straight down onto the map.
+    [T.olha + 0.2, top(5.4)],
+    [T.clarezaEnd, top(5.05)],
+    [T.olhares - 0.4, top(5.0)],
+    [T.olhares + 1.2, top(10.8, 0, -0.5)],
+    [T.jornadaEnd + 0.5, top(11.1, 0, -0.5)],
+    // "Porque aquilo que você está construindo hoje…": the dive to the horizon.
     [T.patrimonio, { x: 0, y: 0, z: 0.42, yaw: -90, pitch: 7, dist: 4.1 }],
     [T.assinatura, { x: 0, y: 0, z: 0.42, yaw: -90, pitch: 7, dist: 3.9 }],
     [T.end + 2, { x: 0, y: 0, z: 0.42, yaw: -90, pitch: 7, dist: 3.75 }],
@@ -58,6 +74,7 @@ function cameraAt(t: number, reduced: boolean): { cam: Cam; dip: number } {
   for (let i = 0; i < k.length - 1; i++) {
     const [ta, a] = k[i], [tb, b] = k[i + 1];
     if (t > tb) continue;
+    if (tb - ta < 0.01) return { cam: b, dip: 1 }; // a cut
     const u = (t - ta) / (tb - ta);
     // Long holds (pure drifts) stay continuous even with reduced motion.
     const travel = Math.abs(a.pitch - b.pitch) + Math.abs(a.yaw - b.yaw) + Math.abs(a.dist - b.dist) * 12;
@@ -251,7 +268,9 @@ export function drawFrame(ctx: CanvasRenderingContext2D, t: number, w: number, h
   const { cam, dip } = cameraAt(t, !!opts.reduced);
   const pr = projector(cam, w, h);
   const u = h / 1080; // one "pixel" of a 1080p frame
-  const A = inOut(ramp(t, T.trabalho, T.valor + 0.6)) * 0.95; // how tall the relief has grown
+  // How tall the relief has grown: a steady rise with the layers, then three steps.
+  const hit = (at: number) => 1 - Math.pow(1 - clamp01((t - at) / 0.45), 3);
+  const A = 0.95 * (0.7 * inOut(ramp(t, T.trabalhoWord, T.usuarios + 0.8)) + 0.09 * hit(T.reputacao) + 0.1 * hit(T.espaco) + 0.11 * hit(T.valor));
   const zOf = (level: number) => R.levels[level].h * A;
 
   ctx.save();
@@ -260,7 +279,7 @@ export function drawFrame(ctx: CanvasRenderingContext2D, t: number, w: number, h
   ctx.fillRect(0, 0, w, h);
 
   // Atmosphere: a low wine light that warms as the film moves towards clarity.
-  const warmth = 0.28 + 0.2 * win(t, T.velmont, T.jornadaEnd + 1, 2, 2) + 0.3 * smooth(ramp(t, T.hoje, T.patrimonio + 1.5)) - 0.18 * win(t, T.pergunta, T.olhar + 0.5, 1.5, 0.6);
+  const warmth = 0.28 + 0.2 * win(t, T.velmont, T.jornadaEnd + 1, 2, 2) + 0.3 * smooth(ramp(t, T.hoje, T.patrimonio + 1.5)) - 0.2 * win(t, T.pergunta, T.olhar, 1.5, 0.05);
   const glow = ctx.createRadialGradient(w * 0.5, h * 0.62, 0, w * 0.5, h * 0.62, w * 0.72);
   glow.addColorStop(0, `rgba(72,20,36,${warmth})`);
   glow.addColorStop(1, 'rgba(33,11,18,0)');
@@ -271,13 +290,13 @@ export function drawFrame(ctx: CanvasRenderingContext2D, t: number, w: number, h
   ctx.globalAlpha = opening * dip;
 
   // ——— Words that sit behind the relief ———
-  const ativosA = win(t, T.ativos - 0.05, T.velmont + 1.1, 0.55, 0.8);
+  const ativosA = win(t, T.ativosEnd + 0.1, T.olha + 0.3, 0.7, 0.9);
   if (ativosA > 0) {
     text(ctx, 'ativos.', w / 2, h * 0.6, `400 ${Math.round(250 * u)}px Instrument, Georgia, serif`, rgba(CHAMPAGNE, 0.9 * ativosA), 'center', -4 * u);
   }
 
   // ——— Mountain photograph (the drawing becomes matter) ———
-  const photoA = smooth(ramp(t, T.patrimonio - 0.5, T.patrimonio + 1.9)) * (1 - 0.9 * smooth(ramp(t, T.assinatura - 0.2, T.assinatura + 1.1))) * (1 - smooth(ramp(t, T.assinaturaEnd + 0.5, T.assinaturaEnd + 1.5)));
+  const photoA = smooth(ramp(t, T.patrimonio - 0.3, T.amanha + 0.6)) * (1 - 0.9 * smooth(ramp(t, T.assinatura - 0.05, T.assinatura + 0.7))) * (1 - smooth(ramp(t, T.assinaturaEnd + 0.3, T.assinaturaEnd + 1.1)));
   if (photoA > 0 && assets.mountain) {
     const img = feathered(assets.mountain);
     const iw = img.width, ih = img.height;
@@ -294,8 +313,9 @@ export function drawFrame(ctx: CanvasRenderingContext2D, t: number, w: number, h
   }
 
   // ——— Map sheets of the wider journey (top view) ———
-  const sheetsA = win(t, T.olhares - 0.3, T.hoje + 0.8, 1, 1);
-  const frameA = win(t, T.velmont + 0.9, T.hoje + 0.8, 0.9, 0.9);
+  const sheetsA = win(t, T.olhares - 0.3, T.jornadaEnd + 1.6, 1, 1);
+  // The map sheet — Velmont's point of view — is drawn as the name is said.
+  const frameA = win(t, T.velmontWord + 0.1, T.jornadaEnd + 1.6, 0.9, 1);
   const sheet = (cx: number, alpha: number) => {
     if (alpha <= 0) return;
     const e = 1.25, tick = 0.14;
@@ -348,18 +368,21 @@ export function drawFrame(ctx: CanvasRenderingContext2D, t: number, w: number, h
   }
 
   // ——— The relief ———
-  const dim = 1 - 0.84 * smooth(ramp(t, T.pergunta - 0.3, T.protegido + 0.5));
-  const clarity = smooth(ramp(t, T.velmont + 0.3, T.velmont + 2));
-  const finale = smooth(ramp(t, T.hoje - 0.2, T.construindo + 0.8));
-  const matter = 1 - 0.92 * smooth(ramp(t, T.patrimonio + 0.1, T.patrimonio + 2.4));
+  // The question drains the lines; the cut on "Olhe de novo" gives part of them back at once.
+  const dim = 1 - 0.86 * smooth(ramp(t, T.pergunta - 0.1, T.protegido + 0.3)) + (t >= T.olhar ? 0.22 : 0);
+  const clarity = smooth(ramp(t, T.velmontWord, T.olha + 0.8));
+  const finale = smooth(ramp(t, T.hoje - 0.2, T.hojeWord + 0.6));
+  const matter = 1 - 0.92 * smooth(ramp(t, T.patrimonio + 0.1, T.amanha + 1.2));
+  // "São ativos": for a moment every layer is lit as an asset.
+  const allAssets = win(t, T.ativosEnd - 0.05, T.olha + 0.6, 0.3, 1.2);
   const fadeTail = 1 - smooth(ramp(t, T.assinatura - 0.4, T.assinatura + 0.6));
   // The second look: a reading plane that descends layer by layer.
-  const scanKeys: [number, number][] = [[T.olhar - 0.2, -1.5], ...found.map(f => [f.at, f.level] as [number, number]), [T.ativos, 25]];
+  const scanKeys: [number, number][] = [[T.olhar, -1.5], ...found.map(f => [f.at, f.level] as [number, number]), [T.ativos, 25]];
   let scan = -10;
   if (t > scanKeys[0][0] && t < scanKeys[scanKeys.length - 1][0]) {
     for (let i = 0; i < scanKeys.length - 1; i++) if (t <= scanKeys[i + 1][0]) { scan = lerp(scanKeys[i][1], scanKeys[i + 1][1], smooth((t - scanKeys[i][0]) / (scanKeys[i + 1][0] - scanKeys[i][0]))); break; }
   }
-  const scanA = win(t, T.olhar - 0.2, T.ativos, 0.4, 0.6);
+  const scanA = win(t, T.olhar, T.ativos, 0.15, 0.6);
   const foundAt = new Map(found.map(f => [f.level, f.at]));
   for (let k = R.levels.length - 1; k >= 0; k--) {
     const start = reveal[k];
@@ -374,6 +397,7 @@ export function drawFrame(ctx: CanvasRenderingContext2D, t: number, w: number, h
     alpha *= dim;
     alpha = lerp(alpha, 0.34, clarity * (1 - finale));
     alpha = lerp(alpha, 0.62, finale);
+    alpha = lerp(alpha, 0.85, allAssets * 0.8);
     const pass = scanA * Math.max(0, 1 - Math.abs(k - scan) / 1.3);
     alpha += pass * 0.75;
     let pulse = 0;
@@ -384,7 +408,7 @@ export function drawFrame(ctx: CanvasRenderingContext2D, t: number, w: number, h
     }
     alpha *= matter * fadeTail;
     if (alpha <= 0.003) continue;
-    const color = mix(IVORY, CHAMPAGNE, Math.max(foundF, finale * 0.65));
+    const color = mix(IVORY, CHAMPAGNE, Math.max(foundF, finale * 0.65, allAssets * 0.9));
     ctx.strokeStyle = rgba(color, alpha);
     ctx.lineWidth = (1 + 0.55 * foundF + 0.5 * pass + 0.6 * pulse) * u * (k === 0 ? 1.25 : 1);
     const z = zOf(k);
@@ -407,7 +431,7 @@ export function drawFrame(ctx: CanvasRenderingContext2D, t: number, w: number, h
   }
 
   // ——— Risk and possible paths (top view) ———
-  const riskA = win(t, T.riscos - 0.1, T.hoje + 0.5, 0.8, 0.9);
+  const riskA = win(t, T.riscos + 0.1, T.jornadaEnd + 1.2, 0.8, 0.9);
   if (riskA > 0) {
     const poly = risk();
     ctx.save();
@@ -434,7 +458,7 @@ export function drawFrame(ctx: CanvasRenderingContext2D, t: number, w: number, h
     ctx.restore();
     if (n) text(ctx, 'RISCO', minX - 18 * u, cy / n + 5 * u, `600 ${Math.round(14 * u)}px Manrope, Arial, sans-serif`, rgba(CHAMPAGNE, 0.9 * riskA * (1 - sheetsA)), 'right', 4 * u);
   }
-  const pathsA = win(t, T.caminhos - 0.2, T.hoje + 0.4, 0.3, 0.9);
+  const pathsA = win(t, T.caminhos - 0.1, T.jornadaEnd + 1.2, 0.3, 0.9);
   if (pathsA > 0) {
     ctx.setLineDash([6 * u, 7 * u]);
     ctx.lineWidth = 1.3 * u;
@@ -454,11 +478,13 @@ export function drawFrame(ctx: CanvasRenderingContext2D, t: number, w: number, h
   }
 
   // ——— The point: the origin, and later the summit ———
-  const pointA = smooth(ramp(t, T.point, T.point + 1.1)) * (1 - smooth(ramp(t, T.patrimonio + 0.4, T.patrimonio + 2)));
+  const pointA = smooth(ramp(t, T.point, T.point + 1.1)) * (1 - smooth(ramp(t, T.patrimonio + 0.4, T.amanha + 0.8)));
+  // "…hoje": the summit is the first point again.
+  const recall = Math.max(0, 1 - Math.abs(t - T.hojeWord - 0.25) / 0.6);
   if (pointA > 0 && pr.p(s.x, s.y, s.h * A)) {
-    const breathe = 1 + 0.18 * Math.sin(t * 1.7) * (1 - smooth(ramp(t, T.traco, T.trabalho)));
+    const breathe = (1 + 0.18 * Math.sin(t * 1.7) * (1 - smooth(ramp(t, T.traco, T.trabalho)))) * (1 + 0.6 * recall);
     const halo = ctx.createRadialGradient(pr.sx, pr.sy, 0, pr.sx, pr.sy, 16 * u * breathe);
-    halo.addColorStop(0, rgba(CHAMPAGNE, 0.22 * pointA));
+    halo.addColorStop(0, rgba(CHAMPAGNE, (0.22 + 0.3 * recall) * pointA));
     halo.addColorStop(1, rgba(CHAMPAGNE, 0));
     ctx.fillStyle = halo;
     ctx.fillRect(pr.sx - 20 * u, pr.sy - 20 * u, 40 * u, 40 * u);
@@ -467,7 +493,7 @@ export function drawFrame(ctx: CanvasRenderingContext2D, t: number, w: number, h
   }
 
   // ——— A name nobody knows yet: empty letter slots ———
-  const slotsA = win(t, T.nome, T.trabalho + 0.9, 0.5, 0.7);
+  const slotsA = win(t, T.nome, T.trabalhoWord + 0.3, 0.5, 0.5);
   if (slotsA > 0 && pr.p(s.x, s.y, 0)) {
     const y = pr.sy + 150 * u;
     const count = 7, sw = 26 * u, gap = 12 * u;
@@ -488,7 +514,7 @@ export function drawFrame(ctx: CanvasRenderingContext2D, t: number, w: number, h
   }
 
   // ——— What the balance sheet shows: a flat line ———
-  const groundA = win(t, T.balanco - 0.3, T.olhar + 0.7, 0.3, 0.9);
+  const groundA = win(t, T.balanco - 0.3, T.olhar, 0.3, 0.02);
   if (groundA > 0) {
     const base = mainLoop(R.levels.length - 1);
     let y = 0;
@@ -498,10 +524,13 @@ export function drawFrame(ctx: CanvasRenderingContext2D, t: number, w: number, h
     ctx.strokeStyle = rgba(IVORY, 0.8 * groundA);
     ctx.lineWidth = 1 * u;
     ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(w * reach, y); ctx.stroke();
+    // An echo, once the word has been heard.
+    const echo = smooth(ramp(t, T.valorEnd + 0.2, T.valorEnd + 1.1)) * groundA;
+    if (echo > 0) text(ctx, 'BALANÇO', w * 0.065, y - 16 * u, `600 ${Math.round(13 * u)}px Manrope, Arial, sans-serif`, rgba(CHAMPAGNE, 0.75 * echo), 'left', 4 * u);
   }
 
   // ——— What the second look finds ———
-  const labelsOut = 1 - smooth(ramp(t, T.velmont + 0.2, T.velmont + 1));
+  const labelsOut = 1 - smooth(ramp(t, T.ativosEnd, T.ativosEnd + 0.6));
   const labelsDim = 1 - 0.6 * smooth(ramp(t, T.documentos, T.documentos + 0.6));
   found.forEach((f, i) => {
     const a = smooth(ramp(t, f.at, f.at + 0.5)) * labelsOut * labelsDim;
@@ -532,7 +561,8 @@ export function drawFrame(ctx: CanvasRenderingContext2D, t: number, w: number, h
   });
 
   // ——— The question ———
-  const questionA = win(t, T.protegido - 0.05, T.olhar - 0.4, 0.7, 1);
+  // Heard first, seen after: the word surfaces as the question ends and holds through the silence.
+  const questionA = win(t, T.perguntaEnd + 0.15, T.olhar, 1.1, 0.02);
   if (questionA > 0) text(ctx, 'protegido?', w / 2, h * 0.33, `400 ${Math.round(140 * u)}px Instrument, Georgia, serif`, rgba(IVORY, questionA), 'center', -2 * u);
 
   // ——— The journey, named ———
@@ -556,13 +586,13 @@ export function drawFrame(ctx: CanvasRenderingContext2D, t: number, w: number, h
     };
     const partner = (logo: PartnerLogo | null, img: CanvasImageSource | null | undefined) => (logo && img ? mark(img, logo.tone) : null);
     const velmont = assets.logo ? mark(assets.logo, 'original') : null;
-    label(0, T.jornada + 0.2, 'PROTEGER', 'VELMONT', 'propriedade intelectual', velmont, 46);
-    label(-2.95, T.estruturar - 0.2, 'ESTRUTURAR', 'BWISE', 'contabilidade e estrutura empresarial', partner(partnerLogos.bwise, assets.bwise), partnerLogos.bwise?.height, 0.88);
-    label(2.95, T.crescer - 0.2, 'POSICIONAR E CRESCER', 'BOOP', 'marca, digital e crescimento', partner(partnerLogos.boop, assets.boop), partnerLogos.boop?.height, 0.88);
+    label(0, T.olhares, 'PROTEGER', 'VELMONT', 'propriedade intelectual', velmont, 46);
+    label(-2.95, T.estruturar, 'ESTRUTURAR', 'BWISE', 'contabilidade e estrutura empresarial', partner(partnerLogos.bwise, assets.bwise), partnerLogos.bwise?.height, 0.88);
+    label(2.95, T.crescer, 'POSICIONAR E CRESCER', 'BOOP', 'marca, digital e crescimento', partner(partnerLogos.boop, assets.boop), partnerLogos.boop?.height, 0.88);
   }
 
   // ——— Signature ———
-  const logoA = win(t, T.assinatura - 0.1, T.assinaturaEnd + 1.5, 1, 0.9);
+  const logoA = win(t, T.assinatura - 0.05, T.assinaturaEnd + 1.2, 0.7, 0.8);
   if (logoA > 0) {
     const lw = w * 0.3, lh = lw / 2, ly = h * 0.43;
     if (assets.logo) {
@@ -570,8 +600,8 @@ export function drawFrame(ctx: CanvasRenderingContext2D, t: number, w: number, h
       ctx.drawImage(assets.logo, w / 2 - lw / 2, ly - lh / 2 - (1 - logoA) * 6 * u, lw, lh);
       ctx.globalAlpha = opening * dip;
     }
-    const a1 = win(t, T.protegendo - 0.1, T.assinaturaEnd + 1.5, 0.8, 0.9);
-    const a2 = win(t, T.estruturando - 0.1, T.assinaturaEnd + 1.5, 0.8, 0.9);
+    const a1 = win(t, T.protegendo + 0.15, T.assinaturaEnd + 1.2, 0.7, 0.8);
+    const a2 = win(t, T.estruturando + 0.15, T.assinaturaEnd + 1.2, 0.7, 0.8);
     const css = `400 ${Math.round(46 * u)}px Instrument, Georgia, serif`;
     font(ctx, css, 0);
     const p1 = 'Protegendo ideias. ', p2 = 'Estruturando negócios.';
@@ -582,7 +612,7 @@ export function drawFrame(ctx: CanvasRenderingContext2D, t: number, w: number, h
   }
 
   // ——— Closing: back to a single point ———
-  const endPoint = smooth(ramp(t, T.assinaturaEnd + 1.3, T.assinaturaEnd + 2.1));
+  const endPoint = smooth(ramp(t, T.assinaturaEnd + 1.0, T.assinaturaEnd + 1.7));
   if (endPoint > 0) {
     const y = h * 0.47;
     const halo = ctx.createRadialGradient(w / 2, y, 0, w / 2, y, 16 * u);
@@ -592,7 +622,7 @@ export function drawFrame(ctx: CanvasRenderingContext2D, t: number, w: number, h
     ctx.fillRect(w / 2 - 20 * u, y - 20 * u, 40 * u, 40 * u);
     ctx.fillStyle = rgba(CHAMPAGNE, endPoint);
     ctx.beginPath(); ctx.arc(w / 2, y, 2.6 * u, 0, Math.PI * 2); ctx.fill();
-    const lineA = smooth(ramp(t, T.assinaturaEnd + 1.9, T.assinaturaEnd + 2.9));
+    const lineA = smooth(ramp(t, T.assinaturaEnd + 1.4, T.assinaturaEnd + 2.3));
     text(ctx, closingLine, w / 2, y + 74 * u, `300 ${Math.round(30 * u)}px Manrope, Arial, sans-serif`, rgba(IVORY, 0.92 * lineA), 'center', 0.5 * u);
   }
 

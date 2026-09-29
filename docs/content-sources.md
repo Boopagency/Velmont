@@ -53,7 +53,7 @@ Sem aprovação garantida, taxa de sucesso, quantidade de clientes, assinatura, 
 
 ## Filme Relevo
 
-- Roteiro de narração escrito para esta implementação a partir do briefing do filme. Não contém promessas de registro, métricas nem provas sociais.
+- Roteiro de narração escrito para esta implementação a partir do briefing do filme e ajustado na gravação. A locução final aprovada (ElevenLabs, voz Adriana) foi enviada pelo usuário e está sem alteração em `public/film/narracao.mp3`; o filme só a posiciona frase por frase. Não contém promessas de registro, métricas nem provas sociais.
 - Bwise (contabilidade e estrutura empresarial) e Boop (marca, digital e crescimento) aparecem como parceiros conforme o briefing do filme. Os logos oficiais foram enviados pelo usuário e estão guardados sem alteração em `public/film/partners/`. O filme os exibe em uma cor (marfim), calculada a partir desses arquivos, sem redesenhar nenhuma forma.
 - Imagens: o logo Velmont original e a montanha já documentada acima. O relevo, as linhas e todo o som são gerados por código.
 - Direção completa em `docs/brand-film.md`.

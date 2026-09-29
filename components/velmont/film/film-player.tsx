@@ -99,11 +99,11 @@ export function FilmPlayer() {
             return c.toDataURL('image/jpeg', quality);
           },
           /** The full mix (score and, when present, voice) as a 16-bit stereo WAV, base64. */
-          async audio(rate = 48000) {
+          async audio(rate = 48000, stem: 'mix' | 'voice' | 'score' = 'mix') {
             const ctx = new OfflineAudioContext(2, Math.ceil(duration * rate), rate);
             let voiceBuffer: AudioBuffer | null = null;
             if (voice.src) voiceBuffer = await ctx.decodeAudioData(await (await fetch(voice.src)).arrayBuffer());
-            audio.scheduleScore(ctx, ctx.destination, 0, 0, voiceBuffer, voice.offset);
+            audio.scheduleScore(ctx, ctx.destination, 0, 0, voiceBuffer, voice.clips, stem);
             const out = await ctx.startRendering();
             const frames = out.length, bytes = new DataView(new ArrayBuffer(44 + frames * 4));
             const str = (o: number, v: string) => { for (let i = 0; i < v.length; i++) bytes.setUint8(o + i, v.charCodeAt(i)); };
@@ -170,7 +170,7 @@ export function FilmPlayer() {
         try { await sound.current.loadVoice(voice.src); } catch { setVoiceMissing(true); }
       }
       sound.current.setMuted(muted);
-      await sound.current.start(t, voice.offset);
+      await sound.current.start(t, voice.clips);
     } catch {
       sound.current = null; // No Web Audio: the image still plays, on the page clock.
       fallbackStart.current = [t, performance.now()];

@@ -1,6 +1,6 @@
 # Relevo — brand film
 
-Um filme de marca de cerca de 74 segundos, construído em torno da narração, para o site da Velmont (`/filme`).
+Um filme de marca de cerca de 80 segundos, construído em torno da narração, para o site da Velmont (`/filme`).
 
 ## Ideia
 
@@ -19,58 +19,81 @@ Um filme de marca de cerca de 74 segundos, construído em torno da narração, p
 
 A progressão emocional é simples, crescimento, tensão, percepção, clareza e resolução, e é sempre contada do lado do visitante: "o que você está construindo", não "o que nós fazemos".
 
-## Narração (roteiro)
+## Narração
 
-O texto está em `components/velmont/film/narration.ts`. É a partir dele que a locução deve ser gravada.
+A locução final aprovada (voz Adriana, ElevenLabs) está em `public/film/narracao.mp3`, sem nenhuma alteração no arquivo.
 
-> Tudo começa pequeno.
-> Um traço. Uma ideia. Um nome que ninguém conhece ainda.
-> Então vem o trabalho.
-> O nome ganha forma. A ideia vira produto. O produto encontra clientes. O código ganha usuários.
-> E o que começou pequeno ganha reputação. Ganha valor. Muito mais do que aparece no balanço.
-> *(silêncio)*
+> Tudo começa com um traço. Uma ideia. Um nome que ninguém conhece ainda.
+> Então vem o trabalho. O nome ganha forma. A ideia vira produto. O produto encontra clientes. O código ganha usuários.
+> E aquilo que começou pequeno ganha reputação. Ganha espaço. Ganha valor. Muito mais valor do que aquilo que aparece no balanço.
 > Mas quanto do que você construiu está, de fato, protegido?
-> *(silêncio longo: a virada)*
 > Olhe de novo.
 > Existe uma marca. Um desenho reconhecível. Um software com autoria. Uma invenção. A prova de quem chegou primeiro.
-> Não são só documentos. São ativos.
-> A Velmont olha para o negócio antes do processo: identifica o que existe, analisa riscos e mostra, com clareza, os caminhos possíveis.
-> Quando a jornada pede outros olhares, conecta você a especialistas que ajudam a estruturar e a crescer.
-> O que você está construindo hoje pode ser o patrimônio de amanhã.
+> Não são apenas documentos. São ativos.
+> A Velmont olha para o negócio antes de olhar para o processo.
+> Identifica o que existe. Analisa os riscos. E mostra, com clareza, os caminhos possíveis.
+> E quando a jornada pede outros olhares, conecta você a especialistas que ajudam o negócio a se estruturar e crescer.
+> Porque aquilo que você está construindo hoje pode se tornar o patrimônio da sua empresa amanhã.
 > Velmont. Protegendo ideias. Estruturando negócios.
 
-Direção de locução: voz próxima, sem tom publicitário, ritmo calmo (cerca de 6 sílabas por segundo), respeitando as pausas entre as frases. As duas pausas marcadas são parte do filme e não devem ser cortadas na edição da voz.
+### Medição
 
-O texto em tela complementa a voz em vez de legendá-la. Uma palavra (*protegido?*, *ativos.*), rótulos que a voz não diz (titularidade, anterioridade) e nomes que só aparecem escritos (Bwise, Boop).
+- **Frases e pausas:** medidas pela energia do próprio áudio (`pnpm film:align public/film/narracao.mp3`).
+- **Palavras:** o instante de cada uma veio de reconhecimento de fala (Whisper small, rodado offline) e foi corrigido contra as fronteiras de energia. O reconhecimento adiantava todas as palavras em cerca de 0,15 s de forma constante.
+- **Onde ficam:** todas as palavras, com o seu instante no filme, estão em `narration.ts`.
+
+### Montagem da voz
+
+A locução é contínua, com pausas de 0,3 a 0,7 s. Para que a pergunta e as viradas tenham peso, o filme posiciona a voz frase por frase (`voice.clips`). Os cortes ficam sempre no meio de um silêncio, nunca dentro de uma palavra, e nada da fala é removido. O filme ganha respiro:
+
+| Onde | Respiro acrescentado |
+|---|---|
+| Antes da primeira palavra | 1,8 s (o ponto aparece, uma respiração) |
+| Depois de "…no balanço." | 0,6 s |
+| Depois de "…protegido?" | 1,6 s (≈ 2,2 s de silêncio real) |
+| Depois de "Olhe de novo." | 0,4 s |
+| Depois de "São ativos." | 0,6 s |
+| Antes de "Porque aquilo…" | 0,4 s |
+| Antes de "Velmont." | 0,4 s |
+
+Duração final: 79,9 s (71,1 s de voz, 4 s de respiros, abertura e 3,3 s de fecho).
 
 ## Como a voz comanda o filme
 
-- Cada linha da narração tem `start` e `end`. Cada acontecimento visual ou sonoro está ancorado em uma **palavra** de uma linha (`word('revelacao', 'software')`, em `cues.ts`), nunca em um segundo fixo.
-- Enquanto a voz final não existe, os tempos são uma estimativa. Com a faixa real, só a tabela muda, e imagem, cortes, palavras em tela e som se reposicionam juntos.
-- Dentro de uma linha, a palavra é posicionada proporcionalmente ao texto. Quando for necessário precisão maior, `words: { software: 37.42 }` fixa o instante medido.
+Cada acontecimento visual ou sonoro está ancorado em uma **palavra** falada (`cues.ts`), nunca em um segundo fixo. As mudanças de intenção da voz são os pontos de edição:
 
-### Ao receber a faixa de voz
+- **"Então vem o trabalho."** A câmera decola na palavra *trabalho*, com impacto grave. Entra um pulso rítmico que subdivide o tempo entre as orações e respira com a fala.
+- **"Ganha reputação. Ganha espaço. Ganha valor."** Três golpes crescentes e precisos. Em cada um, novas camadas surgem, o relevo sobe um degrau, a câmera dá um pequeno avanço e entra um acorde curto.
+- **"…aparece no balanço."** Vista de perfil e a linha do balanço. A palavra BALANÇO aparece pequena, como eco, só depois de ouvida.
+- **"Mas quanto… protegido?"** A música sai no "Mas". As linhas se apagam enquanto a pergunta avança. *protegido?* só surge quando a frase termina e fica em silêncio real, com um grave quase inaudível.
+- **"Olhe de novo."** Corte seco na primeira sílaba: nova composição, impacto, mudança de ré menor para ré maior. A leitura das camadas começa e os rótulos entram logo depois de cada palavra.
+- **"Não são apenas documentos. São ativos."** O ar sobe até *ativos*, com impacto e sinos. Todas as camadas acendem como ativos, e a palavra *ativos.* aparece na pausa que segue, como eco.
+- **"A Velmont olha…"** O acorde da marca entra no nome. A câmera assume o ponto de vista de cima, e a folha do mapa, com VELMONT, se desenha enquanto o nome é dito. Um pulso lento acompanha a clareza.
+- **"…outros olhares…"** O mapa se abre. Bwise em *estruturar*, Boop em *crescer*.
+- **"Porque aquilo que você está construindo hoje…"** Começa a resolução: a câmera mergulha até o horizonte. Em *hoje*, o cume volta a ser o ponto inicial, em imagem e em som. Em *patrimônio*, a montanha surge com o acorde completo.
+- **"Velmont. Protegendo ideias. Estruturando negócios."** Logo exatamente em *Velmont*, e as duas frases entram logo após serem ditas. Depois, o ponto e a frase escrita final.
 
-1. Salve o arquivo em `public/film/` (por exemplo `public/film/narracao.mp3`). A política de segurança do site só aceita mídia da própria origem.
-2. `pnpm build` e depois `pnpm film:align public/film/narracao.mp3` mostram os tempos medidos de cada linha.
-3. Confira as fronteiras e rode `pnpm film:align public/film/narracao.mp3 --write`: os tempos são gravados em `narration.ts` e `voice.src` passa a apontar para o arquivo.
-4. Ajuste fino, se preciso: `words` para palavras-chave, `voice.offset` se a faixa tiver silêncio inicial próprio.
-5. Com a voz presente, as legendas passam a ficar desligadas por padrão, a nota de prévia some e a página `/filme` passa a ser indexada e a entrar no sitemap.
+### Texto em tela
 
-## Sound design
+A narração nunca é legendada na imagem. O texto em tela é eco, e sempre depois da fala: *BALANÇO*, *protegido?*, os rótulos da leitura (que acrescentam o que a voz não diz, como titularidade e anterioridade), *ativos.*, os verbos e nomes do ecossistema, a assinatura e a frase final. As legendas completas existem apenas como recurso de acessibilidade, desligadas por padrão.
 
-Todo o som é sintetizado no navegador (`sound.ts`), sem trilhas de terceiros, e agendado pela mesma tabela de tempos:
+## Sound design e mixagem
 
-- **Silêncio com textura:** room tone de ruído grave filtrado, sempre presente, que baixa quase a zero na pausa depois da pergunta.
-- **Gestos físicos:** grafite no papel no primeiro traço e no anel, nos caminhos e nas hachuras; cliques secos quando cada camada é identificada; uma respiração antes do primeiro som e outra antes da virada.
-- **Construção musical:** cada camada acrescenta uma nota (pluck). Os acordes sobem com o negócio, em ré menor, até uma dominante que não resolve. Um pequeno impacto grave marca cada frase.
-- **Tensão e corte:** na pergunta, um ruído ascendente e uma nota sustentada param de uma vez na palavra *protegido*. Segue silêncio.
-- **Revelação:** um impacto grave em *Olhe de novo*, e o filme passa para ré maior. Sinos discretos, posicionados à esquerda ou à direita conforme o rótulo em tela, acompanham cada ativo encontrado.
-- **Clareza e ecossistema:** acordes abertos. Na abertura do mapa, uma nota à esquerda (estruturar) e outra à direita (crescer) alargam o campo estéreo.
-- **Resolução:** um pedal grave, ré maior completo quando a montanha aparece, um sino na assinatura e, no fim, o mesmo som do ponto inicial.
-- **A voz na frente:** a música abaixa cerca de 3,5 dB automaticamente sempre que há fala (ducking pela tabela de tempos) e tudo passa por um compressor suave.
+Todo o som além da voz é sintetizado no navegador (`sound.ts`) e agendado pela mesma tabela de palavras.
 
-Mix sem voz: pico de −4,5 dBFS e cerca de −26 LUFS integrados, deixando espaço para a locução ficar em torno de −16 LUFS.
+A mixagem é cinematográfica, não de podcast. Voz, trilha e efeitos dividem o mesmo espaço (a voz recebe um pouco da mesma reverberação). A trilha só se afasta cerca de 2 dB durante a fala, e impactos, golpes e acordes ficam, em vários momentos, acima da voz.
+
+Medições da mixagem final:
+- **Loudness:** cerca de −15,6 LUFS integrados. Voz sozinha em −16,2 e trilha e efeitos em −20,4.
+- **Faixa da fala (300 Hz–4 kHz):** a voz fica 3 a 10 dB acima da trilha, o que a mantém inteligível enquanto graves, impactos e ambiência dão corpo.
+- **Proteção:** um compressor leve de "cola" e um limitador de picos.
+
+Camadas:
+- **Silêncio com textura:** room tone sempre presente, que recua na pergunta.
+- **Gestos físicos:** grafite no papel, cliques de identificação, respirações antes da primeira fala e antes da virada.
+- **Construção:** uma nota por camada, acordes que sobem em ré menor, pulso rítmico e três golpes.
+- **Revelação e clareza:** ré maior, sinos posicionados no estéreo conforme o rótulo em tela, o acorde da marca e um pulso lento.
+- **Resolução:** pedal grave, *swell* até *patrimônio*, acorde pleno, sino na assinatura e o som do ponto inicial no fim.
 
 ## Direção de arte
 
@@ -116,5 +139,5 @@ Opções: `--width`, `--fps`, `--crf`, `--quality` (JPEG intermediário), `--cap
 | `components/velmont/film/sound.ts` | Sound design sintetizado (tempo real e offline) |
 | `components/velmont/film/film-player.tsx` | Player acessível |
 | `components/velmont/film/film-page.tsx` | Página `/filme` |
-| `scripts/film-align.mjs` | Mede a voz e grava os tempos |
+| `scripts/film-align.mjs` | Mede frases e silêncios de uma faixa de voz (pontos de corte) |
 | `scripts/film-render.mjs` | Exporta MP4/WAV |
