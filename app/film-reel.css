@@ -14,25 +14,58 @@
 /* Scroll choreography (only when motion is welcome; values come from film-reel.tsx). */
 html[data-motion=ready] .reel-frame{transform:perspective(1600px) translate3d(0,calc((1 - var(--reel-in,1)) * 20svh - var(--reel-out,0) * 5svh),0) rotateX(calc((1 - var(--reel-in,1)) * 4deg)) scale(calc(.91 + var(--reel-in,1) * .09 - var(--reel-out,0) * .06));opacity:calc(.3 + var(--reel-in,1) * .7 - var(--reel-out,0) * .45);will-change:transform,opacity}
 
-/* Minimal controls: play/pause and sound, a hairline of progress. */
-.reel-controls{position:absolute;left:0;right:0;bottom:0;display:flex;justify-content:space-between;align-items:flex-end;padding:18px 20px;background:linear-gradient(180deg,transparent,#0b04074d);opacity:.72;transition:opacity .35s}
-.reel-card:hover .reel-controls,.reel-card:focus-within .reel-controls,.reel-card:not(.is-playing) .reel-controls{opacity:1}
-.reel-button,.reel-sound{display:inline-flex;align-items:center;justify-content:center;gap:10px;min-width:44px;height:44px;border:1px solid #f4efe633;border-radius:999px;background:#140a0d8c;color:var(--ivory);padding:0 12px;font-size:12px;letter-spacing:.04em;backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px);transition:background .25s,border-color .25s}
+/* Layers: picture, captions, the click surface, feedback, end/start, controls. */
+.reel-caption{position:absolute;z-index:2;left:50%;bottom:clamp(64px,13%,96px);width:min(74%,860px);transform:translateX(-50%);margin:0;text-align:center;font-size:clamp(14px,1.35vw,21px);line-height:1.4;font-weight:500;letter-spacing:.005em;color:var(--ivory);text-wrap:balance;text-shadow:0 1px 14px #0c0508,0 0 2px #0c0508cc;pointer-events:none;animation:reel-caption .5s ease-out both}
+@keyframes reel-caption{from{opacity:0;transform:translate(-50%,6px)}to{opacity:1;transform:translate(-50%,0)}}
+.reel-surface{position:absolute;inset:0;z-index:3;width:100%;height:100%;padding:0;margin:0;border:0;background:none;cursor:pointer;-webkit-tap-highlight-color:transparent}
+.reel-surface:focus{outline:none}
+.reel-flash{position:absolute;z-index:4;left:50%;top:50%;display:grid;place-items:center;width:72px;height:72px;margin:-36px 0 0 -36px;border-radius:50%;background:#140a0d99;border:1px solid #ddc5a166;color:var(--ivory);pointer-events:none;animation:reel-flash .7s ease-out forwards}
+.reel-flash .vm-icon{width:24px;height:24px}.reel-flash-play .vm-icon{margin-left:3px}
+@keyframes reel-flash{0%{opacity:0;transform:scale(.82)}22%{opacity:1;transform:scale(1)}100%{opacity:0;transform:scale(1.12)}}
+
+/* Minimal controls: discreet while the film plays, present on pointer activity, focus, pause or end. */
+.reel-controls{position:absolute;z-index:6;left:0;right:0;bottom:0;display:flex;justify-content:space-between;align-items:flex-end;padding:18px 20px 20px;background:linear-gradient(180deg,transparent,#0b04074d);opacity:.45;transition:opacity .4s;pointer-events:none}
+.reel-controls-end{display:flex;gap:10px}
+.reel-controls button{pointer-events:auto}
+.reel-card:hover .reel-controls,.reel-card.is-active .reel-controls,.reel-card:focus-within .reel-controls,.reel-card:not(.is-playing) .reel-controls{opacity:1}
+.reel-button,.reel-sound{display:inline-flex;align-items:center;justify-content:center;gap:10px;min-width:44px;height:44px;border:1px solid #f4efe633;border-radius:999px;background:#140a0d8c;color:var(--ivory);padding:0 12px;font-size:12px;letter-spacing:.04em;backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px);transition:background .25s,border-color .25s,color .25s}
 .reel-button{width:44px;padding:0}
 .reel-button:hover,.reel-sound:hover{background:#3d101ecc;border-color:#ddc5a180}
 .reel-button .vm-icon,.reel-sound .vm-icon{width:18px;height:18px}
+.reel-cc[aria-pressed=true]{color:var(--champagne);border-color:#ddc5a1b3;background:#3d101ecc}
+.reel-cc[aria-pressed=false]{color:#f4efe6a6}
 .reel-sound.is-muted{padding:0 16px 0 14px}
 .reel-sound:not(.is-muted){width:44px;padding:0}
 .reel-sound:not(.is-muted) span{display:none}
-.reel-progress{position:absolute;left:0;right:0;bottom:0;height:2px;background:#ffffff0f;pointer-events:none}
-.reel-progress>span{position:absolute;inset:0;background:var(--champagne);opacity:.7;transform:scaleX(0);transform-origin:0 50%;transition:transform .3s linear}
-.reel-start{position:absolute;inset:0;margin:auto;width:max-content;height:max-content;display:flex;align-items:center;gap:18px;background:none;border:0;color:var(--ivory);font-size:17px;letter-spacing:-.01em}
+
+/* Progress: a hairline that can be clicked, dragged or moved with the arrow keys. */
+.reel-progress{position:absolute;z-index:6;left:0;right:0;bottom:0;height:16px}
+.reel-progress-line{position:absolute;left:0;right:0;bottom:0;height:2px;background:#ffffff14;transition:height .2s;pointer-events:none}
+.reel-progress-line>span{position:absolute;inset:0;background:var(--champagne);opacity:.75;transform:scaleX(0);transform-origin:0 50%}
+.reel-progress:hover .reel-progress-line,.reel-progress:focus-within .reel-progress-line{height:4px}
+.reel-progress:has(input:focus-visible) .reel-progress-line{outline:2px solid var(--champagne);outline-offset:3px}
+.reel-progress input{position:absolute;inset:0;width:100%;height:100%;margin:0;opacity:0;cursor:pointer;-webkit-appearance:none;appearance:none}
+
+/* Start (no autoplay) and end states. */
+.reel-start{position:absolute;z-index:5;inset:0;margin:auto;width:max-content;height:max-content;display:flex;align-items:center;gap:18px;background:none;border:0;color:var(--ivory);font-size:17px;letter-spacing:-.01em}
 .reel-start-icon{display:grid;place-items:center;width:76px;height:76px;border:1px solid var(--champagne);border-radius:50%;color:var(--champagne);transition:background .3s,color .3s}
 .reel-start-icon .vm-icon{width:24px;height:24px;margin-left:3px}
 .reel-start:hover .reel-start-icon,.reel-start:focus-visible .reel-start-icon{background:var(--champagne);color:var(--ink)}
-.reel-end{position:absolute;left:0;right:0;bottom:15%;display:flex;justify-content:center;align-items:center;gap:36px;flex-wrap:wrap;padding:0 24px}
+.reel-end{position:absolute;z-index:5;left:0;right:0;bottom:17%;display:flex;justify-content:center;align-items:center;gap:36px;flex-wrap:wrap;padding:0 24px;pointer-events:none;animation:reel-rise .6s ease-out both}
+@keyframes reel-rise{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
+.reel-end>*{pointer-events:auto}
 .reel-again{display:inline-flex;align-items:center;gap:12px;background:none;border:0;border-bottom:1px solid var(--champagne);color:var(--ivory);font-size:14px;padding:10px 0}
 .reel-again .vm-icon{width:18px;height:18px}
+.reel-talk{display:inline-flex;align-items:center;gap:16px;background:var(--ivory);color:var(--ink);padding:6px 6px 6px 18px;font-size:13px;font-weight:650;transition:background .25s}
+.reel-talk .icon-wrap{display:grid;place-items:center;width:34px;height:34px;background:var(--wine);color:var(--ivory)}
+.reel-talk .vm-icon{width:18px;height:18px}
+.reel-talk:hover{background:#fff}
+
+/* Fullscreen: the card becomes the screen, the film is letterboxed, nothing else changes. */
+.reel-card.is-full{width:100%;height:100%;aspect-ratio:auto;border-radius:0;box-shadow:none;background:#0a0406}
+.reel-card.is-full .reel-video,.reel-card.is-full .reel-poster{object-fit:contain}
+.reel-card.is-full .reel-caption{font-size:clamp(17px,2vw,32px);bottom:max(11%,84px)}
+.reel-card.is-full .reel-controls{padding:24px max(24px,env(safe-area-inset-right)) max(26px,env(safe-area-inset-bottom)) max(24px,env(safe-area-inset-left))}
 
 /* Tablet: a shorter hold. */
 @media(max-width:1100px){.reel{--reel-hold:34svh}.reel-frame{width:min(92vw,calc((100svh - 170px) * 16 / 9))}}
@@ -47,16 +80,24 @@ html[data-motion=ready] .reel-frame{transform:perspective(1600px) translate3d(0,
  .reel-meta .eyebrow{font-size:9px;gap:12px}
  .reel-length{display:none}
  .reel-card{border-radius:10px}
- .reel-controls{padding:8px;opacity:1;background:none}
+ .reel-controls{padding:8px 8px 12px;opacity:.8;background:none}
+ .reel-controls-end{gap:6px}
  .reel-button,.reel-sound{position:relative;height:34px;min-width:34px;font-size:10.5px;gap:7px}
  .reel-button{width:34px}.reel-sound:not(.is-muted){width:34px}
- .reel-button::after,.reel-sound::after{content:'';position:absolute;inset:-6px}
+ .reel-button::after,.reel-sound::after{content:'';position:absolute;inset:-5px}
  .reel-button .vm-icon,.reel-sound .vm-icon{width:15px;height:15px}
  .reel-sound.is-muted{padding:0 12px 0 10px}
+ .reel-progress{height:11px}
+ .reel-caption{bottom:52px;width:90%;font-size:12.5px;line-height:1.35}
+ .reel-flash{width:56px;height:56px;margin:-28px 0 0 -28px}.reel-flash .vm-icon{width:20px;height:20px}
  .reel-start{font-size:15px;gap:12px}.reel-start-icon{width:56px;height:56px}
- .reel-end{bottom:auto;top:12%;gap:18px}.reel-end .text-link{display:none}.reel-again{font-size:12px;padding:6px 0}
+ .reel-end{bottom:auto;top:10%;gap:10px 18px}.reel-again{font-size:12px;padding:6px 0}.reel-talk{font-size:11.5px;padding:4px 4px 4px 12px;gap:10px}.reel-talk .icon-wrap{width:28px;height:28px}
+ .reel-card.is-full .reel-caption{font-size:clamp(15px,4.2vw,22px);bottom:max(12%,64px)}
+ .reel-card.is-full .reel-controls{opacity:1}
+ .reel-card.is-full .reel-end{top:auto;bottom:22%}
 }
 /* Short landscape screens: keep the whole card and its label in view. */
 @media(min-width:768px) and (max-height:620px){.reel-frame{width:min(88vw,calc((100svh - 120px) * 16 / 9))}.reel-meta{margin-bottom:10px}}
 /* Reduced motion: no pinning, no travel; the film is simply there, and it never starts on its own. */
-@media(prefers-reduced-motion:reduce){.reel{height:auto;padding:70px 0 20px}.reel-stage{position:relative;height:auto;padding-block:20px}.reel-poster,.reel-controls,.reel-progress>span{transition:none}}
+@media(prefers-reduced-motion:reduce){.reel{height:auto;padding:70px 0 20px}.reel-stage{position:relative;height:auto;padding-block:20px}.reel-poster,.reel-controls,.reel-progress-line{transition:none}.reel-caption,.reel-end{animation:none}.reel-flash{animation-name:reel-fade}}
+@keyframes reel-fade{0%{opacity:0}25%{opacity:1}100%{opacity:0}}

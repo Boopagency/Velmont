@@ -1,7 +1,12 @@
-// Writes public/film/relevo-pt.vtt from the measured narration: short cues that
-// follow the voice word by word (the MP4's timeline is the film's timeline).
+// Writes the film's captions (the MP4's timeline is the film's timeline):
+// - public/film/relevo-pt.vtt: the editorial captions shown by the site's
+//   player (components/velmont/film/captions.ts), also used by native video
+//   fullscreen on iPhone;
+// - public/film/relevo-pt-integral.vtt: the full narration in short cues that
+//   follow the voice word by word, for platforms such as YouTube or LinkedIn.
 // Usage: node --import tsx scripts/film-captions.ts
 import fs from 'node:fs/promises';
+import { editorialCaptions } from '../components/velmont/film/captions';
 import { narration } from '../components/velmont/film/narration';
 
 const stamp = (t: number) => {
@@ -29,6 +34,7 @@ narration.forEach((line, n) => {
     cues.push([start, end, g.map(k => words[k]).join(' ')]);
   });
 });
-const body = cues.map(([a, b, text], i) => `${i + 1}\n${stamp(a)} --> ${stamp(b)}\n${text}`).join('\n\n');
-await fs.writeFile('public/film/relevo-pt.vtt', `WEBVTT\n\n${body}\n`);
-console.log(`${cues.length} cues written to public/film/relevo-pt.vtt`);
+const vtt = (list: [number, number, string][]) => `WEBVTT\n\n${list.map(([a, b, text], i) => `${i + 1}\n${stamp(a)} --> ${stamp(b)}\n${text}`).join('\n\n')}\n`;
+await fs.writeFile('public/film/relevo-pt-integral.vtt', vtt(cues));
+await fs.writeFile('public/film/relevo-pt.vtt', vtt(editorialCaptions.map(c => [c.start, c.end, c.text])));
+console.log(`${editorialCaptions.length} editorial cues → public/film/relevo-pt.vtt; ${cues.length} full cues → public/film/relevo-pt-integral.vtt`);
