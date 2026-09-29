@@ -211,16 +211,17 @@ export function FilmReel() {
   const toggleSound = () => {
     const v = video.current;
     if (!v) return;
-    if (!v.muted) { v.muted = true; setMuted(true); return; }
+    // Captions follow the sound: muted brings them on, sound takes them away.
+    // The CC button still overrides until the next sound change.
+    if (!v.muted) { v.muted = true; setMuted(true); setCaptions(true); return; }
     v.muted = false;
     setMuted(false);
-    // The first time the sound is turned on, the film starts over — its narration
-    // only makes sense from the first line — and the captions step aside. After
-    // that, sound and captions are the visitor's to set; nothing restarts.
+    setCaptions(false);
+    // The first time the sound is turned on, the film starts over: its narration
+    // only makes sense from the first line. After that, nothing restarts.
     if (!heard.current) {
       heard.current = true;
       v.currentTime = 0;
-      setCaptions(false);
       setEnded(false);
       play();
       return;
