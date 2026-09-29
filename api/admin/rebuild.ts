@@ -1,11 +1,15 @@
 import { missingConfig, serverEnv } from '../../server/env.js';
 import { assertSameOrigin, fail, handle, json, logEvent, readJson } from '../../server/http.js';
-import { requestDeploy } from '../../server/deploy.js';
+import { coveredBy, latestBuild, requestDeploy } from '../../server/deploy.js';
 import { removeUnreferencedPublicMedia } from '../../server/media.js';
 import { hashKey, rateLimit } from '../../server/rate-limit.js';
 import { requireStaff, serviceClient } from '../../server/supabase.js';
 
-/** Manual "update the site": cleans up public media, then triggers a build. */
+/**
+ * Manual "update the site": cleans up public media, then triggers a build,
+ * unless one it would duplicate is still on its way, or (for a retry) the
+ * latest request was already confirmed by a build.
+ */
 export function POST(request: Request) {
   return handle(request, async () => {
     const env = serverEnv();
@@ -29,8 +33,13 @@ export function POST(request: Request) {
     await rateLimit(service, `rebuild:${hashKey(env.rateLimitSalt, staff.userId)}`, 30, 3600);
     await rateLimit(service, 'rebuild:global', 60, 3600);
     await removeUnreferencedPublicMedia(service).catch((error: Error) => logEvent('error', 'media_cleanup_failed', { message: error.message }));
+    const covered = coveredBy(await latestBuild(service));
+    if (covered === 'in_progress' || (covered === 'updated' && reason.startsWith('retry'))) {
+      logEvent('info', 'site_update_skipped', { covered });
+      return json(202, { ok: true, skipped: covered });
+    }
     const deploy = await requestDeploy(env, service, staff.userId, reason);
-    if (deploy.ok) return json(202, { ok: true });
+    if (deploy.ok) return json(202, deploy.outcome === 'accepted' ? { ok: true } : { ok: true, confirmed: false });
     if (deploy.error === 'deploy_hook_not_configured') {
       logEvent('error', 'not_configured', { missing: ['VERCEL_DEPLOY_HOOK_URL'] });
       return json(503, { error: 'deploy_hook_not_configured', missing: ['VERCEL_DEPLOY_HOOK_URL'] });

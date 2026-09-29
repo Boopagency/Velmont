@@ -9,19 +9,35 @@ import { fullDate, TimeAgo } from './ui';
 
 // The public site is static: every publish asks Vercel for a new build
 // (site_builds: pending → success | failed, reported by the production build).
-// This reads that lifecycle and the live build's own timestamp.
+// This reads that lifecycle and the live build's own timestamps.
 
 type Build = { id: number; requested_at: string; status: 'pending' | 'success' | 'failed'; finished_at: string | null; detail: string | null };
-export type SiteState = 'updated' | 'updating' | 'stalled' | 'failed';
+/** unconfirmed: requested, but Vercel's answer did not arrive; the build that follows settles it. */
+export type SiteState = 'updated' | 'updating' | 'unconfirmed' | 'stalled' | 'failed';
+/** When the version on the air was generated (builtAt) and began reading the content (startedAt). */
+export type LiveBuild = { builtAt: string | null; startedAt: string | null };
 
-/** A pending build with no answer after this long is shown as unconfirmed. */
+/** site_builds.detail of a request without Vercel's answer (server/deploy.ts writes the same marker). */
+const UNCONFIRMED = 'deploy hook unconfirmed';
+/** A pending build with no answer after this long is shown as unconfirmed ("Sem confirmação"). */
 const STALLED_MS = 15 * 60 * 1000;
+/** A request whose delivery was never confirmed gets a shorter wait before offering a retry. */
+const UNCONFIRMED_MS = 5 * 60 * 1000;
 const POLL_MS = 10000;
 
-function derive(build: Build | null, now = Date.now()): SiteState {
+/**
+ * The state of the latest request. A live version that began reading the
+ * content after the request was made includes it: whatever Vercel answered
+ * (or failed to answer) at the time, that update is on the site. Otherwise
+ * the build decides: success, a real failure, or still on its way.
+ */
+export function derive(build: Build | null, live: LiveBuild = { builtAt: null, startedAt: null }, now = Date.now()): SiteState {
   if (!build || build.status === 'success') return 'updated';
+  if (live.startedAt && Date.parse(live.startedAt) >= Date.parse(build.requested_at)) return 'updated';
   if (build.status === 'failed') return 'failed';
-  return now - new Date(build.requested_at).getTime() > STALLED_MS ? 'stalled' : 'updating';
+  const age = now - Date.parse(build.requested_at);
+  if (build.detail === UNCONFIRMED) return age > UNCONFIRMED_MS ? 'stalled' : 'unconfirmed';
+  return age > STALLED_MS ? 'stalled' : 'updating';
 }
 
 /** Plain-language reason for a failed update; never shows raw server text. */
@@ -34,27 +50,31 @@ export function failureReason(detail: string | null) {
   return 'A atualização não foi concluída.';
 }
 
-/** Latest build request and the live build's own timestamp. */
+const stamp = (value: unknown) => (typeof value === 'string' && !Number.isNaN(Date.parse(value)) ? value : null);
+
+/** Latest build request and the live build's own timestamps. */
 async function fetchStatus() {
   const [builds, info] = await Promise.all([
     supabase.from('site_builds').select('id, requested_at, status, finished_at, detail').order('requested_at', { ascending: false }).limit(1),
     fetch('/build-info.json', { cache: 'no-store' })
-      .then((r) => (r.ok ? (r.json() as Promise<{ builtAt?: string }>) : null))
+      .then((r) => (r.ok ? (r.json() as Promise<{ builtAt?: unknown; startedAt?: unknown }>) : null))
       .catch(() => null),
   ]);
-  return { build: ((builds.data as Build[] | null) || [])[0] || null, builtAt: info?.builtAt || null };
+  return { build: ((builds.data as Build[] | null) || [])[0] || null, live: { builtAt: stamp(info?.builtAt), startedAt: stamp(info?.startedAt) } };
 }
+
+const inFlight = (state: SiteState) => state === 'updating' || state === 'unconfirmed';
 
 export function useSiteStatus() {
   const [build, setBuild] = useState<Build | null | undefined>(undefined);
-  const [builtAt, setBuiltAt] = useState<string | null>(null);
+  const [live, setLive] = useState<LiveBuild>({ builtAt: null, startedAt: null });
   const [requesting, setRequesting] = useState(false);
   const [optimistic, setOptimistic] = useState(false);
   const previous = useRef<SiteState | null>(null);
 
   const apply = useCallback((status: Awaited<ReturnType<typeof fetchStatus>>) => {
     setBuild(status.build);
-    setBuiltAt(status.builtAt);
+    setLive(status.live);
     setOptimistic(false);
   }, []);
   const load = useCallback(() => fetchStatus().then(apply), [apply]);
@@ -63,57 +83,63 @@ export function useSiteStatus() {
     void fetchStatus().then(apply);
   }, [apply]);
 
-  const state: SiteState = optimistic ? 'updating' : derive(build ?? null);
+  // What the records say; `state` also covers the moment between a request and its row.
+  const real: SiteState = derive(build ?? null, live);
+  const state: SiteState = optimistic ? 'updating' : real;
 
   // While Vercel builds, check again every few seconds (only with the tab visible).
   useEffect(() => {
-    if (state !== 'updating') return;
+    if (!inFlight(state)) return;
     const timer = setInterval(() => {
       if (!document.hidden) void load();
     }, POLL_MS);
     return () => clearInterval(timer);
   }, [state, load]);
 
-  // Tell the person when an update they are watching finishes.
+  // Tell the person when an update they are watching finishes (from the records, never the optimistic guess).
   useEffect(() => {
-    if (build === undefined) return;
-    if (previous.current === 'updating' && state === 'updated') toast.success('Site atualizado', { description: 'A versão publicada já está no ar.' });
-    if (previous.current === 'updating' && state === 'failed') toast.error('Não foi possível atualizar o site', { description: failureReason(build?.detail ?? null) });
-    previous.current = state;
-  }, [state, build]);
+    if (build === undefined || optimistic) return;
+    const watched = previous.current !== null && inFlight(previous.current);
+    if (watched && real === 'updated') toast.success('Site atualizado', { description: 'A versão publicada já está no ar.' });
+    if (watched && real === 'failed') toast.error('Não foi possível atualizar o site', { description: failureReason(build?.detail ?? null) });
+    previous.current = real;
+  }, [real, build, optimistic]);
 
   const update = useCallback(
     async (reason: string) => {
       setRequesting(true);
-      const ok = await requestSiteUpdate(reason);
+      const result = await requestSiteUpdate(reason);
       setRequesting(false);
-      if (ok) {
+      if (result.skipped === 'updated') toast.success('O site já está atualizado', { description: 'A versão publicada mais recente já está no ar.' });
+      else if (result.skipped === 'in_progress') toast.info('Atualização em andamento', { description: 'Uma atualização já foi solicitada; esta página acompanha sozinha.' });
+      else if (result.ok) toast.success('Atualização do site solicitada', { description: 'Leva cerca de 1 a 2 minutos.' });
+      else toast.error('Não foi possível atualizar o site', { description: 'O pedido não foi aceito. Tente novamente em instantes.' });
+      if (result.ok && !result.skipped) {
         setOptimistic(true);
         previous.current = 'updating';
-        toast.success('Atualização do site solicitada', { description: 'Leva cerca de 1 a 2 minutos.' });
-      } else toast.error('Não foi possível atualizar o site', { description: 'O pedido não foi aceito. Tente novamente em instantes.' });
+      }
       await load();
-      if (ok) setOptimistic(false);
-      return ok;
+      return result.ok;
     },
     [load],
   );
 
   /** For flows that already asked for a build (publishing): start watching it. */
   const watch = useCallback(() => {
+    setOptimistic(true);
     previous.current = 'updating';
     void load();
   }, [load]);
 
-  return { loading: build === undefined, build: build ?? null, builtAt, state, update, requesting, refresh: load, watch };
+  return { loading: build === undefined, build: build ?? null, builtAt: live.builtAt, state, update, requesting, refresh: load, watch };
 }
 
 type Status = ReturnType<typeof useSiteStatus>;
 
-const labels: Record<SiteState, string> = { updated: 'Atualizado', updating: 'Atualizando site…', stalled: 'Sem confirmação', failed: 'Falha na atualização' };
+const labels: Record<SiteState, string> = { updated: 'Atualizado', updating: 'Atualizando site…', unconfirmed: 'Aguardando confirmação', stalled: 'Sem confirmação', failed: 'Falha na atualização' };
 
 export function SiteStateIcon({ state, className }: { state: SiteState; className?: string }) {
-  if (state === 'updating') return <Spinner className={cn('size-3.5 text-champagne-foreground', className)} aria-hidden="true" />;
+  if (inFlight(state)) return <Spinner className={cn('size-3.5 text-champagne-foreground', className)} aria-hidden="true" />;
   if (state === 'failed') return <CircleAlertIcon aria-hidden="true" className={cn('size-3.5 text-destructive', className)} />;
   if (state === 'stalled') return <CircleAlertIcon aria-hidden="true" className={cn('size-3.5 text-champagne-foreground', className)} />;
   return <span aria-hidden="true" className={cn('inline-block size-2 rounded-full bg-success ring-3 ring-success/15', className)} />;
@@ -123,7 +149,7 @@ export function SiteStateIcon({ state, className }: { state: SiteState; classNam
 /** One line of state; `compact` uses the short labels of the dashboard metric. */
 export function SiteStatusLine({ status, className, compact }: { status: Status; className?: string; compact?: boolean }) {
   const { state, build, builtAt } = status;
-  const when = state === 'updated' ? build?.finished_at || builtAt : build?.requested_at || null;
+  const when = state === 'updated' ? builtAt || build?.finished_at || null : build?.requested_at || null;
   return (
     <output className={cn('inline-flex min-w-0 items-center gap-x-2 text-sm', className)}>
       <span className="inline-flex items-center gap-2 whitespace-nowrap">
@@ -143,7 +169,7 @@ export function SiteStatusLine({ status, className, compact }: { status: Status;
 export function SiteStatusPanel({ status }: { status: Status }) {
   const { state, build, builtAt, loading, requesting } = status;
   const retry = state === 'failed' || state === 'stalled';
-  const lastRequest = build ? { pending: 'em andamento', success: 'concluída', failed: 'não concluída' }[build.status] : null;
+  const lastRequest = build ? { updated: 'concluída', updating: 'em andamento', unconfirmed: 'em andamento', stalled: 'sem confirmação', failed: 'não concluída' }[state] : null;
   return (
     <section aria-labelledby="site-status-title" className="rounded-xl border bg-card">
       <div className="flex flex-wrap items-start justify-between gap-4 p-5">
@@ -155,6 +181,7 @@ export function SiteStatusPanel({ status }: { status: Status }) {
           {!loading && (
             <p className="text-[13px] leading-relaxed text-muted-foreground">
               {state === 'updating' && 'A Vercel está gerando a nova versão. Leva cerca de 1 a 2 minutos; esta página acompanha sozinha.'}
+              {state === 'unconfirmed' && 'A atualização foi solicitada, e a Vercel ainda não confirmou o recebimento. Esta página acompanha sozinha e mostra quando a nova versão entrar no ar.'}
               {state === 'updated' && 'O site público mostra o conteúdo publicado mais recente.'}
               {state === 'failed' && failureReason(build?.detail ?? null)}
               {state === 'stalled' && 'A atualização foi solicitada, mas a Vercel ainda não confirmou a conclusão. Tente novamente.'}
@@ -165,7 +192,7 @@ export function SiteStatusPanel({ status }: { status: Status }) {
           <a className="inline-flex h-8 items-center gap-1.5 rounded-lg px-2.5 text-sm font-medium text-muted-foreground transition-colors hover:bg-muted hover:text-foreground" href="/" target="_blank" rel="noopener noreferrer">
             Abrir site <ExternalLinkIcon className="size-3.5" aria-hidden="true" />
           </a>
-          <Button variant={retry ? 'default' : 'outline'} disabled={requesting || state === 'updating'} onClick={() => void status.update(retry ? 'retry: dashboard' : 'manual: dashboard')}>
+          <Button variant={retry ? 'default' : 'outline'} disabled={requesting || inFlight(state)} onClick={() => void status.update(retry ? 'retry: dashboard' : 'manual: dashboard')}>
             {requesting ? <Spinner data-icon="inline-start" aria-hidden="true" /> : <RefreshCwIcon data-icon="inline-start" aria-hidden="true" />}
             {requesting ? 'Solicitando…' : retry ? 'Tentar novamente' : 'Atualizar site agora'}
           </Button>

@@ -348,6 +348,20 @@ try {
   for (const k of keys()) assert.match(k, /^media-private\/[0-9a-f-]{36}\.(webp|jpg)$/);
   ok('uploads are re-encoded, validated server-side and stored only in the private bucket');
 
+  // Right after an upload, opening the image closes the "Imagem enviada" notice: it never covers "Excluir imagem".
+  await page.setInputFiles('input[type=file]', { name: 'engano.png', mimeType: 'image/png', buffer: png });
+  await page.locator('.toast', { hasText: 'Imagem enviada' }).waitFor();
+  await page.getByRole('button', { name: /^Abrir detalhes/ }).first().click();
+  await page.getByRole('heading', { name: 'Detalhes da imagem' }).waitFor();
+  await page.locator('.toast', { hasText: 'Imagem enviada' }).waitFor({ state: 'detached' });
+  await page.getByRole('button', { name: 'Excluir imagem' }).click({ trial: true });
+  await page.screenshot({ path: path.join(shots, 'admin-media-details-after-upload.png') });
+  await page.getByRole('button', { name: 'Excluir imagem' }).click();
+  await page.getByRole('alertdialog').getByRole('button', { name: 'Excluir' }).click();
+  await page.locator('.toast', { hasText: 'Imagem excluída' }).waitFor();
+  assert.equal(keys().filter((k) => k.startsWith('media-private/')).length, 2, 'the image sent by mistake is gone');
+  ok('after an upload, the image details open with "Excluir imagem" free to click (the upload notice closes)');
+
   await page.locator('.media-card img').nth(1).waitFor();
   const thumbs = await page.locator('.media-card img').evaluateAll((els) => els.map((e) => (e as HTMLImageElement).src));
   assert.ok(thumbs.every((src) => src.includes('/storage/v1/object/sign/media-private/') && src.includes('token=')), thumbs.join('\n'));
@@ -458,6 +472,34 @@ try {
   assert.ok(!publicPhoto.body.includes('Exif') && !publicPhoto.body.includes('GPS-TEST-CAM'), 'no EXIF/GPS in the public object');
   assert.equal((await fetch(`${stack.url}/storage/v1/object/public/media/${gpsMedia.path}`)).status, 200);
   ok('a JPEG with EXIF/GPS sent straight to the API is stored and published without its metadata');
+
+  // Site status: never "Falha" for an update that is on the air; an unanswered request waits for its build.
+  await build();
+  const liveBuild = (await (await fetch(`${site}/build-info.json`)).json()) as { startedAt: string };
+  const statusPanel = page.getByRole('region', { name: 'Status do site' });
+  const siteBuilds = async () => (await stack.db.query('select count(*)::int as n from public.site_builds')).rows[0].n as number;
+  // Recorded as failed by the old 8-second timeout, although the live version began after it.
+  await stack.db.query(`insert into public.site_builds (requested_at, requested_by, reason, ok, status, finished_at, detail) values ($1, $2, 'publish: antigo', false, 'failed', $1, 'deploy hook unreachable')`, [new Date(Date.parse(liveBuild.startedAt) - 200).toISOString(), lisandra]);
+  await page.goto(`${site}/admin`);
+  await statusPanel.getByText('O site público mostra o conteúdo publicado mais recente.').waitFor();
+  assert.equal(await statusPanel.getByText(/Falha|Não foi possível contatar/).count(), 0, 'already on the air: not a failure');
+  // Asked now, Vercel's answer never arrived: awaiting confirmation, and a retry asks for nothing new.
+  await stack.db.query(`insert into public.site_builds (requested_at, requested_by, reason, ok, status, detail) values (now(), $1, 'publish: sem resposta', true, 'pending', 'deploy hook unconfirmed')`, [lisandra]);
+  await page.reload();
+  await statusPanel.getByText('Aguardando confirmação').waitFor();
+  await statusPanel.getByText(/ainda não confirmou o recebimento/).waitFor();
+  await statusPanel.screenshot({ path: path.join(shots, 'admin-site-status-unconfirmed.png') });
+  const retryWhilePending = await fetch(`${site}/api/admin/rebuild`, { method: 'POST', headers: { origin: site, authorization: `Bearer ${staffToken}`, 'content-type': 'application/json' }, body: JSON.stringify({ reason: 'retry: dashboard' }) });
+  assert.deepEqual(await retryWhilePending.json(), { ok: true, skipped: 'in_progress' });
+  const before = await siteBuilds();
+  // The production build reports its outcome; the open panel notices on its own.
+  await stack.db.query('select public.finish_site_builds(now(), true)');
+  await statusPanel.getByText('O site público mostra o conteúdo publicado mais recente.').waitFor({ timeout: 25000 });
+  await page.getByText('Site atualizado').first().waitFor();
+  const retryAfterConfirmed = await fetch(`${site}/api/admin/rebuild`, { method: 'POST', headers: { origin: site, authorization: `Bearer ${staffToken}`, 'content-type': 'application/json' }, body: JSON.stringify({ reason: 'retry: dashboard' }) });
+  assert.deepEqual(await retryAfterConfirmed.json(), { ok: true, skipped: 'updated' });
+  assert.equal(await siteBuilds(), before, 'no duplicate request or build');
+  ok('site status: a live update is never shown as a failure; an unanswered request waits, turns "Atualizado" when the build reports, and retries do not duplicate it');
 
   // 9. Session: token reuse after sign-out is rejected by the API.
   const token = await page.evaluate(() => JSON.parse(localStorage.getItem('velmont-admin') || '{}').access_token as string);

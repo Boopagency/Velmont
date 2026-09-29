@@ -8,6 +8,8 @@ import {createHash} from 'node:crypto';
 // hydrate interactions. Published articles are read from the CMS at build time.
 // In-process tooling also supports Windows hosts without child-process access.
 const root=process.cwd();
+// Set by scripts/build.mjs; a standalone run starts now. Taken before any content is read.
+const buildStartedAt=/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(\.\d+)?Z$/.test(process.env.VELMONT_BUILD_STARTED_AT||'')?process.env.VELMONT_BUILD_STARTED_AT:new Date().toISOString();
 const req=createRequire(import.meta.url);
 const viteReq=createRequire(req.resolve('vite/package.json'));
 const {build}=await import(pathToFileURL(viteReq.resolve('rolldown')).href);
@@ -106,7 +108,9 @@ const adminHead=title=>`<meta charset="utf-8"><meta name="viewport" content="wid
 await fs.mkdir(path.join(output,'admin/preview'),{recursive:true});
 await fs.writeFile(path.join(output,'admin/index.html'),`<!doctype html><html lang="pt-BR"><head>${adminHead('Painel | Velmont')}<link rel="preload" href="/fonts/manrope-latin.woff2" as="font" type="font/woff2" crossorigin><link rel="stylesheet" href="/assets/${adminCssName}"></head><body><div id="admin"></div><noscript>O painel precisa de JavaScript.</noscript><script type="module" src="/assets/${adminEntry('admin')}"></script></body></html>`);
 await fs.writeFile(path.join(output,'admin/preview/index.html'),`<!doctype html><html lang="pt-BR"><head>${adminHead('Pré-visualização | Velmont')}<link rel="stylesheet" href="/assets/${cssName}"><style>.preview-bar{display:block;position:sticky;top:0;z-index:50;margin:0;padding:10px 16px;background:#ddc5a1;color:#210b12;font:600 12px/1.4 Manrope,Arial,sans-serif;letter-spacing:.04em;text-align:center}.preview-bar a{color:inherit}</style></head><body><div id="app"></div><script type="module" src="/assets/${adminEntry('preview')}"></script></body></html>`);
-await fs.writeFile(path.join(output,'build-info.json'),JSON.stringify({builtAt:new Date().toISOString(),articles:posts.length,source:origin}));
+// startedAt: when this build began, before reading the content. The panel
+// counts every update requested before it as live (admin/site-status.tsx).
+await fs.writeFile(path.join(output,'build-info.json'),JSON.stringify({builtAt:new Date().toISOString(),startedAt:buildStartedAt,articles:posts.length,source:origin}));
 // The deployed files must never contain a server secret. On Vercel the real
 // values are present during the build, so this checks the actual bundle.
 const secrets=['SUPABASE_SERVICE_ROLE_KEY','RATE_LIMIT_SALT','TURNSTILE_SECRET_KEY','VERCEL_DEPLOY_HOOK_URL'].map(k=>[k,(process.env[k]||'').trim()]).filter(([,v])=>v.length>=8);

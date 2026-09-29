@@ -465,15 +465,17 @@ export function ArticleEditor({ id }: { id: string | null }) {
         ? { icon: <Spinner className="size-3.5" aria-hidden="true" />, text: 'Atualizando status…' }
         : dirty
           ? { icon: <CircleIcon className="size-2 fill-champagne text-champagne" aria-hidden="true" />, text: 'Alterações não salvas' }
-          : published && site.state === 'updating'
+          : published && (site.state === 'updating' || site.state === 'unconfirmed')
             ? { icon: <SiteStateIcon state="updating" />, text: 'Atualizando site…' }
             : published && (site.state === 'failed' || published === 'not_updated')
               ? { icon: <SiteStateIcon state="failed" />, text: 'Falha na atualização do site', tone: 'text-destructive' }
-              : published && site.state === 'updated'
-                ? { icon: <SiteStateIcon state="updated" />, text: 'Site atualizado' }
-                : row
-                  ? { icon: <CheckIcon className="size-3.5 text-success" aria-hidden="true" />, text: `Salvo` }
-                  : { icon: <CircleIcon className="size-2 fill-muted-foreground/40 text-muted-foreground/40" aria-hidden="true" />, text: 'Ainda não salvo' };
+              : published && site.state === 'stalled'
+                ? { icon: <SiteStateIcon state="stalled" />, text: 'Atualização sem confirmação' }
+                : published && site.state === 'updated'
+                  ? { icon: <SiteStateIcon state="updated" />, text: 'Site atualizado' }
+                  : row
+                    ? { icon: <CheckIcon className="size-3.5 text-success" aria-hidden="true" />, text: `Salvo` }
+                    : { icon: <CircleIcon className="size-2 fill-muted-foreground/40 text-muted-foreground/40" aria-hidden="true" />, text: 'Ainda não salvo' };
 
   const seoTitle = draft.seo_title || draft.title || 'Título do artigo';
   const seoDescription = draft.seo_description || draft.excerpt || 'O resumo do artigo aparece aqui.';
@@ -501,7 +503,7 @@ export function ArticleEditor({ id }: { id: string | null }) {
                 )}
               </span>
             </output>
-            {published && (site.state === 'failed' || published === 'not_updated') && site.state !== 'updating' && (
+            {published && (site.state === 'failed' || site.state === 'stalled' || published === 'not_updated') && site.state !== 'updating' && site.state !== 'unconfirmed' && (
               <Button variant="link" size="sm" className="h-auto px-0 text-[13px]" disabled={site.requesting} onClick={() => void site.update('retry: editor').then((ok) => ok && setPublished('updating'))}>
                 <RotateCcwIcon data-icon="inline-start" aria-hidden="true" />
                 <span className="sr-only sm:not-sr-only">Tentar novamente</span>
@@ -720,7 +722,7 @@ export function ArticleEditor({ id }: { id: string | null }) {
                     <dt className="text-muted-foreground">Site</dt>
                     <dd className="flex items-center gap-1.5 font-medium">
                       <SiteStateIcon state={site.state} />
-                      {{ updated: 'Atualizado', updating: 'Atualizando…', stalled: 'Sem confirmação', failed: 'Falha' }[site.state]}
+                      {{ updated: 'Atualizado', updating: 'Atualizando…', unconfirmed: 'Aguardando confirmação', stalled: 'Sem confirmação', failed: 'Falha' }[site.state]}
                     </dd>
                   </div>
                 )}

@@ -21,12 +21,14 @@ export async function adminApi(path: '/api/admin/media' | '/api/admin/rebuild' |
   return { ok: response.ok, status: response.status, body };
 }
 
-export async function requestSiteUpdate(reason: string) {
+/** Asks for a new build; `skipped` when one already covers it (in progress, or confirmed for a retry). */
+export async function requestSiteUpdate(reason: string): Promise<{ ok: boolean; skipped?: 'in_progress' | 'updated' }> {
   try {
     const result = await adminApi('/api/admin/rebuild', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ reason }) });
-    return result.ok;
+    const skipped = result.body.skipped === 'in_progress' || result.body.skipped === 'updated' ? result.body.skipped : undefined;
+    return { ok: result.ok, skipped };
   } catch {
-    return false;
+    return { ok: false };
   }
 }
 

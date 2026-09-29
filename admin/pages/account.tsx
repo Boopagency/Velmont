@@ -110,7 +110,7 @@ export function Account() {
             </div>
             <div className="flex items-start gap-3 rounded-lg bg-muted/60 p-3 text-[13px] text-muted-foreground">
               <SmartphoneIcon className="mt-0.5 size-4 shrink-0" aria-hidden="true" />
-              <p>Trocou de celular? Peça à pessoa responsável para redefinir seu autenticador no Supabase. No próximo acesso, você cadastra o novo.</p>
+              <p>Trocou de celular? Peça à pessoa responsável pela equipe para configurar novamente a sua verificação em duas etapas. No próximo acesso, você cadastra o aplicativo no celular novo.</p>
             </div>
           </div>
         )}

@@ -251,7 +251,13 @@ Qualquer falha no meio deixa a conta bloqueada. Uma nova senha temporária emiti
 
 1. **Settings → Environment Variables** (Production): as variáveis da seção 6, com `NEXT_PUBLIC_SITE_URL=https://www.grupovelmont.com`. Sem ela, o build usa esse mesmo domínio; um build de produção com uma URL `*.vercel.app` falha de propósito. Depois de criar ou alterar variáveis, faça um **Redeploy**: as Functions só leem os valores do deploy em que foram publicadas.
 2. **Settings → Git → Deploy Hooks**: crie um hook com o branch **`main`** e salve a URL em `VERCEL_DEPLOY_HOOK_URL`. Um hook de outro branch geraria um deploy de Preview, e o site público não mudaria.
-   - Cada pedido de atualização fica em `site_builds`: `pending` quando a Vercel aceita o hook; `success` ou `failed` quando o build de produção termina (o `scripts/build.mjs` informa o resultado com a `service_role`); `failed` imediato se o hook não estiver configurado ou recusar.
+   - Cada pedido de atualização fica em `site_builds`, com o horário de **antes** da chamada ao hook:
+     - `pending` quando a Vercel aceita o hook (2xx) **ou quando a resposta não chega** (tempo esgotado de 6 s, conexão encerrada depois do envio, redirecionamento). Nesse caso o `detail` é `deploy hook unconfirmed`: a Vercel pode ter aceitado, e o build que ela iniciar resolve o pedido como qualquer outro;
+     - `success` ou `failed` quando o build de produção termina (o `scripts/build.mjs` informa o resultado com a `service_role`, pelo `finish_site_builds`, que é a fonte autoritativa);
+     - `failed` imediato só quando a Vercel **recusa** (4xx/5xx), quando o pedido nem sai (DNS, conexão recusada, TLS) ou quando o hook não está configurado.
+   - O `build-info.json` publicado traz `startedAt` (quando o build começou a ler o conteúdo). O painel considera no ar todo pedido feito antes dele, mesmo que a resposta da Vercel não tenha chegado ou que o registro antigo diga "falha".
+   - "Tentar novamente" não pede outro build se o último pedido já foi confirmado, e nenhum pedido manual é repetido enquanto outro ainda está a caminho (`skipped` na resposta de `/api/admin/rebuild`). Publicar sempre pede um build novo.
+   - O motivo de um pedido sem resposta aparece nos Runtime Logs (`deploy_hook_unconfirmed`, com o tipo de erro e nunca a URL do hook).
    - Se o painel mostrar erro ao atualizar o site, a resposta de `/api/admin/rebuild` traz o nome da variável que falta (nunca o valor) **apenas para staff autenticado**; um visitante anônimo recebe só um erro genérico. O nome também aparece nos Runtime Logs.
 3. Build e saída continuam `pnpm build` → `dist`; o `vercel.json` já declara as Functions (`api/**/*.ts`, Node 22).
 4. Faça o deploy (merge do PR). Depois confira:
@@ -291,7 +297,7 @@ A interface usa shadcn/ui sobre os tokens da Velmont. O sistema visual está em 
   - Uma superfície de métricas: Publicados, Rascunhos, Leads novos e Status do site.
   - Artigos e leads recentes.
   - Painel **Status do site**:
-    - estados: Atualizado, Atualizando site…, Sem confirmação ou Falha;
+    - estados: Atualizado, Atualizando site…, Aguardando confirmação (a Vercel não respondeu a tempo; o build confirma), Sem confirmação ou Falha;
     - mostra o horário da versão no ar e da última solicitação;
     - traz "Atualizar site agora" / "Tentar novamente".
 - **Artigos**:

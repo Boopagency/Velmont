@@ -383,6 +383,22 @@ describe('site build lifecycle', () => {
     assert.deepEqual(rows, [{ status: 'failed', detail: 'build failed: boom' }]);
   });
 
+  test('a request without Vercel’s answer stays pending; the next production build settles it either way', async () => {
+    const rows = await as(db, 'service_role', null, async (q) => {
+      // As server/deploy.ts records it: requested_at is taken before the hook call.
+      const request = `insert into public.site_builds (requested_at, reason, ok, status, detail) values (now() - interval '2 minutes', $1, true, 'pending', 'deploy hook unconfirmed')`;
+      await q(request, ['sem resposta, build ok']);
+      await q(`select public.finish_site_builds(now() - interval '1 minute', true)`);
+      await q(request, ['sem resposta, build falhou']);
+      await q(`select public.finish_site_builds(now() - interval '1 minute', false, 'build failed: boom')`);
+      return (await q(`select reason, status, detail, finished_at is not null as finished from public.site_builds where reason like 'sem resposta%' order by reason`)).rows;
+    });
+    assert.deepEqual(rows, [
+      { reason: 'sem resposta, build falhou', status: 'failed', detail: 'build failed: boom', finished: true },
+      { reason: 'sem resposta, build ok', status: 'success', detail: 'deploy hook unconfirmed', finished: true },
+    ]);
+  });
+
   test('only the service role can resolve builds or write the table', async () => {
     for (const [role, who] of [['anon', null], ['authenticated', owner]] as const) {
       assert.equal(await outcome(as(db, role, who, (q) => q(`select public.finish_site_builds(now(), true)`))), '42501', role);

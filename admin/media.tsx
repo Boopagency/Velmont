@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState, type ChangeEvent } from 'react';
 import { ImagePlusIcon, UploadIcon } from 'lucide-react';
+import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogClose, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -48,6 +49,9 @@ export async function uploadImage(file: File, alt: string): Promise<MediaItem> {
   return result.body.media as MediaItem;
 }
 
+/** The "image sent" notice; the image details close it, so it never covers their buttons. */
+export const UPLOADED_TOAST = 'media-uploaded';
+
 export function UploadButton({ onUploaded, label = 'Enviar imagem', variant = 'default' }: { onUploaded: (m: MediaItem) => void; label?: string; variant?: 'default' | 'outline' }) {
   const input = useRef<HTMLInputElement>(null);
   const [busy, setBusy] = useState(false);
@@ -58,7 +62,7 @@ export function UploadButton({ onUploaded, label = 'Enviar imagem', variant = 'd
     setBusy(true);
     try {
       onUploaded(await uploadImage(file, ''));
-      notify.ok('Imagem enviada', 'Lembre-se de descrever a imagem (texto alternativo).');
+      toast.success('Imagem enviada', { id: UPLOADED_TOAST, description: 'Lembre-se de descrever a imagem (texto alternativo).' });
     } catch (error) {
       notify.error('Não foi possível enviar a imagem', error instanceof Error ? error.message : 'Falha no envio.');
     } finally {

@@ -58,17 +58,26 @@ const rows = [
 ];
 
 let server: http.Server;
-let requests: { url: string; apikey: string | undefined }[] = [];
+let requests: { url: string; apikey: string | undefined; body: string }[] = [];
 let failing = false;
 
 before(async () => {
   server = http.createServer((req, res) => {
-    requests.push({ url: req.url || '', apikey: req.headers.apikey as string | undefined });
-    if (failing) {
-      res.writeHead(500).end('{}');
-      return;
-    }
-    res.writeHead(200, { 'content-type': 'application/json' }).end(JSON.stringify(rows));
+    const chunks: Buffer[] = [];
+    req.on('data', (c: Buffer) => chunks.push(c));
+    req.on('end', () => {
+      requests.push({ url: req.url || '', apikey: req.headers.apikey as string | undefined, body: Buffer.concat(chunks).toString() });
+      // The production build reports its outcome (scripts/build.mjs): one pending request resolved.
+      if (req.url === '/rest/v1/rpc/finish_site_builds') {
+        res.writeHead(200, { 'content-type': 'application/json' }).end('1');
+        return;
+      }
+      if (failing) {
+        res.writeHead(500).end('{}');
+        return;
+      }
+      res.writeHead(200, { 'content-type': 'application/json' }).end(JSON.stringify(rows));
+    });
   });
   await new Promise<void>((r) => server.listen(0, '127.0.0.1', r));
 });
@@ -158,6 +167,31 @@ describe('static build from the CMS', () => {
     failing = true;
     await assert.rejects(build(), /CMS request failed/);
     failing = false;
+  });
+
+  test('the production build reports to finish_site_builds with the start it writes to build-info.json; a failed build reports a failure', async () => {
+    const port = (server.address() as { port: number }).port;
+    const production = () =>
+      run(process.execPath, ['scripts/build.mjs'], {
+        cwd: root,
+        env: { ...process.env, VERCEL: '', VERCEL_ENV: 'production', VELMONT_OUTPUT: '.static-build/test-dist', NEXT_PUBLIC_SITE_URL: 'https://www.velmont.test', NEXT_PUBLIC_SUPABASE_URL: `http://127.0.0.1:${port}`, NEXT_PUBLIC_SUPABASE_ANON_KEY: 'anon-test-key', SUPABASE_SERVICE_ROLE_KEY: 'service-test-key-0123' },
+      });
+    const report = () => requests.find((r) => r.url === '/rest/v1/rpc/finish_site_builds')!;
+    requests = [];
+    await production();
+    const info = JSON.parse(read('build-info.json')) as { builtAt: string; startedAt: string };
+    assert.deepEqual(JSON.parse(report().body), { p_started_at: info.startedAt, p_success: true, p_detail: null });
+    assert.equal(report().apikey, 'service-test-key-0123');
+    assert.ok(Date.parse(info.startedAt) <= Date.parse(info.builtAt));
+    assert.ok(requests.findIndex((r) => r.url.startsWith('/rest/v1/published_articles')) < requests.indexOf(report()), 'content read, then reported');
+
+    requests = [];
+    failing = true;
+    await assert.rejects(production(), /CMS request failed/);
+    failing = false;
+    const failed = JSON.parse(report().body) as { p_success: boolean; p_detail: string };
+    assert.equal(failed.p_success, false, 'a real build failure is reported as failed');
+    assert.match(failed.p_detail, /^build failed: .*CMS request failed/);
   });
 
   test('refuses a service_role key in the public variable', async () => {

@@ -22,7 +22,11 @@ let calls: Call[] = [];
 let context: Record<string, unknown> | 'invalid' = { user_id: 'u1', is_staff: true, role: 'editor', aal: 'aal2' };
 let rateAllowed = true;
 let turnstileOk = true;
-let hookOk = true;
+/** How the deploy hook behaves: answers, refuses, or leaves the request without an answer. */
+let hookMode: 'accepted' | 'refused' | 'forbidden' | 'redirect' | 'timeout' | 'wait' | 'reset' | 'dns' = 'accepted';
+let hookCalledAt = 0;
+/** The latest site_builds row, as read by /api/admin/rebuild before asking for a build. */
+let latestRow: { requested_at: string; status: string; detail: string | null } | null = null;
 let usageCount = 0;
 let publishError: { code: string; message: string } | null = null;
 let unreferenced: string[] = [];
@@ -73,7 +77,9 @@ beforeEach(() => {
   context = { user_id: 'u1', is_staff: true, role: 'editor', aal: 'aal2' };
   rateAllowed = true;
   turnstileOk = true;
-  hookOk = true;
+  hookMode = 'accepted';
+  hookCalledAt = 0;
+  latestRow = null;
   usageCount = 0;
   publishError = null;
   unreferenced = [];
@@ -103,7 +109,27 @@ beforeEach(() => {
     calls.push({ method: request.method, url, body, auth: request.headers.get('authorization') });
     const path = url.pathname;
     if (url.host === 'challenges.cloudflare.com') return reply(200, { success: turnstileOk });
-    if (url.host === 'api.vercel.com') return reply(hookOk ? 201 : 500, hookOk ? { job: { id: 'job_1', state: 'PENDING' } } : {});
+    if (url.host === 'api.vercel.com') {
+      hookCalledAt = Date.now();
+      const failure = (code: string) => new TypeError('fetch failed', { cause: Object.assign(new Error(code), { code }) });
+      if (hookMode === 'refused') return reply(500, {});
+      if (hookMode === 'forbidden') return reply(404, { error: { code: 'not_found' } });
+      if (hookMode === 'redirect') return reply(308, {}, { location: 'https://example.test/elsewhere' });
+      // The request reached Vercel, but its answer never came back in time.
+      if (hookMode === 'timeout') throw new DOMException('The operation was aborted due to timeout', 'TimeoutError');
+      if (hookMode === 'wait')
+        return new Promise<Response>((_, reject) => {
+          // AbortSignal.timeout does not keep Node alive by itself; a serving Function is kept alive by its request.
+          const alive = setTimeout(() => undefined, 15_000);
+          request.signal.addEventListener('abort', () => {
+            clearTimeout(alive);
+            reject(request.signal.reason);
+          });
+        });
+      if (hookMode === 'reset') throw failure('UND_ERR_SOCKET');
+      if (hookMode === 'dns') throw failure('ENOTFOUND');
+      return reply(201, { job: { id: 'job_1', state: 'PENDING' } });
+    }
     if (path === '/rest/v1/rpc/admin_context') return context === 'invalid' ? reply(401, { message: 'JWT expired' }) : reply(200, context);
     if (path === '/rest/v1/rpc/hit_rate_limit') return reply(200, rateAllowed);
     if (path === '/rest/v1/rpc/staff_find_user') return reply(200, foundUser);
@@ -127,6 +153,7 @@ beforeEach(() => {
     }
     if (path === '/rest/v1/rpc/resolve_slug_redirect') return reply(200, JSON.parse(body).p_slug === 'nome-antigo' ? 'nome-novo' : null);
     if (path === '/rest/v1/leads' && request.method === 'POST') return reply(201, null);
+    if (path === '/rest/v1/site_builds' && request.method === 'GET') return reply(200, latestRow ? [latestRow] : []);
     if (path === '/rest/v1/site_builds') return reply(201, null);
     if (path === '/storage/v1/object/copy') return reply(200, { Key: 'media/x' });
     if (/^\/storage\/v1\/object\/(media|media-private)\/./.test(path)) return reply(200, { Key: 'x' });
@@ -410,27 +437,116 @@ describe('DELETE /api/admin/media', () => {
 });
 
 describe('POST /api/admin/rebuild', () => {
-  const req = () => new Request(`${SITE}/api/admin/rebuild`, { method: 'POST', headers: { origin: SITE, 'content-type': 'application/json', authorization: 'Bearer header.payload.signature-long-enough' }, body: JSON.stringify({ reason: 'publish: artigo' }) });
+  const req = (reason = 'publish: artigo') =>
+    new Request(`${SITE}/api/admin/rebuild`, { method: 'POST', headers: { origin: SITE, 'content-type': 'application/json', authorization: 'Bearer header.payload.signature-long-enough' }, body: JSON.stringify({ reason }) });
+  const hookCalls = () => calls.filter((c) => c.url.host === 'api.vercel.com');
+  const inserts = () => calls.filter((c) => c.url.pathname === '/rest/v1/site_builds' && c.method === 'POST');
 
   test('triggers the deploy hook for staff and records it', async () => {
     assert.equal((await rebuild(req())).status, 202);
-    assert.ok(calls.some((c) => c.url.host === 'api.vercel.com'));
-    assert.ok(calls.some((c) => c.url.pathname === '/rest/v1/site_builds'));
+    assert.equal(hookCalls().length, 1);
+    assert.equal(inserts().length, 1);
   });
 
-  const build = () => JSON.parse(calls.filter((c) => c.url.pathname === '/rest/v1/site_builds').at(-1)!.body);
+  const build = () => JSON.parse(inserts().at(-1)!.body);
 
-  test('records an accepted request as pending with the Vercel job id', async () => {
-    assert.equal((await rebuild(req())).status, 202);
-    assert.deepEqual({ ...build(), finished_at: undefined }, { requested_by: 'u1', reason: 'publish: artigo', ok: true, status: 'pending', finished_at: undefined, deployment: 'job_1', detail: null });
+  test('Vercel answers 2xx quickly: pending with the job id, requested before the hook was called', async () => {
+    const before = Date.now();
+    const res = await rebuild(req());
+    assert.equal(res.status, 202);
+    assert.deepEqual(await res.json(), { ok: true });
+    const row = build();
+    assert.deepEqual({ ...row, requested_at: undefined, finished_at: undefined }, { requested_at: undefined, requested_by: 'u1', reason: 'publish: artigo', ok: true, status: 'pending', finished_at: undefined, deployment: 'job_1', detail: null });
+    const requestedAt = Date.parse(row.requested_at);
+    assert.ok(requestedAt >= before - 5 && requestedAt <= hookCalledAt, 'taken before asking Vercel, so the build it starts always counts it (finish_site_builds)');
+    assert.equal(row.finished_at, null);
   });
 
-  test('records a rejected hook call as failed', async () => {
-    hookOk = false;
-    assert.equal((await rebuild(req())).status, 502);
+  test('Vercel answers 4xx or 5xx: the request is recorded as failed', async () => {
+    for (const [mode, status] of [['refused', 500], ['forbidden', 404]] as const) {
+      calls = [];
+      hookMode = mode;
+      const { result, logs } = await captureLogs(() => rebuild(req()));
+      assert.equal(result.status, 502, mode);
+      assert.deepEqual(await result.json(), { error: 'deploy_hook_failed' });
+      assert.equal(build().status, 'failed');
+      assert.equal(build().ok, false);
+      assert.ok(build().finished_at);
+      assert.equal(build().detail, `deploy hook answered ${status}`);
+      assert.match(logs, new RegExp(`"event":"deploy_hook_refused","status":${status}`));
+    }
+  });
+
+  test('no answer within the timeout after the POST: pending and unconfirmed, never failed', async () => {
+    hookMode = 'wait';
+    const started = Date.now();
+    const { result, logs } = await captureLogs(() => rebuild(req()));
+    const took = Date.now() - started;
+    assert.equal(result.status, 202);
+    assert.deepEqual(await result.json(), { ok: true, confirmed: false });
+    assert.equal(hookCalls().length, 1, 'the request was sent once');
+    const row = build();
+    assert.equal(row.status, 'pending', 'the production build it may have started settles it');
+    assert.equal(row.ok, true);
+    assert.equal(row.finished_at, null);
+    assert.equal(row.detail, 'deploy hook unconfirmed');
+    assert.ok(took >= 5900 && took < 8000, `answers within the Function limit (10 s): ${took} ms`);
+    assert.match(logs, /"event":"deploy_hook_unconfirmed","error":"TimeoutError"/);
+    assert.ok(!logs.includes('hook123') && !logs.includes('prj_abc'), 'never the hook URL (a secret)');
+  });
+
+  test('a dropped connection or a redirect after the POST is unconfirmed too; redirects are not followed', async () => {
+    for (const mode of ['timeout', 'reset', 'redirect'] as const) {
+      calls = [];
+      hookMode = mode;
+      const res = await rebuild(req());
+      assert.equal(res.status, 202, mode);
+      assert.equal(build().status, 'pending', mode);
+      assert.equal(build().detail, 'deploy hook unconfirmed', mode);
+      assert.equal(hookCalls().length, 1, `${mode}: one request, nothing followed`);
+    }
+  });
+
+  test('a request that never left (DNS, connection refused) is failed: Vercel was not contacted', async () => {
+    hookMode = 'dns';
+    const { result, logs } = await captureLogs(() => rebuild(req()));
+    assert.equal(result.status, 502);
     assert.equal(build().status, 'failed');
-    assert.ok(build().finished_at);
-    assert.equal(build().detail, 'deploy hook answered 500');
+    assert.equal(build().detail, 'deploy hook unreachable');
+    assert.match(logs, /"event":"deploy_hook_unreachable","error":"TypeError","code":"ENOTFOUND"/);
+  });
+
+  test('a retry does not ask for another build once the latest one was confirmed', async () => {
+    latestRow = { requested_at: new Date(Date.now() - 60_000).toISOString(), status: 'success', detail: null };
+    const res = await rebuild(req('retry: dashboard'));
+    assert.equal(res.status, 202);
+    assert.deepEqual(await res.json(), { ok: true, skipped: 'updated' });
+    assert.equal(hookCalls().length, 0, 'no duplicate build');
+    assert.equal(inserts().length, 0);
+    // An explicit "update now" still asks for one.
+    assert.equal((await rebuild(req('manual: dashboard'))).status, 202);
+    assert.equal(hookCalls().length, 1);
+  });
+
+  test('no second build while the latest request is still on its way; a stalled or failed one can be retried', async () => {
+    latestRow = { requested_at: new Date(Date.now() - 60_000).toISOString(), status: 'pending', detail: null };
+    for (const reason of ['manual: dashboard', 'retry: editor']) {
+      const res = await rebuild(req(reason));
+      assert.deepEqual(await res.json(), { ok: true, skipped: 'in_progress' }, reason);
+    }
+    latestRow = { requested_at: new Date(Date.now() - 60_000).toISOString(), status: 'pending', detail: 'deploy hook unconfirmed' };
+    assert.deepEqual(await (await rebuild(req('retry: dashboard'))).json(), { ok: true, skipped: 'in_progress' });
+    assert.equal(hookCalls().length, 0);
+    for (const row of [
+      { requested_at: new Date(Date.now() - 6 * 60_000).toISOString(), status: 'pending', detail: 'deploy hook unconfirmed' },
+      { requested_at: new Date(Date.now() - 16 * 60_000).toISOString(), status: 'pending', detail: null },
+      { requested_at: new Date(Date.now() - 60_000).toISOString(), status: 'failed', detail: 'build failed: x' },
+    ]) {
+      calls = [];
+      latestRow = row;
+      assert.deepEqual(await (await rebuild(req('retry: dashboard'))).json(), { ok: true }, JSON.stringify(row));
+      assert.equal(hookCalls().length, 1);
+    }
   });
 
   test('accepts a pasted hook URL with whitespace or Vercel query flags', async () => {
@@ -536,6 +652,24 @@ describe('POST /api/admin/publish', () => {
     assert.ok(order.indexOf('/rest/v1/rpc/can_publish_article') < order.indexOf('/storage/v1/object/copy'), 'checked before any copy');
     assert.ok(order.indexOf('/rest/v1/rpc/media_mark_public') < order.indexOf('/rest/v1/rpc/publish_article'));
     assert.ok(!order.includes('/rest/v1/rpc/media_rollback_public'));
+  });
+
+  test('publishing: an answer that does not arrive in time still reports the site as updating, never as failed', async () => {
+    const lastBuild = () => JSON.parse(calls.filter((c) => c.url.pathname === '/rest/v1/site_builds' && c.method === 'POST').at(-1)!.body);
+    for (const action of ['publish', 'archive'] as const) {
+      calls = [];
+      hookMode = 'timeout';
+      const res = await publish(req({ id: ARTICLE, action, expectedVersion: 3 }));
+      assert.equal(res.status, 200, action);
+      assert.deepEqual(await res.json(), { ok: true, site: 'updating' }, action);
+      assert.equal(lastBuild().status, 'pending');
+      assert.equal(lastBuild().detail, 'deploy hook unconfirmed');
+    }
+    calls = [];
+    hookMode = 'refused';
+    const refused = await publish(req({ id: ARTICLE, action: 'publish', expectedVersion: 3 }));
+    assert.deepEqual(await refused.json(), { ok: true, site: 'not_updated' }, 'an explicit refusal is still reported');
+    assert.equal(lastBuild().status, 'failed');
   });
 
   test('an article the database would refuse is refused before any image is copied (V-03)', async () => {

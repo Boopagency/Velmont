@@ -4,6 +4,9 @@
 import { createClient } from '@supabase/supabase-js';
 
 const startedAt = new Date().toISOString();
+// The same moment goes into build-info.json: requests made before it are in
+// this build (finish_site_builds uses it too).
+process.env.VELMONT_BUILD_STARTED_AT = startedAt;
 let failure = null;
 try {
   await import('./build-static.mjs');
