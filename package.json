@@ -20,6 +20,9 @@
     "test:e2e": "node --import tsx tests/e2e/admin.e2e.ts",
     "check:functions": "node scripts/check-functions.mjs",
     "verify": "node scripts/verify.mjs && node scripts/verify-navigation.mjs",
+    "film:align": "node scripts/film-align.mjs",
+    "film:render": "node scripts/film-render.mjs",
+    "film:captions": "node --import tsx scripts/film-captions.ts",
     "serve:full": "node --import tsx scripts/dev-server.ts"
   },
   "dependencies": {

@@ -47,7 +47,7 @@ const define={'process.env.NODE_ENV':JSON.stringify('production'),...Object.from
 const common={cwd:root,resolve:{alias:{'@':root}},platform:'browser',transform:{jsx:{runtime:'automatic'},define},onwarn(w){if(w.code!=='MODULE_LEVEL_DIRECTIVE'&&w.code!=='EVAL')console.warn(w.message);}};
 await fs.writeFile(path.join(cache,'server.tsx'),`import React from 'react';import {renderToString} from 'react-dom/server';import {StaticSite,type PageData} from '@/components/velmont/static-site';export {siteUrl} from '@/lib/site';export {pageEntryScript} from '@/lib/page-entry';export {pageSeo,pageSchema} from '@/lib/seo';export {loadPublishedPosts,relatedPosts} from '@/lib/blog/source';export {summarize,postPath,BLOG_BASE} from '@/lib/blog/types';export const render=(path:string,data:PageData)=>renderToString(<StaticSite path={path} data={data}/>);`);
 await fs.writeFile(path.join(cache,'client.tsx'),`import React from 'react';import {hydrateRoot} from 'react-dom/client';import {StaticSite} from '@/components/velmont/static-site';const data=JSON.parse(document.getElementById('vm-data')?.textContent||'{}');hydrateRoot(document.getElementById('app')!,<StaticSite path={location.pathname.replace(/\\/$/,'')||'/'} data={data}/>);`);
-await build({...common,platform:'node',input:path.join(cache,'server.tsx'),external:['react','react-dom/server','react/jsx-runtime','zod'],output:{file:path.join(cache,'server.mjs'),format:'esm'}});
+await build({...common,platform:'node',input:path.join(cache,'server.tsx'),external:['react','react-dom/server','react/jsx-runtime','zod'],output:{file:path.join(cache,'server.mjs'),format:'esm',codeSplitting:false}});
 const client=await build({...common,input:path.join(cache,'client.tsx'),output:{dir:path.join(output,'assets'),format:'esm',entryFileNames:'site-[hash].js',chunkFileNames:'chunk-[hash].js',minify:true}});
 const entry=client.output.find(x=>x.type==='chunk'&&x.isEntry).fileName;
 const raw=await fs.readFile(path.join(root,'app/globals.css'),'utf8');
@@ -69,6 +69,7 @@ const pages=[
  {route:'/',data:{posts:summaries.slice(0,3)}},
  {route:BLOG_BASE,data:{posts:summaries}},
  {route:'/privacidade',data:{}},
+ {route:'/filme',data:{}},
  ...posts.map(post=>({route:postPath(post.slug),post,data:{post,related:relatedPosts(post,posts)}})),
  {route:'/404',data:{}},
 ];
@@ -86,7 +87,7 @@ for(const {route,post,data:pageData} of pages){
 // Only indexable pages whose canonical is their own URL belong in the sitemap.
 const dateOf=post=>post.modifiedAt||post.publishedAt;
 const latest=posts.map(dateOf).filter(Boolean).sort().at(-1);
-const sitemapEntries=[{loc:`${siteUrl}/`},{loc:`${siteUrl}${BLOG_BASE}`,lastmod:latest},{loc:`${siteUrl}/privacidade`},...posts.filter(p=>p.seo.index&&pageSeo(postPath(p.slug),p).canonical===siteUrl+postPath(p.slug)).map(p=>({loc:siteUrl+postPath(p.slug),lastmod:dateOf(p)}))];
+const sitemapEntries=[{loc:`${siteUrl}/`},{loc:`${siteUrl}${BLOG_BASE}`,lastmod:latest},{loc:`${siteUrl}/privacidade`},...(pageSeo('/filme').index?[{loc:`${siteUrl}/filme`}]:[]),...posts.filter(p=>p.seo.index&&pageSeo(postPath(p.slug),p).canonical===siteUrl+postPath(p.slug)).map(p=>({loc:siteUrl+postPath(p.slug),lastmod:dateOf(p)}))];
 await fs.writeFile(path.join(output,'sitemap.xml'),`<?xml version="1.0" encoding="UTF-8"?><urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">${sitemapEntries.map(e=>`<url><loc>${escape(e.loc)}</loc>${e.lastmod?`<lastmod>${escape(new Date(e.lastmod).toISOString())}</lastmod>`:''}</url>`).join('')}</urlset>`);
 await fs.writeFile(path.join(output,'robots.txt'),`User-agent: *\nAllow: /\nDisallow: /api/\n\nSitemap: ${siteUrl}/sitemap.xml\n`);
 // Optional convenience index for tools that read llms.txt. Not a ranking factor.

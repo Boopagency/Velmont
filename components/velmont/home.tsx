@@ -8,6 +8,7 @@ import { Partners } from './partners';
 import { Testimonials } from './testimonials';
 import { BrandPerimeter, PatentScene, SoftwareScene } from './service-scenes';
 import { FounderMedia } from './founder-media';
+import { FilmReel } from './film-reel';
 import type { BlogSummary } from '@/lib/blog/types';
 import { publicEnv } from '@/lib/public-env';
 import { prepareLeadProtection, submitLead } from '@/lib/lead-capture';
@@ -104,6 +105,7 @@ export function Home({ posts }: { posts: BlogSummary[] }) {
       <div className="hero-bottom"><a href="#conteudo" className="scroll-cue"><span className="scroll-cue-icon"><Arrow direction="down" /></span> Explore a Velmont</a><div className="hero-evidence"><strong>+11</strong><span>anos de experiência<br />da fundadora no setor</span><i /><span>Clareza para decidir.<br />Estratégia para crescer.</span></div></div>
     </section>
     <main id="conteudo">
+      <FilmReel />
       <section className="manifesto wrap" id="essencia"><Tag n="01">A ESSÊNCIA VELMONT</Tag><div className="manifesto-main"><h2 data-reveal>Você cria valor.<br />Nós pensamos em<br /><em>como protegê-lo.</em></h2><div className="manifesto-copy" data-reveal><span className="small-line" /><p>Por trás de uma marca, uma invenção ou um software, existe algo que levou tempo para ser construído.</p><p>A Velmont é uma consultoria em propriedade intelectual e industrial com base em Curitiba e atendimento presencial e digital. Orientamos empresas e empreendedores quanto ao registro de marcas, patentes, desenhos industriais, direito autoral, prova de anterioridade e software, com análise de riscos e acompanhamento de cada etapa.</p><a className="text-link" href="#atuacao">Conheça nossa atuação <Arrow /></a></div></div></section>
       <section className="story wrap" aria-labelledby="story-title"><div className="story-intro"><span className="eyebrow">UM OUTRO OLHAR SOBRE O SEU NEGÓCIO</span><h2 id="story-title">O que começa como ideia<br />pode se tornar seu maior ativo.</h2></div><div className="story-words"><span data-step>IDEIA<span>01 / O ponto de partida</span></span><b aria-hidden="true"><Arrow /></b><span data-step>ESTRATÉGIA<span>02 / O caminho consciente</span></span><b aria-hidden="true"><Arrow /></b><span data-step>PATRIMÔNIO<span>03 / O valor que permanece</span></span></div><div className="story-track" aria-hidden="true"><span /></div></section>
       <section id="atuacao" className="services wrap"><div className="section-heading"><Tag n="02">O QUE PROTEGEMOS</Tag><h2 data-reveal>Seu próximo passo.<br /><em>Nossa visão estratégica.</em></h2></div>
