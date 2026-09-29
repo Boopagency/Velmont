@@ -79,8 +79,8 @@ export function FilmPlayer() {
         import('./sound'),
         loadImage('/generated/velmont-hero-mountain-1536.webp'),
         loadImage('/images/velmont-logo.webp'),
-        loadImage(partnerLogos.bwise),
-        loadImage(partnerLogos.boop),
+        loadImage(partnerLogos.bwise?.src ?? null),
+        loadImage(partnerLogos.boop?.src ?? null),
         ...['300 40px Manrope', '400 40px Manrope', '500 40px Manrope', '600 40px Manrope', '400 40px Instrument'].map(f => document.fonts.load(f).catch(() => [])),
       ]);
       if (!alive) return;
@@ -93,10 +93,10 @@ export function FilmPlayer() {
         // Frame-accurate export (scripts/film-render.mjs).
         (window as unknown as { __relevo: unknown }).__relevo = {
           duration,
-          frame(t: number, w: number, h: number, withCaptions: boolean) {
+          frame(t: number, w: number, h: number, withCaptions: boolean, quality = 0.95) {
             const c = document.createElement('canvas'); c.width = w; c.height = h;
             render.drawFrame(c.getContext('2d')!, t, w, h, engine.current!.assets, { captions: withCaptions });
-            return c.toDataURL('image/jpeg', 0.93);
+            return c.toDataURL('image/jpeg', quality);
           },
           /** The full mix (score and, when present, voice) as a 16-bit stereo WAV, base64. */
           async audio(rate = 48000) {

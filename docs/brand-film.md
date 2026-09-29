@@ -81,7 +81,12 @@ Mix sem voz: pico de −4,5 dBFS e cerca de −26 LUFS integrados, deixando espa
 
 ## Parceiros
 
-Não havia logos oficiais da Bwise e da Boop no projeto, e o filme não recria logos. Os nomes aparecem na tipografia do filme. Quando os arquivos oficiais chegarem, salve-os em `public/film/partners/` e preencha `partnerLogos` em `narration.ts`. O filme passa a usar as imagens nesse momento.
+Os logos oficiais enviados pela Velmont estão em `public/film/partners/` (`bwise.png`, `boop.png`), sem nenhuma alteração. Na cena das parcerias, os três aparecem na mesma linha óptica, sob cada verbo:
+
+- **Velmont** (centro): o logo original, em champanhe. Continua sendo a marca protagonista.
+- **Bwise** e **Boop**: em versão de uma cor, em marfim, calculada no momento da exibição a partir dos arquivos originais. Assim ficam na paleta do filme sem que o verde e o azul pesem mais que a própria Velmont. A Bwise usa a silhueta do logo. A Boop usa dois tons chapados, para os olhos continuarem legíveis: letras e olhos em marfim cheio, corpos a meia intensidade, pupilas vazadas.
+
+Nada é redesenhado. Para usar as cores originais ou outro arquivo, basta alterar `partnerLogos` em `narration.ts` (`src`, `tone`, `height`). Com `null`, o parceiro volta a ser nomeado em texto.
 
 ## Acessibilidade
 
@@ -93,7 +98,12 @@ Não havia logos oficiais da Bwise e da Boop no projeto, e o filme não recria l
 
 ## Exportar em vídeo
 
-`pnpm build && FFMPEG=/caminho/ffmpeg pnpm film:render relevo.mp4 [--width 1920] [--fps 30] [--captions]` exporta um MP4 quadro a quadro (imagem idêntica à do site) com o som mixado offline, incluindo a voz quando houver. `--audio-only mix.wav` exporta só o áudio.
+`pnpm build && FFMPEG=/caminho/ffmpeg pnpm film:render relevo.mp4 --downscale 1920` exporta o filme quadro a quadro, com imagem idêntica à do site e som mixado offline (inclui a voz quando houver):
+
+- **Master em 4K** (3840×2160, H.264 High, CRF 16). Como o filme é desenhado por código, cada quadro é gerado de fato em 4K, e não ampliado.
+- **Cópia Full HD** (`relevo-1920.mp4`), reduzida do 4K com filtro Lanczos. A redução funciona como supersampling: linhas finas e tipografia saem mais nítidas do que em uma renderização direta em 1080p.
+
+Opções: `--width`, `--fps`, `--crf`, `--quality` (JPEG intermediário), `--captions` (legendas gravadas na imagem) e `--audio-only mix.wav`. O único limite de nitidez é a fotografia da montanha, que tem 1536 px de largura.
 
 ## Arquivos
 

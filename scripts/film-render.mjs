@@ -1,5 +1,7 @@
 // Exports Relevo to MP4, frame-accurately, from the built site.
-// Usage: pnpm build && node scripts/film-render.mjs [out.mp4] [--width 1920] [--fps 30] [--captions] [--audio-only out.wav]
+// Usage: pnpm build && node scripts/film-render.mjs [out.mp4] [--width 3840] [--fps 30] [--crf 16] [--downscale 1920] [--captions] [--audio-only out.wav]
+// The master is drawn at --width (4K by default); --downscale also writes a sharper
+// supersampled copy at that width (for example relevo-1920.mp4).
 // Needs ffmpeg on PATH (or FFMPEG=/path/to/ffmpeg). Chromium comes from Playwright.
 import http from 'node:http';
 import fs from 'node:fs/promises';
@@ -9,9 +11,10 @@ import { chromium } from 'playwright';
 
 const args = process.argv.slice(2);
 const flag = (name, fallback) => { const i = args.indexOf(name); return i >= 0 ? args[i + 1] : fallback; };
-const output = path.resolve(args.find(a => !a.startsWith('--') && !['--width', '--fps', '--audio-only'].includes(args[args.indexOf(a) - 1])) || 'relevo.mp4');
-const width = Number(flag('--width', 1920)), height = Math.round((width * 9) / 16) & ~1, fps = Number(flag('--fps', 30));
+const output = path.resolve(args.find(a => !a.startsWith('--') && !['--width', '--fps', '--crf', '--downscale', '--quality', '--audio-only'].includes(args[args.indexOf(a) - 1])) || 'relevo.mp4');
+const width = Number(flag('--width', 3840)), height = Math.round((width * 9) / 16) & ~1, fps = Number(flag('--fps', 30));
 const captions = args.includes('--captions');
+const crf = String(flag('--crf', 16)), quality = Number(flag('--quality', 0.96)), downscale = Number(flag('--downscale', 0));
 const audioOnly = flag('--audio-only', null);
 const ffmpeg = process.env.FFMPEG || 'ffmpeg';
 
@@ -43,15 +46,22 @@ if (audioOnly) { await browser.close(); server.close(); process.exit(0); }
 const total = Math.ceil(duration * fps);
 console.log(`Rendering ${total} frames at ${width}×${height}, ${fps} fps…`);
 const encoder = spawn(ffmpeg, ['-y', '-loglevel', 'error', '-f', 'image2pipe', '-framerate', String(fps), '-c:v', 'mjpeg', '-i', '-', '-i', wavPath,
-  '-c:v', 'libx264', '-preset', 'slow', '-crf', '18', '-pix_fmt', 'yuv420p', '-tune', 'grain', '-c:a', 'aac', '-b:a', '256k', '-shortest', '-movflags', '+faststart', output], { stdio: ['pipe', 'inherit', 'inherit'] });
+  '-c:v', 'libx264', '-preset', 'slow', '-crf', crf, '-profile:v', 'high', '-bf', '2', '-g', String(fps * 2), '-pix_fmt', 'yuv420p', '-tune', 'grain', '-c:a', 'aac', '-b:a', '256k', '-shortest', '-movflags', '+faststart', output], { stdio: ['pipe', 'inherit', 'inherit'] });
 for (let f = 0; f < total; f++) {
-  const data = await page.evaluate(([t, w, h, c]) => window.__relevo.frame(t, w, h, c), [f / fps, width, height, captions]);
+  const data = await page.evaluate(([t, w, h, c, q]) => window.__relevo.frame(t, w, h, c, q), [f / fps, width, height, captions, quality]);
   if (!encoder.stdin.write(Buffer.from(data.slice(data.indexOf(',') + 1), 'base64'))) await new Promise(r => encoder.stdin.once('drain', r));
   if (f % (fps * 5) === 0) console.log(`  ${(f / fps).toFixed(0)} s`);
 }
 encoder.stdin.end();
 await new Promise((resolve, reject) => encoder.on('close', code => (code ? reject(new Error(`ffmpeg exited with ${code}`)) : resolve())));
 await fs.rm(wavPath);
+if (downscale) {
+  const small = output.replace(/\.mp4$/, '') + `-${downscale}.mp4`;
+  console.log(`Downscaling to ${downscale} px…`);
+  const down = spawn(ffmpeg, ['-y', '-loglevel', 'error', '-i', output, '-vf', `scale=${downscale}:-2:flags=lanczos`, '-c:v', 'libx264', '-preset', 'slow', '-crf', '15', '-profile:v', 'high', '-tune', 'grain', '-pix_fmt', 'yuv420p', '-c:a', 'copy', '-movflags', '+faststart', small], { stdio: 'inherit' });
+  await new Promise((resolve, reject) => down.on('close', code => (code ? reject(new Error(`ffmpeg exited with ${code}`)) : resolve())));
+  console.log(`Done: ${small}`);
+}
 await browser.close();
 server.close();
 console.log(`Done: ${output}`);

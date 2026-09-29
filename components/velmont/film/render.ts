@@ -1,6 +1,6 @@
 // Renders one frame of the film as a pure function of time, so the film can
 // play, seek, pause and be exported frame by frame with identical results.
-import { captionAt, closingLine, partnerLogos } from './narration';
+import { captionAt, closingLine, partnerLogos, type PartnerLogo } from './narration';
 import { cues } from './cues';
 import { ascent, relief, type Loop } from './relief';
 
@@ -145,6 +145,41 @@ function feathered(src: CanvasImageSource): HTMLCanvasElement {
   }
   featherCache = [src, c];
   return c;
+}
+
+// Logos are cropped to their visible pixels; partner logos become one ivory colour.
+const markCache = new Map<CanvasImageSource, HTMLCanvasElement>();
+function mark(src: CanvasImageSource, tone: PartnerLogo['tone'] | 'original'): HTMLCanvasElement {
+  const cached = markCache.get(src);
+  if (cached) return cached;
+  const img = src as HTMLImageElement;
+  const w = img.naturalWidth || img.width, h = img.naturalHeight || img.height;
+  const full = document.createElement('canvas');
+  full.width = w; full.height = h;
+  const g = full.getContext('2d', { willReadFrequently: true })!;
+  g.drawImage(img, 0, 0);
+  const data = g.getImageData(0, 0, w, h);
+  const p = data.data;
+  let x0 = w, y0 = h, x1 = 0, y1 = 0;
+  for (let i = 0; i < p.length; i += 4) {
+    if (tone !== 'original') {
+      const lum = (0.2126 * p[i] + 0.7152 * p[i + 1] + 0.0722 * p[i + 2]) / 255;
+      // Two flat tones: light areas full, colour fields at half, the darkest details cut out.
+      const keep = tone === 'silhouette' ? 1 : lum > 0.72 ? 1 : lum > 0.13 ? 0.5 : 0;
+      p[i] = IVORY[0]; p[i + 1] = IVORY[1]; p[i + 2] = IVORY[2];
+      p[i + 3] = Math.round(p[i + 3] * keep);
+    }
+    if (p[i + 3] > 12) {
+      const k = i / 4, x = k % w, y = (k - x) / w;
+      if (x < x0) x0 = x; if (x > x1) x1 = x; if (y < y0) y0 = y; if (y > y1) y1 = y;
+    }
+  }
+  g.putImageData(data, 0, 0);
+  const out = document.createElement('canvas');
+  out.width = Math.max(1, x1 - x0 + 1); out.height = Math.max(1, y1 - y0 + 1);
+  out.getContext('2d')!.drawImage(full, -x0, -y0);
+  markCache.set(src, out);
+  return out;
 }
 
 // ——— Drawing helpers ———————————————————————————————————————————————————
@@ -502,25 +537,28 @@ export function drawFrame(ctx: CanvasRenderingContext2D, t: number, w: number, h
 
   // ——— The journey, named ———
   if (sheetsA > 0) {
-    const label = (x: number, at: number, verb: string, who: string, what: string, logo: CanvasImageSource | null | undefined) => {
+    const label = (x: number, at: number, verb: string, who: string, what: string, logo: HTMLCanvasElement | null, height = 0, weight = 1) => {
       const a = smooth(ramp(t, at, at + 0.7)) * sheetsA;
       if (a <= 0 || !pr.p(x, -1.25 - 0.28, 0)) return;
       text(ctx, verb, pr.sx, pr.sy, `500 ${Math.round(22 * u)}px Manrope, Arial, sans-serif`, rgba(IVORY, a), 'center', 6 * u);
       if (logo) {
-        const img = logo as HTMLImageElement;
-        const lh = 26 * u, lw = ((img.naturalWidth || img.width) / (img.naturalHeight || img.height)) * lh;
-        ctx.globalAlpha = opening * dip * a;
-        ctx.drawImage(img, pr.sx - lw / 2, pr.sy + 22 * u, lw, lh);
+        // All three marks share one optical line: the same slot, centred under the verb.
+        const lh = height * u, lw = (logo.width / logo.height) * lh;
+        const top = pr.sy + 30 * u + (40 * u - lh) / 2;
+        ctx.globalAlpha = opening * dip * a * weight;
+        ctx.drawImage(logo, pr.sx - lw / 2, top, lw, lh);
         ctx.globalAlpha = opening * dip;
-        text(ctx, what, pr.sx, pr.sy + 78 * u, `400 ${Math.round(16 * u)}px Manrope, Arial, sans-serif`, rgba(MUTED, a), 'center', 0.3 * u);
+        text(ctx, what, pr.sx, pr.sy + 104 * u, `400 ${Math.round(16 * u)}px Manrope, Arial, sans-serif`, rgba(MUTED, a), 'center', 0.3 * u);
       } else {
         text(ctx, who, pr.sx, pr.sy + 42 * u, `600 ${Math.round(16 * u)}px Manrope, Arial, sans-serif`, rgba(CHAMPAGNE, a), 'center', 2.5 * u);
         text(ctx, what, pr.sx, pr.sy + 68 * u, `400 ${Math.round(16 * u)}px Manrope, Arial, sans-serif`, rgba(MUTED, a), 'center', 0.3 * u);
       }
     };
-    label(0, T.jornada + 0.2, 'PROTEGER', 'VELMONT', 'propriedade intelectual', null);
-    label(-2.95, T.estruturar - 0.2, 'ESTRUTURAR', 'BWISE', 'contabilidade e estrutura empresarial', partnerLogos.bwise ? assets.bwise : null);
-    label(2.95, T.crescer - 0.2, 'POSICIONAR E CRESCER', 'BOOP', 'marca, digital e crescimento', partnerLogos.boop ? assets.boop : null);
+    const partner = (logo: PartnerLogo | null, img: CanvasImageSource | null | undefined) => (logo && img ? mark(img, logo.tone) : null);
+    const velmont = assets.logo ? mark(assets.logo, 'original') : null;
+    label(0, T.jornada + 0.2, 'PROTEGER', 'VELMONT', 'propriedade intelectual', velmont, 46);
+    label(-2.95, T.estruturar - 0.2, 'ESTRUTURAR', 'BWISE', 'contabilidade e estrutura empresarial', partner(partnerLogos.bwise, assets.bwise), partnerLogos.bwise?.height, 0.88);
+    label(2.95, T.crescer - 0.2, 'POSICIONAR E CRESCER', 'BOOP', 'marca, digital e crescimento', partner(partnerLogos.boop, assets.boop), partnerLogos.boop?.height, 0.88);
   }
 
   // ——— Signature ———
@@ -571,6 +609,7 @@ export function drawFrame(ctx: CanvasRenderingContext2D, t: number, w: number, h
     const tile = tiles[Math.floor(t * 12) % tiles.length];
     const pattern = ctx.createPattern(tile, 'repeat');
     if (pattern) {
+      pattern.setTransform(new DOMMatrix().scale(Math.max(0.5, u)));
       ctx.globalAlpha = 0.045;
       ctx.globalCompositeOperation = 'overlay';
       ctx.fillStyle = pattern;

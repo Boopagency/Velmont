@@ -48,10 +48,17 @@ export const tail = 3.5;
 export const voice: { src: string | null; offset: number } = { src: null, offset: 0 };
 
 /**
- * Official partner logos, when supplied (public/film/partners/*). Until then
- * the film names the partners in its own typography and never draws a logo.
+ * Official partner logos (public/film/partners/, kept unaltered). The film
+ * shows them as a one-colour ivory version so they sit in its palette:
+ * `silhouette` keeps the logo's outline, `luminance` keeps its inner detail in
+ * two flat tones (Boop's eyes). `height` is in pixels of a 1080p frame. With `null` the
+ * partner is named in the film's typography instead; no logo is ever redrawn.
  */
-export const partnerLogos: { bwise: string | null; boop: string | null } = { bwise: null, boop: null };
+export type PartnerLogo = { src: string; tone: 'silhouette' | 'luminance'; height: number };
+export const partnerLogos: { bwise: PartnerLogo | null; boop: PartnerLogo | null } = {
+  bwise: { src: '/film/partners/bwise.png', tone: 'silhouette', height: 40 },
+  boop: { src: '/film/partners/boop.png', tone: 'luminance', height: 40 },
+};
 
 export const filmDuration = () => narration[narration.length - 1].end + tail;
 
