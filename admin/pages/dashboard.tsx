@@ -10,10 +10,11 @@ import { supabase } from '../supabase';
 import type { ArticleStatus, LeadStatus } from '../types';
 import { ArticleStatusBadge, EmptyState, LeadStatusBadge, Page, PageHeader, SectionTitle, TimeAgo, useCrumbs } from '../ui';
 
+/** A count that could not be read (even after supabase-js' own retries) is null, shown as "—", never as 0. */
 type Data = {
-  published: number;
-  drafts: number;
-  newLeads: number;
+  published: number | null;
+  drafts: number | null;
+  newLeads: number | null;
   articles: { id: string; title: string; status: ArticleStatus; updated_at: string }[];
   leads: { id: string; name: string; interest: string; status: LeadStatus; created_at: string }[];
 };
@@ -23,14 +24,16 @@ const today = () => {
   return text.charAt(0).toUpperCase() + text.slice(1);
 };
 
-function Metric({ href, label, value, hint }: { href: string; label: string; value: number; hint?: string }) {
+function Metric({ href, label, value, hint }: { href: string; label: string; value: number | null; hint?: string }) {
   return (
     <Link href={href} className="stat group flex min-w-0 flex-col gap-2 px-5 py-4 outline-none transition-colors hover:bg-muted/60 focus-visible:bg-muted/60 focus-visible:ring-2 focus-visible:ring-ring/40 focus-visible:ring-inset">
       <span className="flex items-center justify-between gap-2 text-[13px] text-muted-foreground">
         {label}
         <ArrowRightIcon aria-hidden="true" className="size-3.5 -translate-x-1 opacity-0 transition-all group-hover:translate-x-0 group-hover:opacity-100" />
       </span>
-      <strong className="tabular text-[28px] leading-none font-semibold tracking-[-0.02em]">{value}</strong>
+      <strong className="tabular text-[28px] leading-none font-semibold tracking-[-0.02em]" title={value === null ? 'Não foi possível carregar' : undefined}>
+        {value ?? '—'}
+      </strong>
       {hint && <span className="text-xs text-muted-foreground">{hint}</span>}
     </Link>
   );
@@ -57,9 +60,9 @@ export function Dashboard() {
         supabase.from('leads').select('id, name, interest, status, created_at').order('created_at', { ascending: false }).limit(5),
       ]);
       setData({
-        published: published.count ?? 0,
-        drafts: drafts.count ?? 0,
-        newLeads: newLeads.count ?? 0,
+        published: published.count,
+        drafts: drafts.count,
+        newLeads: newLeads.count,
         articles: (articles.data as Data['articles']) || [],
         leads: (leads.data as Data['leads']) || [],
       });

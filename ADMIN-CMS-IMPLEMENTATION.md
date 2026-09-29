@@ -255,8 +255,13 @@ Qualquer falha no meio deixa a conta bloqueada. Uma nova senha temporária emiti
      - `pending` quando a Vercel aceita o hook (2xx) **ou quando a resposta não chega** (tempo esgotado de 6 s, conexão encerrada depois do envio, redirecionamento). Nesse caso o `detail` é `deploy hook unconfirmed`: a Vercel pode ter aceitado, e o build que ela iniciar resolve o pedido como qualquer outro;
      - `success` ou `failed` quando o build de produção termina (o `scripts/build.mjs` informa o resultado com a `service_role`, pelo `finish_site_builds`, que é a fonte autoritativa);
      - `failed` imediato só quando a Vercel **recusa** (4xx/5xx), quando o pedido nem sai (DNS, conexão recusada, TLS) ou quando o hook não está configurado.
-   - O `build-info.json` publicado traz `startedAt` (quando o build começou a ler o conteúdo). O painel considera no ar todo pedido feito antes dele, mesmo que a resposta da Vercel não tenha chegado ou que o registro antigo diga "falha".
-   - "Tentar novamente" não pede outro build se o último pedido já foi confirmado, e nenhum pedido manual é repetido enquanto outro ainda está a caminho (`skipped` na resposta de `/api/admin/rebuild`). Publicar sempre pede um build novo.
+   - O `build-info.json` publicado traz `startedAt` (quando o build começou a ler o conteúdo) e `env` (`production`, `preview` ou `development`).
+     - O painel considera no ar todo pedido feito antes da versão que o site serve ao navegador, mesmo que a resposta da Vercel não tenha chegado ou que o registro antigo diga "falha".
+     - O `success` do `finish_site_builds` sai no **fim do build**, antes de a Vercel publicar o deploy e mover o domínio para ele (cerca de meio minuto a mais). Por isso o painel só mostra **Atualizado** quando o `build-info.json` servido é o desse build; até lá, "Atualizando site…".
+     - Num Preview (que nunca serve a versão de produção) ou numa versão sem `startedAt`, vale o registro do build. Um `build-info.json` que não pôde ser lido não prova nada.
+     - O `build-info.json` prova qual deploy atendeu o navegador que perguntou; outros acessos podem levar alguns segundos a mais, e o painel avisa isso. Não há confirmação página a página: seria mais tráfego sem provar a propagação em todos os pontos da rede.
+   - Com a aba oculta, o painel não consulta; ao voltar para a aba, consulta na hora.
+   - "Tentar novamente" não pede outro build se o último pedido já foi confirmado, e nenhum pedido manual é repetido enquanto outro ainda está a caminho (`skipped` na resposta de `/api/admin/rebuild`). Publicar sempre pede um build novo. Se um build terminou mas a versão não apareceu no site em 15 minutos ("Sem confirmação"), "Tentar novamente" pede um build novo.
    - O motivo de um pedido sem resposta aparece nos Runtime Logs (`deploy_hook_unconfirmed`, com o tipo de erro e nunca a URL do hook).
    - Se o painel mostrar erro ao atualizar o site, a resposta de `/api/admin/rebuild` traz o nome da variável que falta (nunca o valor) **apenas para staff autenticado**; um visitante anônimo recebe só um erro genérico. O nome também aparece nos Runtime Logs.
 3. Build e saída continuam `pnpm build` → `dist`; o `vercel.json` já declara as Functions (`api/**/*.ts`, Node 22).
@@ -294,10 +299,10 @@ A interface usa shadcn/ui sobre os tokens da Velmont. O sistema visual está em 
   - No rodapé: Conta, a pessoa conectada com seu papel, e **Sair**.
   - A sidebar recolhe para ícones (Ctrl/⌘+B). No celular, vira um menu lateral.
 - **Dashboard**:
-  - Uma superfície de métricas: Publicados, Rascunhos, Leads novos e Status do site.
+  - Uma superfície de métricas: Publicados, Rascunhos, Leads novos e Status do site. Uma contagem que não pôde ser lida aparece como "—", nunca como 0.
   - Artigos e leads recentes.
   - Painel **Status do site**:
-    - estados: Atualizado, Atualizando site…, Aguardando confirmação (a Vercel não respondeu a tempo; o build confirma), Sem confirmação ou Falha;
+    - estados: Atualizado (a versão servida já inclui o pedido; outros acessos podem levar alguns segundos), Atualizando site… (a Vercel gera a versão e a coloca no ar), Aguardando confirmação (a Vercel não respondeu a tempo; o build confirma), Sem confirmação ou Falha;
     - mostra o horário da versão no ar e da última solicitação;
     - traz "Atualizar site agora" / "Tentar novamente".
 - **Artigos**:
@@ -306,7 +311,7 @@ A interface usa shadcn/ui sobre os tokens da Velmont. O sistema visual está em 
 - **Artigos → Novo artigo** (editor):
   - A barra de ações fica fixa no topo e mostra o estado (Salvando…, Publicando…, Atualizando site…, Site atualizado, Salvo há N min).
   - **Pré-visualizar** abre a pré-visualização privada.
-  - **Publicar** coloca o artigo no site em 1–2 minutos.
+  - **Publicar** coloca o artigo no site em 1–2 minutos. Num artigo novo, um único clique salva, pede a confirmação e publica.
   - Mais ações no menu "⋯": enviar para revisão, despublicar, arquivar e excluir.
   - O texto é escrito em blocos:
     - "+ Adicionar bloco" aparece entre blocos e ao final, com a descrição de cada tipo;
@@ -331,6 +336,7 @@ A interface usa shadcn/ui sobre os tokens da Velmont. O sistema visual está em 
   - Alterações de acesso pedem confirmação.
   - **Atividade recente** mostra o registro de auditoria por dia; repetições seguidas aparecem agrupadas.
 - **Conta**: perfil, troca de senha, verificação em duas etapas e "Sair de todos os dispositivos".
+- **Avisos** (canto inferior direito; no celular, embaixo): com um painel lateral aberto, sobem acima do rodapé dele, onde ficam os botões (Excluir imagem, Salvar lead). Nenhum aviso cobre essas ações.
 
 ## 11. SEO e GEO
 
@@ -350,10 +356,10 @@ A interface usa shadcn/ui sobre os tokens da Velmont. O sistema visual está em 
 
 | Suite | Comando | Resultado |
 |---|---|---|
-| RLS / banco (PostgreSQL real, com os privilégios padrão permissivos do Supabase reproduzidos; rodado em 16 e 17.10) | `pnpm test:db` | **50/50** tabelas + **10/10** Storage/mídia + **11/11** senha temporária/primeiro acesso + **11/11** remediação = **82/82** |
-| APIs (leads, Turnstile, upload, publish, rebuild, staff, first-access, fallback) + renderer/schema | `pnpm test:unit` | **70/70** + **10/10** |
-| Build com CMS falso (XSS, noindex, canonical, sitemap, JSON-LD, falha do CMS, chaves secretas, Turnstile obrigatório com captura) | `pnpm test` | **12/12** (total de `pnpm test`: **174/174**) |
-| **E2E** com Supabase Auth (GoTrue v2.186) + PostgREST v13 + Postgres reais (16 e 17.10), build real, emulação da Vercel e Chromium | `GOTRUE_BIN=… POSTGREST_BIN=… pnpm test:e2e` | **40/40** |
+| RLS / banco (PostgreSQL real, com os privilégios padrão permissivos do Supabase reproduzidos; rodado em 16 e 17.10) | `pnpm test:db` | **51/51** tabelas + **10/10** Storage/mídia + **11/11** senha temporária/primeiro acesso + **11/11** remediação = **83/83** |
+| APIs (leads, Turnstile, upload, publish, rebuild, staff, first-access, fallback), status do site e contagens do Dashboard + renderer/schema | `pnpm test:unit` | **85/85** + **10/10** |
+| Build com CMS falso (XSS, noindex, canonical, sitemap, JSON-LD, falha do CMS, chaves secretas, Turnstile obrigatório com captura) | `pnpm test` | **13/13** (total de `pnpm test`: **191/191**) |
+| **E2E** com Supabase Auth (GoTrue v2.186) + PostgREST v13 + Postgres reais (16 e 17.10), build real, emulação da Vercel e Chromium | `GOTRUE_BIN=… POSTGREST_BIN=… pnpm test:e2e` | **45/45** |
 | Páginas, links, orçamento de bundle, isolamento do admin, varredura de segredos | `pnpm verify` | PASS |
 | Functions compiladas arquivo a arquivo e carregadas como Node ESM (como na Vercel) | `pnpm check:functions` | PASS |
 | typecheck / lint / build / `pnpm audit` / `pnpm audit --prod` | — | limpos / 0 vulnerabilidades |

@@ -1,6 +1,5 @@
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { ExternalLinkIcon, ImagePlusIcon, LinkIcon, Trash2Icon } from 'lucide-react';
-import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { Sheet, SheetContent, SheetDescription, SheetFooter, SheetHeader, SheetTitle } from '@/components/ui/sheet';
@@ -12,7 +11,7 @@ import { cn } from '@/lib/utils';
 import { Link } from '../router';
 import { MediaImage } from '../signed';
 import { adminApi, explain, supabase } from '../supabase';
-import { mediaColumns, MediaThumb, UPLOADED_TOAST, UploadButton, useMedia, useMediaUsage, usageOf, type Usage } from '../media';
+import { mediaColumns, MediaThumb, UploadButton, useMedia, useMediaUsage, usageOf, type Usage } from '../media';
 import type { MediaItem } from '../types';
 import { EmptyState, FilterSelect, fullDate, notify, Page, PageHeader, SearchInput, StatusBadge, useConfirm, useCrumbs } from '../ui';
 
@@ -38,10 +37,6 @@ function MediaDetails({ item, uses, onClose, onSaved, onDeleted }: { item: Media
   const alt = edit && edit.id === item?.id ? edit.value : item?.alt || '';
   const setAlt = (value: string) => item && setEdit({ id: item.id, value });
   const inUse = (uses?.length ?? 0) > 0;
-  // Opening the details is what the upload notice asks for; it would cover the footer buttons.
-  useEffect(() => {
-    if (item) toast.dismiss(UPLOADED_TOAST);
-  }, [item]);
 
   async function save() {
     if (!item) return;

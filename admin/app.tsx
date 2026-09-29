@@ -61,7 +61,15 @@ export function App() {
           <Screen />
         </Layout>
       </AuthGate>
-      <Toaster position="bottom-right" closeButton containerAriaLabel="Notificações" toastOptions={{ duration: 5000, closeButtonAriaLabel: 'Fechar notificação', classNames: { toast: 'toast' } }} />
+      {/* --toast-clearance (admin.css) lifts the toasts above an open sheet's footer, where its actions are. */}
+      <Toaster
+        position="bottom-right"
+        offset={{ bottom: 'calc(24px + var(--toast-clearance, 0px))' }}
+        mobileOffset={{ bottom: 'calc(16px + var(--toast-clearance, 0px))' }}
+        closeButton
+        containerAriaLabel="Notificações"
+        toastOptions={{ duration: 5000, closeButtonAriaLabel: 'Fechar notificação', classNames: { toast: 'toast' } }}
+      />
     </TooltipProvider>
   );
 }

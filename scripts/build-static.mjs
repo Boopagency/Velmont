@@ -110,7 +110,8 @@ await fs.writeFile(path.join(output,'admin/index.html'),`<!doctype html><html la
 await fs.writeFile(path.join(output,'admin/preview/index.html'),`<!doctype html><html lang="pt-BR"><head>${adminHead('Pré-visualização | Velmont')}<link rel="stylesheet" href="/assets/${cssName}"><style>.preview-bar{display:block;position:sticky;top:0;z-index:50;margin:0;padding:10px 16px;background:#ddc5a1;color:#210b12;font:600 12px/1.4 Manrope,Arial,sans-serif;letter-spacing:.04em;text-align:center}.preview-bar a{color:inherit}</style></head><body><div id="app"></div><script type="module" src="/assets/${adminEntry('preview')}"></script></body></html>`);
 // startedAt: when this build began, before reading the content. The panel
 // counts every update requested before it as live (admin/site-status.tsx).
-await fs.writeFile(path.join(output,'build-info.json'),JSON.stringify({builtAt:new Date().toISOString(),startedAt:buildStartedAt,articles:posts.length,source:origin}));
+// env: a preview never serves the production version, so the panel does not wait for it there.
+await fs.writeFile(path.join(output,'build-info.json'),JSON.stringify({builtAt:new Date().toISOString(),startedAt:buildStartedAt,articles:posts.length,source:origin,env:['production','preview'].includes(process.env.VERCEL_ENV)?process.env.VERCEL_ENV:'development'}));
 // The deployed files must never contain a server secret. On Vercel the real
 // values are present during the build, so this checks the actual bundle.
 const secrets=['SUPABASE_SERVICE_ROLE_KEY','RATE_LIMIT_SALT','TURNSTILE_SECRET_KEY','VERCEL_DEPLOY_HOOK_URL'].map(k=>[k,(process.env[k]||'').trim()]).filter(([,v])=>v.length>=8);

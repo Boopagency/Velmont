@@ -14,8 +14,12 @@ import { fullDate, TimeAgo } from './ui';
 type Build = { id: number; requested_at: string; status: 'pending' | 'success' | 'failed'; finished_at: string | null; detail: string | null };
 /** unconfirmed: requested, but Vercel's answer did not arrive; the build that follows settles it. */
 export type SiteState = 'updated' | 'updating' | 'unconfirmed' | 'stalled' | 'failed';
-/** When the version on the air was generated (builtAt) and began reading the content (startedAt). */
-export type LiveBuild = { builtAt: string | null; startedAt: string | null };
+/**
+ * The version this browser gets from the site: when it was generated
+ * (builtAt), when it began reading the content (startedAt), and whether it is
+ * a preview deployment, which never shows the production version.
+ */
+export type LiveBuild = { builtAt: string | null; startedAt: string | null; preview?: boolean };
 
 /** site_builds.detail of a request without Vercel's answer (server/deploy.ts writes the same marker). */
 const UNCONFIRMED = 'deploy hook unconfirmed';
@@ -29,14 +33,20 @@ const POLL_MS = 10000;
  * The state of the latest request. A live version that began reading the
  * content after the request was made includes it: whatever Vercel answered
  * (or failed to answer) at the time, that update is on the site. Otherwise
- * the build decides: success, a real failure, or still on its way.
+ * the build decides: a real failure, or still on its way. A build reports
+ * success when it ends, before Vercel deploys it and moves the domain to it
+ * (about half a minute more), so success alone is still "updating"; it only
+ * stands on its own where the live version cannot tell (a preview, or an
+ * older version without startedAt). An unreadable build-info.json proves
+ * nothing either way.
  */
 export function derive(build: Build | null, live: LiveBuild = { builtAt: null, startedAt: null }, now = Date.now()): SiteState {
-  if (!build || build.status === 'success') return 'updated';
+  if (!build) return 'updated';
   if (live.startedAt && Date.parse(live.startedAt) >= Date.parse(build.requested_at)) return 'updated';
   if (build.status === 'failed') return 'failed';
+  if (build.status === 'success' && (live.preview || (live.builtAt && !live.startedAt))) return 'updated';
   const age = now - Date.parse(build.requested_at);
-  if (build.detail === UNCONFIRMED) return age > UNCONFIRMED_MS ? 'stalled' : 'unconfirmed';
+  if (build.status === 'pending' && build.detail === UNCONFIRMED) return age > UNCONFIRMED_MS ? 'stalled' : 'unconfirmed';
   return age > STALLED_MS ? 'stalled' : 'updating';
 }
 
@@ -57,10 +67,10 @@ async function fetchStatus() {
   const [builds, info] = await Promise.all([
     supabase.from('site_builds').select('id, requested_at, status, finished_at, detail').order('requested_at', { ascending: false }).limit(1),
     fetch('/build-info.json', { cache: 'no-store' })
-      .then((r) => (r.ok ? (r.json() as Promise<{ builtAt?: unknown; startedAt?: unknown }>) : null))
+      .then((r) => (r.ok ? (r.json() as Promise<{ builtAt?: unknown; startedAt?: unknown; env?: unknown }>) : null))
       .catch(() => null),
   ]);
-  return { build: ((builds.data as Build[] | null) || [])[0] || null, live: { builtAt: stamp(info?.builtAt), startedAt: stamp(info?.startedAt) } };
+  return { build: ((builds.data as Build[] | null) || [])[0] || null, live: { builtAt: stamp(info?.builtAt), startedAt: stamp(info?.startedAt), preview: info?.env === 'preview' } };
 }
 
 const inFlight = (state: SiteState) => state === 'updating' || state === 'unconfirmed';
@@ -96,11 +106,21 @@ export function useSiteStatus() {
     return () => clearInterval(timer);
   }, [state, load]);
 
+  // A hidden tab is not checked; coming back to it checks at once instead of
+  // showing what it knew before until the next round.
+  useEffect(() => {
+    const back = () => {
+      if (!document.hidden) void load();
+    };
+    document.addEventListener('visibilitychange', back);
+    return () => document.removeEventListener('visibilitychange', back);
+  }, [load]);
+
   // Tell the person when an update they are watching finishes (from the records, never the optimistic guess).
   useEffect(() => {
     if (build === undefined || optimistic) return;
     const watched = previous.current !== null && inFlight(previous.current);
-    if (watched && real === 'updated') toast.success('Site atualizado', { description: 'A versão publicada já está no ar.' });
+    if (watched && real === 'updated') toast.success('Site atualizado', { description: 'A nova versão já está no ar. Em outros acessos, pode levar alguns segundos para aparecer.' });
     if (watched && real === 'failed') toast.error('Não foi possível atualizar o site', { description: failureReason(build?.detail ?? null) });
     previous.current = real;
   }, [real, build, optimistic]);
@@ -108,7 +128,9 @@ export function useSiteStatus() {
   const update = useCallback(
     async (reason: string) => {
       setRequesting(true);
-      const result = await requestSiteUpdate(reason);
+      // A build that succeeded but never reached the site does not count as
+      // done (the server skips a retry once the latest build succeeded).
+      const result = await requestSiteUpdate(build?.status === 'success' ? reason.replace(/^retry/, 'manual') : reason);
       setRequesting(false);
       if (result.skipped === 'updated') toast.success('O site já está atualizado', { description: 'A versão publicada mais recente já está no ar.' });
       else if (result.skipped === 'in_progress') toast.info('Atualização em andamento', { description: 'Uma atualização já foi solicitada; esta página acompanha sozinha.' });
@@ -121,7 +143,7 @@ export function useSiteStatus() {
       await load();
       return result.ok;
     },
-    [load],
+    [load, build],
   );
 
   /** For flows that already asked for a build (publishing): start watching it. */
@@ -180,11 +202,11 @@ export function SiteStatusPanel({ status }: { status: Status }) {
           {loading ? <p className="text-sm text-muted-foreground">Verificando…</p> : <SiteStatusLine status={status} />}
           {!loading && (
             <p className="text-[13px] leading-relaxed text-muted-foreground">
-              {state === 'updating' && 'A Vercel está gerando a nova versão. Leva cerca de 1 a 2 minutos; esta página acompanha sozinha.'}
+              {state === 'updating' && 'A Vercel está gerando a nova versão e colocando no ar. Leva cerca de 1 a 2 minutos; esta página acompanha sozinha.'}
               {state === 'unconfirmed' && 'A atualização foi solicitada, e a Vercel ainda não confirmou o recebimento. Esta página acompanha sozinha e mostra quando a nova versão entrar no ar.'}
-              {state === 'updated' && 'O site público mostra o conteúdo publicado mais recente.'}
+              {state === 'updated' && 'O site público já mostra o conteúdo publicado mais recente. Em outros acessos, pode levar alguns segundos para aparecer.'}
               {state === 'failed' && failureReason(build?.detail ?? null)}
-              {state === 'stalled' && 'A atualização foi solicitada, mas a Vercel ainda não confirmou a conclusão. Tente novamente.'}
+              {state === 'stalled' && 'A atualização foi solicitada, mas a nova versão ainda não apareceu no site. Tente novamente.'}
             </p>
           )}
         </div>

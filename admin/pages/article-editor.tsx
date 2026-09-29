@@ -98,6 +98,12 @@ function checklist(d: ArticleDraft, media: MediaItem | null) {
 
 type Revision = { id: number; kind: 'edit' | 'publish'; created_at: string; snapshot: ArticleRow };
 type Busy = 'save' | 'publish' | 'review' | 'draft' | 'unpublish' | 'archive' | null;
+/** The site update a publication asked for, as this editor follows it. */
+type Published = 'updating' | 'not_updated' | null;
+
+// A new article's first action ends at the article's own address, in a fresh
+// editor: the site update it asked for goes along.
+const handoff = new Map<string, Exclude<Published, null>>();
 
 /** Grows a textarea with its content (also where CSS field-sizing is not supported). */
 function useAutosize(value: string) {
@@ -195,7 +201,7 @@ export function ArticleEditor({ id }: { id: string | null }) {
   const [images, setImages] = useState<Record<string, MediaItem>>({});
   const [revisions, setRevisions] = useState<Revision[] | null>(null);
   const [tagSuggestions, setTagSuggestions] = useState<string[]>([]);
-  const [published, setPublished] = useState<'updating' | 'not_updated' | null>(null);
+  const [published, setPublished] = useState<Published>(() => (id && handoff.get(id)) || null);
   const [showChecklist, setShowChecklist] = useState(false);
   const backupKey = `vm-draft:${id || 'novo'}`;
   const [fallbackSlug] = useState(() => `rascunho-${Math.random().toString(36).slice(2, 8)}`);
@@ -210,6 +216,9 @@ export function ArticleEditor({ id }: { id: string | null }) {
     dirtyRef.current = dirty;
   });
   useCrumbs([{ label: 'Artigos', href: '/admin/artigos' }, { label: id ? draft?.title.trim() || row?.title || 'Sem título' : 'Novo artigo' }]);
+  useEffect(() => {
+    if (id) handoff.delete(id);
+  }, [id]);
 
   // In-app navigation (links, back/forward, sign-out) asks before discarding edits.
   useEffect(
@@ -301,7 +310,13 @@ export function ArticleEditor({ id }: { id: string | null }) {
   const live = row?.published;
   const pending = row ? hasUnpublishedChanges(row) : false;
 
-  async function save(): Promise<ArticleRow | null> {
+  /**
+   * Saves the draft. A new article moves to its own address after the first
+   * save, which opens a fresh editor there. An action that continues after
+   * saving (publishing asks for confirmation first) passes `open: false` and
+   * moves once it is done, or it would lose its way on the old editor.
+   */
+  async function save({ open = true } = {}): Promise<ArticleRow | null> {
     if (!draft) return null;
     const { payload, problems } = toPayload(draft, fallbackSlug);
     if (problems.length) {
@@ -333,7 +348,7 @@ export function ArticleEditor({ id }: { id: string | null }) {
     setDirty(false);
     setPublished(null);
     dirtyRef.current = false;
-    if (!row) navigate(`/admin/artigos/${saved.id}`, { replace: true, force: true });
+    if (!row && open) navigate(`/admin/artigos/${saved.id}`, { replace: true, force: true });
     return saved;
   }
 
@@ -351,8 +366,25 @@ export function ArticleEditor({ id }: { id: string | null }) {
       notify.error('Faltam itens obrigatórios', 'Preencha título, resumo e conteúdo antes de publicar.');
       return;
     }
-    const current = dirty || !row ? await save() : row;
+    // A new article is saved without leaving this editor, so the confirmation
+    // below still opens here; the article moves to its own address when the
+    // action is over, and the editor there carries on with the site update.
+    const created = !row;
+    const current = dirty || !row ? await save({ open: false }) : row;
     if (!current) return;
+    let outcome: Published = null;
+    try {
+      outcome = await carryOut(action, current);
+    } finally {
+      if (created) {
+        if (outcome) handoff.set(current.id, outcome);
+        navigate(`/admin/artigos/${current.id}`, { replace: true, force: true });
+      }
+    }
+  }
+
+  /** Confirms and runs an action on a saved article; returns the state of the site update it asked for. */
+  async function carryOut(action: 'publish' | 'review' | 'draft' | 'unpublish' | 'archive', current: ArticleRow): Promise<Published> {
     const texts: Record<typeof action, [string, string, string]> = {
       publish: ['Publicar artigo?', current.status === 'published' ? 'As alterações substituirão a versão que está no site.' : 'O artigo ficará visível para todos no site e nos buscadores.', 'Publicar'],
       review: ['Enviar para revisão?', 'O artigo continua privado até ser publicado.', 'Enviar'],
@@ -361,8 +393,9 @@ export function ArticleEditor({ id }: { id: string | null }) {
       archive: ['Arquivar artigo?', 'Ele sai do site (se publicado) e da lista principal. Você pode restaurá-lo depois.', 'Arquivar'],
     };
     const [title, text, label] = texts[action];
-    if (!(await confirm(title, text, label, action === 'unpublish' || action === 'archive'))) return;
+    if (!(await confirm(title, text, label, action === 'unpublish' || action === 'archive'))) return null;
     setBusy(action);
+    let outcome: Published = null;
     if (action === 'publish' || action === 'unpublish' || action === 'archive') {
       // Server-side: copies only this article's images to the public bucket,
       // changes the status as the signed-in user and rebuilds the site.
@@ -377,30 +410,32 @@ export function ArticleEditor({ id }: { id: string | null }) {
           too_many_requests: 'Muitas publicações em pouco tempo. Aguarde alguns minutos.',
         };
         notify.error(action === 'publish' ? 'Não foi possível publicar' : 'Não foi possível concluir', messages[String(result.body.error)] || 'Tente novamente.');
-        return;
+        return null;
       }
       const done = { publish: 'Artigo publicado', unpublish: 'Artigo despublicado', archive: 'Artigo arquivado' }[action];
       if (result.body.site === 'updating') {
         notify.ok(done, 'O site será atualizado em cerca de 1 a 2 minutos.');
-        setPublished('updating');
+        outcome = 'updating';
         site.watch();
       } else {
         notify.error('Não foi possível atualizar o site', `${done}, mas a atualização automática do site falhou. Tente novamente pelo status do site.`);
-        setPublished('not_updated');
+        outcome = 'not_updated';
         void site.refresh();
       }
+      setPublished(outcome);
     } else {
       const rpc = action === 'review' ? 'submit_article_for_review' : 'return_article_to_draft';
       const { error } = await supabase.rpc(rpc, { p_id: current.id });
       if (error) {
         setBusy(null);
         notify.error(explain(error));
-        return;
+        return null;
       }
       notify.ok(action === 'review' ? 'Enviado para revisão' : 'Artigo voltou para rascunho');
     }
     setBusy(null);
     setReloadKey((k) => k + 1);
+    return outcome;
   }
 
   async function remove() {

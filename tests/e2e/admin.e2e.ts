@@ -23,6 +23,21 @@ const ok = (label: string) => {
   results.push(label);
   console.log(`  ✓ ${label}`);
 };
+/** The control is inside the viewport, no toast overlaps any part of it, and it is on top across its face. */
+const uncovered = async (target: import('playwright').Locator, label: string) => {
+  const hits = await target.evaluate((el) => {
+    const r = el.getBoundingClientRect();
+    const inside = r.top >= 0 && r.left >= 0 && r.bottom <= innerHeight && r.right <= innerWidth;
+    const overlap = [...document.querySelectorAll('[data-sonner-toast]')].some((t) => {
+      const b = t.getBoundingClientRect();
+      return b.left < r.right && b.right > r.left && b.top < r.bottom && b.bottom > r.top;
+    });
+    // Probes inset from the rounded corners (hit testing follows border-radius).
+    const points = [8, r.width / 2, r.width - 8].flatMap((dx) => [r.height * 0.3, r.height * 0.7].map((dy) => [r.left + dx, r.top + dy]));
+    return [inside, !overlap, ...points.map(([x, y]) => el.contains(document.elementFromPoint(x, y)))];
+  });
+  assert.ok(hits.every(Boolean), `${label}: covered or out of view ${JSON.stringify(hits)}`);
+};
 
 const stack: Stack = await startStack();
 let server: ReturnType<typeof spawn> | null = null;
@@ -207,6 +222,35 @@ try {
   const stats = await page.locator('.stat strong').allTextContents();
   assert.deepEqual(stats, ['3', '0', '1']);
   ok('editor enrolls TOTP and reaches the dashboard (3 published, 0 drafts, 1 new lead)');
+
+  // The dashboard counts through the real PostgREST: HEAD with count=exact, answered 200 with the
+  // total in Content-Range; no 5xx and no retry (supabase-js repeats a 503 with X-Retry-Count).
+  const restCalls: { method: string; url: string; status: number; range: string | null; retry: string | null }[] = [];
+  const onRest = async (response: import('playwright').Response) => {
+    const request = response.request();
+    if (!request.url().startsWith(`${stack.url}/rest/v1/`)) return;
+    restCalls.push({ method: request.method(), url: request.url().slice(stack.url.length), status: response.status(), range: response.headers()['content-range'] ?? null, retry: (await request.allHeaders())['x-retry-count'] ?? null });
+  };
+  page.on('response', onRest);
+  for (let i = 0; i < 3; i++) {
+    await page.reload();
+    await page.locator('.stat strong').first().waitFor();
+    assert.deepEqual(await page.locator('.stat strong').allTextContents(), ['3', '0', '1']);
+  }
+  page.off('response', onRest);
+  const heads = restCalls.filter((c) => c.method === 'HEAD');
+  assert.deepEqual([...new Set(heads.map((c) => c.url))].sort(), ['/rest/v1/articles?select=id&status=eq.published', '/rest/v1/articles?select=id&status=in.%28draft%2Creview%29', '/rest/v1/leads?select=id&status=eq.new']);
+  assert.equal(heads.length, 12, 'per load: the three dashboard counts and the sidebar badge of new leads (same request as the third)');
+  assert.deepEqual(restCalls.filter((c) => c.status >= 500 || c.retry), [], 'no 5xx and no retry');
+  assert.deepEqual([...new Set(heads.map((c) => `${c.status} ${c.range?.split('/')[1]}`))].sort(), ['200 0', '200 1', '200 3']);
+  // A count that cannot be read shows "—", never a false 0 (a 400 is not retried).
+  await page.route(`${stack.url}/rest/v1/leads?select=id&status=eq.new`, (route) => (route.request().method() === 'HEAD' ? route.fulfill({ status: 400, headers: { 'access-control-allow-origin': '*', 'proxy-status': 'PostgREST; error=PGRST100' } }) : route.continue()));
+  await page.reload();
+  await page.locator('.stat strong').first().waitFor();
+  assert.deepEqual(await page.locator('.stat strong').allTextContents(), ['3', '0', '—']);
+  await page.unroute(`${stack.url}/rest/v1/leads?select=id&status=eq.new`);
+  ok('dashboard counts against the real PostgREST: 12 HEAD count=exact requests (3 loads) answered 200 with the right totals, no 5xx, no retry; an unreadable count shows "—"');
+
   assert.equal(await page.getByRole('link', { name: 'Equipe' }).count(), 0);
   await page.goto(`${site}/admin/equipe`);
   await page.getByText('Área restrita à pessoa responsável.').waitFor();
@@ -295,6 +339,25 @@ try {
   await page.evaluate((id) => localStorage.removeItem(`vm-draft:${id}`), articleId);
   ok('unsaved edits: leaving asks first (links and back button); a local backup is recovered after reload');
 
+  // A new article is published with a single click: saved, confirmed, published.
+  await page.goto(`${site}/admin/artigos/novo`);
+  await page.fill('#title', 'Publicado com um clique');
+  await page.fill('#excerpt', 'Um artigo novo publicado direto do editor, sem salvar antes: um clique em Publicar basta.');
+  await page.getByRole('textbox', { name: 'Parágrafo', exact: true }).fill('Conteúdo mínimo para publicar.');
+  await page.getByRole('button', { name: 'Publicar', exact: true }).click();
+  const confirmPublish = page.getByRole('alertdialog');
+  await confirmPublish.getByText('Publicar artigo?').waitFor();
+  assert.match(page.url(), /\/admin\/artigos\/novo$/, 'the confirmation opens on the same editor');
+  const [newArticle] = (await stack.db.query(`select id, status from public.articles where title = 'Publicado com um clique'`)).rows;
+  assert.equal(newArticle.status, 'draft', 'saved first, so the article exists before publishing');
+  await confirmPublish.getByRole('button', { name: 'Publicar' }).click();
+  await page.getByText(/atualização automática do site falhou|site será atualizado/).waitFor();
+  await page.waitForURL(new RegExp(`/admin/artigos/${newArticle.id}$`));
+  const [oneClick] = (await stack.db.query(`select a.status, p.slug, (select count(*)::int from public.articles where title = 'Publicado com um clique') as copies from public.articles a join public.published_articles p on p.article_id = a.id where a.id = $1`, [newArticle.id])).rows;
+  assert.deepEqual(oneClick, { status: 'published', slug: 'publicado-com-um-clique', copies: 1 });
+  await page.getByRole('button', { name: /^Publicar/ }).waitFor({ state: 'detached' });
+  ok('a new article is published with ONE click on "Publicar": saved, the confirmation appears, then it is published (no second click, no duplicate)');
+
   // 6. Rebuild the static site from the CMS and check the public article.
   await build();
   const html = await (await fetch(`${site}/blog/marca-e-nome-empresarial-qual-a-diferenca`)).text();
@@ -348,19 +411,34 @@ try {
   for (const k of keys()) assert.match(k, /^media-private\/[0-9a-f-]{36}\.(webp|jpg)$/);
   ok('uploads are re-encoded, validated server-side and stored only in the private bucket');
 
-  // Right after an upload, opening the image closes the "Imagem enviada" notice: it never covers "Excluir imagem".
+  // No notification covers the actions of the image details: with a toast on screen ("Imagem enviada",
+  // then "Descrição salva"), "Excluir imagem" stays entirely visible and clickable, on a desktop and on a phone.
   await page.setInputFiles('input[type=file]', { name: 'engano.png', mimeType: 'image/png', buffer: png });
-  await page.locator('.toast', { hasText: 'Imagem enviada' }).waitFor();
+  await page.locator('.toast', { hasText: 'Imagem enviada' }).last().waitFor();
   await page.getByRole('button', { name: /^Abrir detalhes/ }).first().click();
   await page.getByRole('heading', { name: 'Detalhes da imagem' }).waitFor();
-  await page.locator('.toast', { hasText: 'Imagem enviada' }).waitFor({ state: 'detached' });
-  await page.getByRole('button', { name: 'Excluir imagem' }).click({ trial: true });
-  await page.screenshot({ path: path.join(shots, 'admin-media-details-after-upload.png') });
-  await page.getByRole('button', { name: 'Excluir imagem' }).click();
+  const deleteImage = page.getByRole('button', { name: 'Excluir imagem' });
+  await page.waitForTimeout(600);
+  await uncovered(deleteImage, 'with "Imagem enviada" on screen');
+  for (const [width, height] of [[1510, 889], [390, 844]]) {
+    await page.setViewportSize({ width, height });
+    await page.fill('#media-alt', `Ícone da Velmont em ${width}px`);
+    await page.getByRole('button', { name: 'Salvar descrição' }).click();
+    const saved = page.locator('.toast', { hasText: 'Descrição salva' }).last();
+    await saved.waitFor();
+    await page.waitForTimeout(600);
+    const [toastBox, footerBox] = [await saved.boundingBox(), await page.locator('[data-slot="sheet-footer"]').boundingBox()];
+    assert.ok(toastBox && footerBox && toastBox.y + toastBox.height <= footerBox.y, `${width}px: the toast sits above the sheet footer`);
+    await uncovered(deleteImage, `${width}px with "Descrição salva" on screen`);
+    await deleteImage.click({ trial: true });
+    await page.screenshot({ path: path.join(shots, `admin-media-toast-${width}.png`) });
+  }
+  await page.setViewportSize({ width: 1360, height: 900 });
+  await deleteImage.click();
   await page.getByRole('alertdialog').getByRole('button', { name: 'Excluir' }).click();
   await page.locator('.toast', { hasText: 'Imagem excluída' }).waitFor();
   assert.equal(keys().filter((k) => k.startsWith('media-private/')).length, 2, 'the image sent by mistake is gone');
-  ok('after an upload, the image details open with "Excluir imagem" free to click (the upload notice closes)');
+  ok('toasts never cover the image actions: with "Imagem enviada" or "Descrição salva" on screen, "Excluir imagem" stays fully visible and clickable at 1510×889 and 390×844');
 
   await page.locator('.media-card img').nth(1).waitFor();
   const thumbs = await page.locator('.media-card img').evaluateAll((els) => els.map((e) => (e as HTMLImageElement).src));
@@ -481,7 +559,7 @@ try {
   // Recorded as failed by the old 8-second timeout, although the live version began after it.
   await stack.db.query(`insert into public.site_builds (requested_at, requested_by, reason, ok, status, finished_at, detail) values ($1, $2, 'publish: antigo', false, 'failed', $1, 'deploy hook unreachable')`, [new Date(Date.parse(liveBuild.startedAt) - 200).toISOString(), lisandra]);
   await page.goto(`${site}/admin`);
-  await statusPanel.getByText('O site público mostra o conteúdo publicado mais recente.').waitFor();
+  await statusPanel.getByText(/já mostra o conteúdo publicado mais recente/).waitFor();
   assert.equal(await statusPanel.getByText(/Falha|Não foi possível contatar/).count(), 0, 'already on the air: not a failure');
   // Asked now, Vercel's answer never arrived: awaiting confirmation, and a retry asks for nothing new.
   await stack.db.query(`insert into public.site_builds (requested_at, requested_by, reason, ok, status, detail) values (now(), $1, 'publish: sem resposta', true, 'pending', 'deploy hook unconfirmed')`, [lisandra]);
@@ -492,14 +570,55 @@ try {
   const retryWhilePending = await fetch(`${site}/api/admin/rebuild`, { method: 'POST', headers: { origin: site, authorization: `Bearer ${staffToken}`, 'content-type': 'application/json' }, body: JSON.stringify({ reason: 'retry: dashboard' }) });
   assert.deepEqual(await retryWhilePending.json(), { ok: true, skipped: 'in_progress' });
   const before = await siteBuilds();
-  // The production build reports its outcome; the open panel notices on its own.
+  // The production build reports success when it ends, before Vercel deploys it and moves the domain:
+  // still "Atualizando site…" until the site serves that build (its build-info.json), then "Atualizado".
   await stack.db.query('select public.finish_site_builds(now(), true)');
-  await statusPanel.getByText('O site público mostra o conteúdo publicado mais recente.').waitFor({ timeout: 25000 });
+  await statusPanel.getByText('Atualizando site…').waitFor({ timeout: 25000 });
+  assert.equal(await statusPanel.getByText('Atualizado', { exact: true }).count(), 0, 'built, not served yet');
+  await build();
+  await statusPanel.getByText(/já mostra o conteúdo publicado mais recente/).waitFor({ timeout: 25000 });
+  await statusPanel.getByText(/Em outros acessos, pode levar alguns segundos/).waitFor();
   await page.getByText('Site atualizado').first().waitFor();
   const retryAfterConfirmed = await fetch(`${site}/api/admin/rebuild`, { method: 'POST', headers: { origin: site, authorization: `Bearer ${staffToken}`, 'content-type': 'application/json' }, body: JSON.stringify({ reason: 'retry: dashboard' }) });
   assert.deepEqual(await retryAfterConfirmed.json(), { ok: true, skipped: 'updated' });
   assert.equal(await siteBuilds(), before, 'no duplicate request or build');
-  ok('site status: a live update is never shown as a failure; an unanswered request waits, turns "Atualizado" when the build reports, and retries do not duplicate it');
+  ok('site status: a live update is never shown as a failure; an unanswered request waits; a finished build stays "Atualizando site…" until the site serves it, then "Atualizado"; retries do not duplicate it');
+
+  // Coming back to a hidden tab checks at once; while hidden, the panel asks nothing. The page clock is
+  // paused, so no polling round can fire: only the return to the tab can bring the new state.
+  await stack.db.query(`insert into public.site_builds (requested_at, requested_by, reason, ok, status) values (now(), $1, 'publish: aba oculta', true, 'pending')`, [lisandra]);
+  const clockContext = await browser.newContext({ viewport: { width: 1360, height: 900 }, storageState: await context.storageState() });
+  await clockContext.clock.install({ time: new Date(Date.now() - 2000) });
+  const tab = await clockContext.newPage();
+  await tab.goto(`${site}/admin`);
+  const tabPanel = tab.getByRole('region', { name: 'Status do site' });
+  await tabPanel.getByText('Atualizando site…').waitFor();
+  await clockContext.clock.pauseAt(new Date(Date.now() + 1000));
+  let checks = 0;
+  tab.on('request', (r) => {
+    if (r.url().includes('/rest/v1/site_builds')) checks++;
+  });
+  const visibility = (hidden: boolean) =>
+    tab.evaluate((h) => {
+      Object.defineProperty(document, 'hidden', { configurable: true, value: h });
+      Object.defineProperty(document, 'visibilityState', { configurable: true, value: h ? 'hidden' : 'visible' });
+      document.dispatchEvent(new Event('visibilitychange'));
+    }, hidden);
+  await visibility(true);
+  // The build ends and goes live while the tab is hidden; three polling rounds pass.
+  await stack.db.query('select public.finish_site_builds(now(), true)');
+  await build();
+  await clockContext.clock.runFor(35_000);
+  await tab.waitForTimeout(500);
+  assert.equal(checks, 0, 'a hidden tab is not polled');
+  await tabPanel.getByText('Atualizando site…').waitFor();
+  const back = Date.now();
+  await visibility(false);
+  await tabPanel.getByText(/já mostra o conteúdo publicado mais recente/).waitFor({ timeout: 5000 });
+  const took = Date.now() - back;
+  assert.equal(checks, 1, 'one check on return');
+  await clockContext.close();
+  ok(`back to a hidden tab: the status refreshes at once (${took} ms, polling paused), and nothing is polled while it is hidden`);
 
   // 9. Session: token reuse after sign-out is rejected by the API.
   const token = await page.evaluate(() => JSON.parse(localStorage.getItem('velmont-admin') || '{}').access_token as string);

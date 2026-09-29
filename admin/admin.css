@@ -127,6 +127,9 @@
   body { @apply bg-sidebar font-sans text-foreground antialiased; font-feature-settings: 'ss01' on; }
   button:not(:disabled), [role='button']:not(:disabled) { cursor: pointer; }
   h1, h2, h3 { text-wrap: balance; }
+  /* No notification covers the actions of an open sheet: they live in its
+     footer (65px), so the toasts rise above it while the sheet is open. */
+  body:has([data-slot='sheet-footer']) { --toast-clearance: 4rem; }
 }
 
 @layer components {

@@ -10,24 +10,31 @@ const NOW = Date.parse('2026-09-29T12:00:00Z');
 const at = (minutesAgo: number) => new Date(NOW - minutesAgo * 60_000).toISOString();
 type Row = Parameters<typeof derive>[0] & object;
 const row = (over: Partial<Row>): Row => ({ id: 1, requested_at: at(1), status: 'pending', finished_at: null, detail: null, ...over });
-const live = (startedMinutesAgo: number | null): LiveBuild => ({
+const live = (startedMinutesAgo: number | null, preview = false): LiveBuild => ({
   builtAt: startedMinutesAgo === null ? null : at(startedMinutesAgo - 0.5),
   startedAt: startedMinutesAgo === null ? null : at(startedMinutesAgo),
+  preview,
 });
 const older = live(30);
 
 describe('site status on the dashboard', () => {
-  test('a request Vercel accepted shows updating until its build confirms it, then updated', () => {
-    const request = row({ requested_at: at(1) });
+  test('a request Vercel accepted shows updating until the site serves its build, then updated', () => {
+    const request = row({ requested_at: at(2) });
     assert.equal(derive(request, older, NOW), 'updating');
-    // The production build ran finish_site_builds: success.
-    assert.equal(derive({ ...request, status: 'success', finished_at: at(0) }, older, NOW), 'updated');
+    // The build ran finish_site_builds when it ended; Vercel still deploys it and moves the domain.
+    const built = { ...request, status: 'success' as const, finished_at: at(1) };
+    assert.equal(derive(built, older, NOW), 'updating', 'a finished build is not on the air yet');
+    // build-info.json now comes from that build.
+    assert.equal(derive(built, live(1.5), NOW), 'updated');
   });
 
-  test('a request without Vercel’s answer is unconfirmed, never failed, until a build settles it', () => {
-    const request = row({ requested_at: at(1), detail: 'deploy hook unconfirmed' });
+  test('a request without Vercel’s answer is unconfirmed, never failed, until a build settles it and reaches the site', () => {
+    const request = row({ requested_at: at(2), detail: 'deploy hook unconfirmed' });
     assert.equal(derive(request, older, NOW), 'unconfirmed');
-    assert.equal(derive({ ...request, status: 'success', finished_at: at(0) }, older, NOW), 'updated', 'finish_site_builds confirmed it');
+    // finish_site_builds keeps the detail of the row it settles.
+    const built = { ...request, status: 'success' as const, finished_at: at(1) };
+    assert.equal(derive(built, older, NOW), 'updating', 'confirmed by the build, not on the site yet');
+    assert.equal(derive(built, live(1.5), NOW), 'updated');
   });
 
   test('a live version that began after the request makes it updated, whatever the row still says', () => {
@@ -51,10 +58,15 @@ describe('site status on the dashboard', () => {
     assert.equal(derive(row({ requested_at: at(6), detail: 'deploy hook unconfirmed' }), older, NOW), 'stalled', 'unconfirmed: after 5 min');
     assert.equal(derive(row({ requested_at: at(14) }), older, NOW), 'updating');
     assert.equal(derive(row({ requested_at: at(16) }), older, NOW), 'stalled', 'accepted: after 15 min');
+    assert.equal(derive(row({ requested_at: at(16), status: 'success', finished_at: at(15) }), older, NOW), 'stalled', 'built, but never served by the site');
   });
 
-  test('an older build-info.json without startedAt reconciles nothing; no request at all means updated', () => {
+  test('where the live version cannot tell (a preview, or no startedAt), the build’s own report stands', () => {
+    const built = row({ requested_at: at(2), status: 'success', finished_at: at(1) });
+    assert.equal(derive(built, live(30, true), NOW), 'updated', 'a preview never serves the production version');
+    assert.equal(derive(built, { builtAt: at(1), startedAt: null }, NOW), 'updated', 'build-info.json from before startedAt');
+    assert.equal(derive(built, { builtAt: null, startedAt: null }, NOW), 'updating', 'build-info.json could not be read: nothing proven');
     assert.equal(derive(row({ requested_at: at(2), status: 'failed', detail: 'deploy hook unreachable' }), { builtAt: at(1), startedAt: null }, NOW), 'failed');
-    assert.equal(derive(null, older, NOW), 'updated');
+    assert.equal(derive(null, older, NOW), 'updated', 'no request at all');
   });
 });
