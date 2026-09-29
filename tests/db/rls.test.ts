@@ -275,6 +275,19 @@ describe('editor', () => {
     const ok = await as(db, 'authenticated', editor, (q) => q(`update public.leads set status = 'contacted', notes = 'Retornar' where id = $1 returning status`, [ids.lead]));
     assert.equal(ok.rows[0].status, 'contacted');
     assert.equal(await outcome(as(db, 'authenticated', editor, (q) => q(`update public.leads set name = 'Outro' where id = $1`, [ids.lead]))), '42501');
+    assert.equal(await outcome(as(db, 'authenticated', editor, (q) => q(`update public.leads set cta_source = 'hero' where id = $1`, [ids.lead]))), '42501', 'nor where the lead came from');
+  });
+
+  test('reads where a lead came from on the site: a closed list, NULL for older leads', async () => {
+    const older = await as(db, 'authenticated', editor, (q) => q('select cta_source from public.leads where id = $1', [ids.lead]));
+    assert.equal(older.rows[0].cta_source, null, 'leads from before the column keep NULL');
+    const stored = await db.pool.query(`insert into public.leads (name, interest, cta_source) values ('Origem', 'Marcas', 'mobile-menu') returning id`);
+    const read = await as(db, 'authenticated', editor, (q) => q('select cta_source from public.leads where id = $1', [stored.rows[0].id]));
+    assert.equal(read.rows[0].cta_source, 'mobile-menu');
+    for (const value of ['Mobile-menu', 'whatsapp', '', "hero'; --"]) {
+      assert.equal(await outcome(db.pool.query(`insert into public.leads (name, interest, cta_source) values ('Origem', 'Marcas', $1)`, [value])), '23514', value);
+    }
+    await db.pool.query('delete from public.leads where id = $1', [stored.rows[0].id]);
   });
 
   test('cannot delete leads or articles, read the audit log, or manage roles', async () => {

@@ -17,9 +17,19 @@ globalThis.fetch = (async (input: RequestInfo | URL, init?: RequestInit) => {
 
 /** The browser side: Cloudflare's widget script, replaced by one that issues the passing token. */
 export const turnstileScript = `(() => {
-  let issue = () => {};
+  // One widget per form; each reset (a new token for the next attempt) is counted for the tests.
+  const widgets = {};
+  let next = 0;
+  window.__turnstile = { renders: 0, resets: 0 };
   window.turnstile = {
-    render(el, options) { issue = () => setTimeout(() => options.callback(${JSON.stringify(TURNSTILE_PASS)}), 50); issue(); return 'e2e-widget'; },
-    reset() { issue(); },
+    render(el, options) {
+      const id = 'e2e-widget-' + next++;
+      widgets[id] = () => setTimeout(() => options.callback(${JSON.stringify(TURNSTILE_PASS)}), 50);
+      window.__turnstile.renders++;
+      widgets[id]();
+      return id;
+    },
+    reset(id) { window.__turnstile.resets++; widgets[id] && widgets[id](); },
+    remove(id) { delete widgets[id]; },
   };
 })();`;

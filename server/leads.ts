@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { ctaSources } from '../lib/cta-sources.js';
 
 // Normalizes free text: Unicode NFC, no control characters, collapsed spaces.
 export const clean = (value: string) =>
@@ -18,6 +19,8 @@ export const leadSchema = z.strictObject({
   name: text(100).pipe(z.string().min(1)),
   company: optional(150),
   interest: z.enum(interests),
+  // The call to action that opened the form: one of a closed list, never free text.
+  cta_source: z.enum(ctaSources).optional(),
   website: z.string().max(200).optional(),
   turnstileToken: z.string().max(2048).optional(),
   landing_page: z.string().max(500).regex(/^\/[^\s<>"'\\]*$/).optional(),
@@ -36,6 +39,7 @@ export const leadRow = (lead: LeadInput) => ({
   name: lead.name,
   company: lead.company,
   interest: lead.interest,
+  cta_source: lead.cta_source ?? null,
   landing_page: lead.landing_page ?? null,
   referrer: lead.referrer ?? null,
   utm_source: lead.utm_source,

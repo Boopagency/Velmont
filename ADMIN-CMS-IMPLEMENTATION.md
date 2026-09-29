@@ -75,6 +75,7 @@ Migrations em `supabase/migrations/`:
 - `20260925180000_temporary_password_access.sql`: senha temporária e bloqueio até o primeiro acesso (seção 8).
 - `20260928120000_security_remediation.sql`: correções da auditoria white-box (primeiro acesso explícito, exclusão de mídia só por `delete_media`, publicação validada antes de copiar imagens, `add_staff_member` desativada, auditoria de rebuild e de tentativas recusadas, conflitos de versão com `PT409`).
 - `20260928120100_auth_audit_events.sql`: registra no `audit_log` autenticador cadastrado/removido e sessões encerradas (triggers em `auth.mfa_factors` e `auth.sessions` que nunca bloqueiam o Supabase Auth).
+- `20260929150000_lead_cta_source.sql`: coluna `leads.cta_source` (qual chamada do site abriu o formulário), nula para leads anteriores, restrita a uma lista fechada (`leads_cta_source_check`, a mesma de `lib/cta-sources.ts`). **Aplique antes de publicar o código que a usa**: a API grava a coluna e o painel a lê.
 
 | Tabela | Conteúdo |
 |---|---|
@@ -84,7 +85,7 @@ Migrations em `supabase/migrations/`:
 | `article_revisions` | Histórico automático: cada edição guarda a versão anterior; cada publicação guarda o snapshot. |
 | `slug_redirects` | Slug antigo → artigo, criado automaticamente quando um artigo publicado muda de endereço (301). |
 | `media` | Imagens: caminho, tipo, bytes, dimensões, texto alternativo e `public_since` (preenchido só enquanto existe cópia no bucket público; alterável apenas pela service role). |
-| `leads` | Nome, empresa, interesse, página de entrada, origem (somente a origem do referrer), UTMs, `status` (`new`/`contacted`/`qualified`/`converted`/`archived`) e notas internas. **Nenhum IP é guardado.** |
+| `leads` | Nome, empresa, interesse, chamada do site que abriu o formulário (`cta_source`), página de entrada, origem (somente a origem do referrer), UTMs, `status` (`new`/`contacted`/`qualified`/`converted`/`archived`) e notas internas. **Nenhum IP é guardado.** |
 | `audit_log` | *Append-only*: `actor_id`, `action`, `resource`, `resource_id`, `occurred_at` e metadata mínima (sem dados pessoais de leads, senhas ou tokens). |
 | `rate_limits` | Contadores por chave com hash + salt (sem IP em claro). |
 | `site_builds` | Solicitações de atualização do site. |
@@ -271,7 +272,9 @@ Qualquer falha no meio deixa a conta bloqueada. Uma nova senha temporária emiti
    - Headers: `Content-Security-Policy`, `Strict-Transport-Security` e, em `/admin`, `X-Robots-Tag: noindex` e `Cache-Control: no-store`.
 5. **Leads.** Só ative `NEXT_PUBLIC_LEAD_CAPTURE=true` depois da revisão jurídica do texto de privacidade, **junto com** `NEXT_PUBLIC_TURNSTILE_SITE_KEY` e `TURNSTILE_SECRET_KEY` (Cloudflare → Turnstile → Add widget, domínios `grupovelmont.com` e `www.grupovelmont.com`, modo *Managed*). Depois, faça um redeploy (os valores `NEXT_PUBLIC_*` entram no build).
    - Sem token do Turnstile, ou com token inválido, `/api/leads` responde **403** sem gravar; a Origin sozinha não é proteção contra bots. A verificação é feita no servidor (`siteverify`).
-   - O WhatsApp abre sempre. Se o registro falhar (400/403/429/503), o formulário **não** diz que o lead foi salvo, e a recusa fica nos Runtime Logs como uma linha JSON `{"event":"api_refused","route":"/api/leads","status":…,"error":…}`, sem nome, empresa, telefone ou e-mail.
+   - O WhatsApp abre **só depois** que `/api/leads` responde **201** (lead gravado). Se o registro falhar (400/403/429/5xx ou rede), o visitante continua no formulário, com uma mensagem, e pode tentar de novo com um token novo do Turnstile; nunca há WhatsApp sem registro. A recusa fica nos Runtime Logs como uma linha JSON `{"event":"api_refused","route":"/api/leads","status":…,"error":…}`, sem nome, empresa, telefone ou e-mail.
+   - Cada formulário tem o próprio widget do Turnstile, e cada token é usado uma vez. Um formulário envia uma requisição por vez (duplo clique ou Enter repetido não duplicam o lead).
+   - `cta_source` registra qual chamada do site abriu o formulário, entre valores fixos (`lib/cta-sources.ts`); a API recusa qualquer outro texto (400) e o banco também.
 6. **Domínio definitivo.** Atualize `NEXT_PUBLIC_SITE_URL`, a Site URL e as Redirect URLs do Supabase, e reenvie o sitemap no Search Console.
 7. **Supabase com domínio customizado.** Se usar, troque `https://*.supabase.co` pelo domínio nas duas CSPs do `vercel.json`.
 8. **Região das Functions.** Recomendado `gru1` (São Paulo), perto do banco (Settings → Functions).
@@ -325,7 +328,7 @@ A interface usa shadcn/ui sobre os tokens da Velmont. O sistema visual está em 
     - Histórico de versões.
 - **Leads**:
   - Tabela com busca e filtros (status, interesse, período).
-  - Ao abrir um lead, um painel lateral mostra respostas, origem (UTMs e página de entrada), status e notas internas.
+  - Ao abrir um lead, um painel lateral mostra respostas, origem (**Origem no site**, isto é, o botão do site que abriu o formulário; UTMs e página de entrada), status e notas internas.
   - O lead indica a intenção de contato; a conversa em si acontece no WhatsApp.
 - **Mídia**:
   - Grade com miniaturas proporcionais e filtros (em uso, sem uso, sem descrição).
@@ -356,10 +359,10 @@ A interface usa shadcn/ui sobre os tokens da Velmont. O sistema visual está em 
 
 | Suite | Comando | Resultado |
 |---|---|---|
-| RLS / banco (PostgreSQL real, com os privilégios padrão permissivos do Supabase reproduzidos; rodado em 16 e 17.10) | `pnpm test:db` | **51/51** tabelas + **10/10** Storage/mídia + **11/11** senha temporária/primeiro acesso + **11/11** remediação = **83/83** |
-| APIs (leads, Turnstile, upload, publish, rebuild, staff, first-access, fallback), status do site e contagens do Dashboard + renderer/schema | `pnpm test:unit` | **85/85** + **10/10** |
-| Build com CMS falso (XSS, noindex, canonical, sitemap, JSON-LD, falha do CMS, chaves secretas, Turnstile obrigatório com captura) | `pnpm test` | **13/13** (total de `pnpm test`: **191/191**) |
-| **E2E** com Supabase Auth (GoTrue v2.186) + PostgREST v13 + Postgres reais (16 e 17.10), build real, emulação da Vercel e Chromium | `GOTRUE_BIN=… POSTGREST_BIN=… pnpm test:e2e` | **45/45** |
+| RLS / banco (PostgreSQL real, com os privilégios padrão permissivos do Supabase reproduzidos; rodado em 16 e 17.10) | `pnpm test:db` | **52/52** tabelas + **10/10** Storage/mídia + **11/11** senha temporária/primeiro acesso + **11/11** remediação = **84/84** |
+| APIs (leads, Turnstile, upload, publish, rebuild, staff, first-access, fallback), status do site e contagens do Dashboard + renderer/schema | `pnpm test:unit` | **86/86** + **10/10** |
+| Build com CMS falso (XSS, noindex, canonical, sitemap, JSON-LD, falha do CMS, chaves secretas, Turnstile obrigatório com captura) | `pnpm test` | **13/13** (total de `pnpm test`: **193/193**) |
+| **E2E** com Supabase Auth (GoTrue v2.186) + PostgREST v13 + Postgres reais (16 e 17.10), build real, emulação da Vercel e Chromium | `GOTRUE_BIN=… POSTGREST_BIN=… pnpm test:e2e` | **46/46** |
 | Páginas, links, orçamento de bundle, isolamento do admin, varredura de segredos | `pnpm verify` | PASS |
 | Functions compiladas arquivo a arquivo e carregadas como Node ESM (como na Vercel) | `pnpm check:functions` | PASS |
 | typecheck / lint / build / `pnpm audit` / `pnpm audit --prod` | — | limpos / 0 vulnerabilidades |
@@ -486,6 +489,7 @@ Limitações conhecidas e assumidas:
 - **Mídia privada**: para voltar ao modelo anterior, seria preciso reverter `20260923090000_private_draft_media.sql` e tornar o upload público de novo. **Não recomendado**: rascunhos voltariam a ser acessíveis a quem obtivesse a URL.
 - **Banco**: as migrations só criam objetos novos, não alteram nada existente. Reverter = `drop` das tabelas, tipos e funções criadas, e do schema `private`. Faça backup antes; os leads são dados pessoais.
 - **Remediação de 2026-09-28** (`20260928120000_security_remediation.sql` e `20260928120100_auth_audit_events.sql`): são aditivas (funções novas, corpos de função substituídos, privilégios revogados). Reverter o código sem reverter o banco quebra o primeiro acesso e a exclusão de mídia do painel antigo (as funções antigas continuam existindo, mas o `DELETE` direto em `media` e `add_staff_member` ficam revogados). Para voltar de verdade: reaplicar as definições anteriores de `private.auth_password_changed` e `publish_article` (das migrations de 2026-09-25 e 2026-09-23), `grant delete on public.media to authenticated`, `drop trigger site_builds_audit on public.site_builds`, `drop trigger velmont_mfa_changed on auth.mfa_factors`, `drop trigger velmont_sessions_revoked on auth.sessions`. **Não recomendado**: reabre o V-01 (recuperação de senha libera o primeiro acesso).
+- **`cta_source` (2026-09-29)**: aditiva e nula. Para reverter, primeiro volte o código (a API e o painel usam a coluna); depois `alter table public.leads drop column cta_source;` (apaga a origem registrada nos leads novos; o resto do lead fica).
 - **Artigo publicado por engano**: **Despublicar** no painel (o site se atualiza sozinho); o histórico permite recuperar versões anteriores.
 
 ## 16. Desenvolvimento local

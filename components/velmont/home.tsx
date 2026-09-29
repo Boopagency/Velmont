@@ -10,7 +10,7 @@ import { BrandPerimeter, PatentScene, SoftwareScene } from './service-scenes';
 import { FounderMedia } from './founder-media';
 import type { BlogSummary } from '@/lib/blog/types';
 import { publicEnv } from '@/lib/public-env';
-import { prepareLeadProtection, submitLead } from '@/lib/lead-capture';
+import { contactVelmont, leadError, prepareLeadProtection } from '@/lib/lead-capture';
 
 import { Arrow, Icon } from './icons';
 const Tag = ({ n, children }: { n: string; children: React.ReactNode }) => <div className="eyebrow"><span>{n}</span><span>{children}</span></div>;
@@ -72,11 +72,22 @@ function Motion() {
 
 function ContactForm() {
   const [interest, setInterest] = useState<string | null>('Marcas');
-  return <form className="contact-form" onSubmit={async e => {
-    e.preventDefault(); const data = new FormData(e.currentTarget);
-    const message = `Olá, Velmont! Gostaria de solicitar uma análise estratégica.\nNome: ${(data.get('name') as string).trim()}\nEmpresa ou projeto: ${((data.get('company') as string) || 'Ainda em estruturação').trim()}\nInteresse: ${interest || 'Preciso de orientação'}`;
-    if (publicEnv.leadCapture) await submitLead({ name: data.get('name'), company: data.get('company'), interest, website: data.get('website') });
-    window.location.assign(whatsappUrl(message));
+  const [sending, setSending] = useState(false);
+  const [error, setError] = useState('');
+  const busy = useRef(false);
+  // Back from WhatsApp, a page restored from the back/forward cache takes a new message.
+  useEffect(() => {
+    const restore = (e: PageTransitionEvent) => { if (e.persisted) { busy.current = false; setSending(false); } };
+    window.addEventListener('pageshow', restore); return () => window.removeEventListener('pageshow', restore);
+  }, []);
+  return <form className="contact-form" aria-busy={sending || undefined} onSubmit={async e => {
+    e.preventDefault(); if (busy.current) return;
+    busy.current = true; setSending(true); setError('');
+    const data = new FormData(e.currentTarget);
+    const text = (key: string) => { const v = data.get(key); return typeof v === 'string' ? v : ''; };
+    // WhatsApp opens only once the lead is stored; otherwise the visitor stays here with a message.
+    const result = await contactVelmont(e.currentTarget, { name: text('name'), company: text('company'), interest: interest || 'Preciso de orientação', website: text('website'), cta_source: 'contact-section' });
+    if (!result.ok) { busy.current = false; setSending(false); setError(leadError(result.reason)); }
   }}>
     <div className="form-title">Conte um pouco sobre o seu momento.</div>
     <label htmlFor="name">Seu nome <span>(obrigatório)</span></label><input id="name" name="name" onFocus={e => { if (e.currentTarget.form) prepareLeadProtection(e.currentTarget.form); }} required maxLength={100} autoComplete="name" placeholder="Como podemos chamar você?" pattern=".*\S.*" />
@@ -84,7 +95,8 @@ function ContactForm() {
     <label id="interest-label" htmlFor="interest">O que você quer proteger?</label><Select value={interest} onValueChange={setInterest}><SelectTrigger id="interest" aria-labelledby="interest-label" className="interest-select"><SelectValue /></SelectTrigger><SelectContent>{['Marcas','Patentes','Software','Outros ativos','Preciso de orientação'].map(v => <SelectItem value={v} key={v}>{v}</SelectItem>)}</SelectContent></Select>
     {publicEnv.leadCapture && <div className="form-trap" aria-hidden="true"><label htmlFor="website">Não preencha este campo</label><input id="website" name="website" tabIndex={-1} autoComplete="off" /></div>}
     <p className="form-privacy">Ao continuar, o WhatsApp abre com sua mensagem preparada. Você revisa e envia por lá.{publicEnv.leadCapture && ' Registramos seu nome, empresa e interesse para dar sequência ao atendimento.'} <a href="/privacidade">Privacidade</a></p>
-    <button className="cta form-submit" type="submit"><span>Preparar minha conversa</span><span className="cta-arrow"><Arrow /></span></button>
+    {error && <p className="form-error" role="alert">{error}</p>}
+    <button className="cta form-submit" type="submit" disabled={sending}><span>{sending ? 'Enviando…' : 'Preparar minha conversa'}</span><span className="cta-arrow"><Arrow /></span></button>
     <p className="form-alternative">Prefere e-mail? <a href={`mailto:${contact.email}`}>{contact.email}</a></p>
   </form>;
 }

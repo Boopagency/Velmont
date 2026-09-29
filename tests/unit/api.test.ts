@@ -190,8 +190,9 @@ describe('POST /api/leads', () => {
     const res = await submitLead(leadRequest(validLead));
     assert.equal(res.status, 201);
     const row = JSON.parse(inserted()[0].body);
-    assert.deepEqual(Object.keys(row).sort(), ['company', 'interest', 'landing_page', 'name', 'referrer', 'utm_campaign', 'utm_content', 'utm_medium', 'utm_source', 'utm_term']);
+    assert.deepEqual(Object.keys(row).sort(), ['company', 'cta_source', 'interest', 'landing_page', 'name', 'referrer', 'utm_campaign', 'utm_content', 'utm_medium', 'utm_source', 'utm_term']);
     assert.equal(row.name, 'Maria da Silva');
+    assert.equal(row.cta_source, null, 'a form that does not say where it was opened (an older page) still works');
     assert.equal(inserted()[0].auth, 'Bearer service-key');
     const rate = calls.find((c) => c.url.pathname === '/rest/v1/rpc/hit_rate_limit');
     assert.ok(rate && !rate.body.includes('203.0.113.9'), 'IP is hashed before storage');
@@ -217,6 +218,19 @@ describe('POST /api/leads', () => {
       '{"name":',
     ];
     for (const body of cases) assert.equal((await submitLead(leadRequest(body))).status, 400, JSON.stringify(body));
+    assert.equal(inserted().length, 0);
+  });
+
+  test('records the call to action that opened the form, from a closed list; any other text is refused', async () => {
+    for (const cta of ['header', 'hero', 'mobile-menu', 'footer', 'contact-section']) {
+      calls.length = 0;
+      assert.equal((await submitLead(leadRequest({ ...validLead, cta_source: cta }))).status, 201, cta);
+      assert.equal(JSON.parse(inserted()[0].body).cta_source, cta);
+    }
+    calls.length = 0;
+    for (const cta of ['Header', 'hero ', 'whatsapp', '<script>alert(1)</script>', "hero'; drop table leads;--", 'x'.repeat(200), 42, null, ['hero']]) {
+      assert.equal((await submitLead(leadRequest({ ...validLead, cta_source: cta }))).status, 400, JSON.stringify(cta));
+    }
     assert.equal(inserted().length, 0);
   });
 

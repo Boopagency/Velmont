@@ -82,37 +82,46 @@ try {
   await page.fill('#company', qa.company);
   await page.locator('#interest').click();
   await page.getByRole('option', { name: qa.interest, exact: true }).click();
-  // The form hands off to WhatsApp right after sending (keepalive), so the API
-  // answer is observed by passing the request through Playwright.
-  const leadCall: { status: number; token?: string } = { status: 0 };
+  // WhatsApp opens only after the API stored the lead: the server's 201 is held
+  // back from the page for a moment, and the page must still be here meanwhile.
+  const leadCall: { status: number; token?: string; cta?: string } = { status: 0 };
+  let release!: () => void;
+  const held = new Promise<void>((resolve) => (release = resolve));
   await page.route(`${site}/api/leads`, async (route) => {
-    leadCall.token = JSON.parse(route.request().postData() || '{}').turnstileToken;
+    const body = JSON.parse(route.request().postData() || '{}');
+    [leadCall.token, leadCall.cta] = [body.turnstileToken, body.cta_source];
     const response = await route.fetch();
     leadCall.status = response.status();
+    await held;
     await route.fulfill({ response });
   });
-  const wa = page.waitForURL(/wa\.me/);
   await page.click('button.form-submit');
-  await wa;
-  for (let i = 0; i < 50 && !leadCall.status; i++) await new Promise((r) => setTimeout(r, 100));
-  assert.equal(leadCall.status, 201, 'the API accepted the lead');
+  for (let i = 0; i < 50 && !leadCall.status; i++) await page.waitForTimeout(100);
+  assert.equal(leadCall.status, 201, 'the API stored the lead');
   assert.equal(leadCall.token, TURNSTILE_PASS, 'sent with the Turnstile token');
+  assert.equal(leadCall.cta, 'contact-section');
+  await page.locator('button.form-submit[disabled]', { hasText: 'Enviando…' }).waitFor();
+  await page.waitForTimeout(800);
+  assert.ok(!page.url().includes('wa.me'), 'WhatsApp waits for the confirmation');
+  const wa = page.waitForURL(/wa\.me/);
+  release();
+  await wa;
   await page.unroute(`${site}/api/leads`);
   const whatsapp = decodeURIComponent(page.url());
   assert.match(whatsapp, /Nome: QA Velmont Lead Test/);
   assert.match(whatsapp, /Interesse: Patentes/);
   const [stored] = (
     await stack.db.query(
-      `select id, name, company, interest, landing_page, referrer, utm_source, utm_medium, utm_campaign, utm_content, utm_term, status, source, channel,
+      `select id, name, company, interest, cta_source, landing_page, referrer, utm_source, utm_medium, utm_campaign, utm_content, utm_term, status, source, channel,
        created_at > now() - interval '5 minutes' as recent from public.leads`,
     )
   ).rows;
   const leadId = stored.id as string;
   assert.deepEqual({ ...stored, id: undefined }, {
-    id: undefined, name: qa.name, company: qa.company, interest: qa.interest, landing_page: '/', referrer: 'https://www.google.com', ...utms,
+    id: undefined, name: qa.name, company: qa.company, interest: qa.interest, cta_source: 'contact-section', landing_page: '/', referrer: 'https://www.google.com', ...utms,
     status: 'new', source: 'site-contact-form', channel: 'whatsapp', recent: true,
   });
-  ok('public form → API (201, Turnstile) → database: every field and UTM stored, WhatsApp still opens');
+  ok('public form → API (201, Turnstile) → database: every field, UTM and the call to action stored; WhatsApp opens only after the 201');
 
   const post = (body: Record<string, unknown>) =>
     fetch(`${site}/api/leads`, { method: 'POST', headers: { origin: site, 'content-type': 'application/json' }, body: JSON.stringify({ interest: 'Marcas', ...body }) }).then((r) => r.status);
@@ -128,6 +137,38 @@ try {
   assert.match(refusals, /"status":403,"error":"verification_required"/);
   assert.ok(!/Spam|Token Forjado|Sem Token|QA Velmont|Empresa QA/.test(refusals), 'no personal data in the logs');
   ok('Turnstile is mandatory (no or forged token: 403), limits answer 429, every refusal is logged without personal data');
+
+  // No WhatsApp without the record: a refusal or a failure keeps the visitor on the
+  // form with a message and the button ready again; a new token for every attempt.
+  await stack.db.query('delete from public.rate_limits'); // the burst above used up this network's limit
+  await page.goto(`${site}/`);
+  await page.fill('#name', 'QA Falha');
+  const failures: [number | 'offline', RegExp][] = [[500, /Não foi possível enviar agora/], [403, /Não conseguimos confirmar o envio/], [429, /Muitas tentativas/], [400, /Revise os campos/], ['offline', /Não foi possível enviar agora/]];
+  for (const [status, message] of failures) {
+    await page.route(`${site}/api/leads`, (route) => (status === 'offline' ? route.abort('internetdisconnected') : route.fulfill({ status, contentType: 'application/json', body: '{"error":"x"}' })));
+    await page.click('button.form-submit');
+    await page.locator('.form-error[role=alert]', { hasText: message }).waitFor();
+    await page.locator('button.form-submit:not([disabled])', { hasText: 'Preparar minha conversa' }).waitFor();
+    assert.ok(!page.url().includes('wa.me'), `${status}: WhatsApp stays closed`);
+    await page.unroute(`${site}/api/leads`);
+  }
+  assert.equal(await page.evaluate(() => (window as unknown as { __turnstile: { resets: number } }).__turnstile.resets), failures.length, 'every attempt asks for a new token');
+  // A double click sends a single request and stores a single lead.
+  let requests = 0;
+  await page.route(`${site}/api/leads`, async (route) => {
+    requests++;
+    await new Promise((r) => setTimeout(r, 400));
+    await route.continue();
+  });
+  await page.fill('#name', 'QA Duplo Clique');
+  const waOnce = page.waitForURL(/wa\.me/);
+  await page.locator('button.form-submit').dblclick();
+  await waOnce;
+  await page.unroute(`${site}/api/leads`);
+  assert.equal(requests, 1, 'one request for a double click');
+  assert.equal((await stack.db.query(`select count(*)::int as n from public.leads where name = 'QA Duplo Clique'`)).rows[0].n, 1);
+  await stack.db.query(`delete from public.leads where name in ('QA Duplo Clique', 'QA Falha')`);
+  ok('the page form never opens WhatsApp without the record: 500, 403, 429, 400 and offline keep the visitor on the form with a message; new token per attempt; a double click sends one request');
 
   // 2. Admin is private and not indexable.
   const adminResponse = await page.goto(`${site}/admin`);
@@ -378,6 +419,7 @@ try {
   const detail = async (label: string) => ((await sheet.locator('dt', { hasText: new RegExp(`^${label}$`) }).locator('xpath=following-sibling::dd[1]').textContent()) || '').trim();
   await sheet.locator('dt', { hasText: /^Nome$/ }).waitFor();
   assert.equal(await detail('Nome'), stored.name);
+  assert.equal(await detail('Origem no site'), 'Formulário de contato');
   assert.equal(await detail('Empresa ou projeto'), stored.company);
   assert.equal(await detail('Interesse'), stored.interest);
   assert.equal(await detail('Página de entrada'), stored.landing_page);

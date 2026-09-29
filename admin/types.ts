@@ -1,3 +1,4 @@
+import type { CtaSource } from '@/lib/cta-sources';
 import type { ArticleContent, AuthorKey, Category, Source } from '@/lib/blog/types';
 
 export type Role = 'owner' | 'editor';
@@ -45,6 +46,8 @@ export type Lead = {
   name: string;
   company: string | null;
   interest: string;
+  /** The call to action on the site that opened the form; null for leads from before it was recorded. */
+  cta_source: CtaSource | null;
   source: string;
   channel: string;
   landing_page: string | null;

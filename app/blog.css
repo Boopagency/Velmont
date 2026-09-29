@@ -22,4 +22,7 @@
 .article-figure img{width:100%;height:auto}
 .article-figure figcaption{margin-top:10px;font-size:12px;color:var(--muted)}
 .form-trap{position:absolute;left:-10000px;width:1px;height:1px;overflow:hidden}
+/* The lead was not stored: the visitor stays on the form (same accent as .form-result). */
+.form-error{margin-top:20px;border-left:2px solid var(--champagne);padding-left:14px;font-size:12px;line-height:1.6;color:var(--ivory)}
+.form-submit:disabled{opacity:.72;cursor:progress}
 @media (max-width:767px){.article-quote p{font-size:20px}.article-callout{padding:20px}.article-body h3{font-size:20px}}

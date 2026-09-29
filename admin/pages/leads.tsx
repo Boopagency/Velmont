@@ -9,6 +9,7 @@ import { Spinner } from '@/components/ui/spinner';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Textarea } from '@/components/ui/textarea';
 import { cn } from '@/lib/utils';
+import { ctaLabels } from '@/lib/cta-sources';
 import { contact } from '@/lib/site';
 import { useStaff } from '../auth';
 import { Link, navigate } from '../router';
@@ -20,7 +21,7 @@ import { searchTerm } from './articles';
 const PAGE = 50;
 const statuses = Object.keys(leadStatusLabel) as LeadStatus[];
 const interests = ['Marcas', 'Patentes', 'Software', 'Outros ativos', 'Preciso de orientação'];
-const columns = 'id, created_at, name, company, interest, source, channel, landing_page, referrer, utm_source, utm_medium, utm_campaign, utm_content, utm_term, status, notes, updated_at';
+const columns = 'id, created_at, name, company, interest, cta_source, source, channel, landing_page, referrer, utm_source, utm_medium, utm_campaign, utm_content, utm_term, status, notes, updated_at';
 const statusOptions: [string, string][] = [['all', 'Todos os status'], ...statuses.map((s): [string, string] => [s, leadStatusLabel[s]])];
 const interestOptions: [string, string][] = [['all', 'Todos os interesses'], ...interests.map((i): [string, string] => [i, i])];
 const periodOptions: [string, string][] = [['all', 'Todo o período'], ['7', 'Últimos 7 dias'], ['30', 'Últimos 30 dias'], ['90', 'Últimos 90 dias']];
@@ -284,6 +285,7 @@ function LeadSheet({ id, onChanged }: { id: string | null; onChanged: () => void
                   Origem
                 </h3>
                 <dl className="divide-y">
+                  <Detail label="Origem no site">{lead.cta_source ? ctaLabels[lead.cta_source] : 'Não registrada (lead anterior)'}</Detail>
                   <Detail label="Canal">{lead.channel === 'whatsapp' ? 'Formulário do site → WhatsApp' : lead.channel}</Detail>
                   <Detail label="Página de entrada">{lead.landing_page}</Detail>
                   <Detail label="Site de origem">{lead.referrer}</Detail>
