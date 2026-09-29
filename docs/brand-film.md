@@ -100,7 +100,7 @@ Camadas:
 - **Home, logo após o hero:** o arquivo final aprovado, sem alteração (`public/film/relevo-1080p.mp4`). Para telas pequenas há uma cópia em 720p (`relevo-720p.mp4`) com a imagem reduzida a partir do master 4K e o áudio copiado bit a bit (mesmo MD5). Comportamento descrito em `docs/motion.md`.
 - **`/filme`:** a versão desenhada em tempo real no navegador, com a narração em texto.
 - **Poster:** o quadro de 21,9 s (`relevo-poster-1920.webp` e `-960.webp`).
-- **Legendas:** `relevo-pt.vtt` com as legendas editoriais do player (25 ecos, ver `docs/motion.md`) e `relevo-pt-integral.vtt` com a narração completa em 39 trechos, para outras plataformas. Gere de novo com `pnpm film:captions` se os tempos mudarem.
+- **Legendas:** `relevo-pt.vtt` com as legendas editoriais do player (25 sínteses sincronizadas com a fala, ver `docs/motion.md`) e `relevo-pt-integral.vtt` com a narração completa em 39 trechos, para outras plataformas. Gere de novo com `pnpm film:captions` se os tempos mudarem.
 
 ## Direção de arte
 
