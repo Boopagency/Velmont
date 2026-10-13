@@ -13,6 +13,7 @@
     { "source": "/blog/:slug", "destination": "/api/blog-fallback?slug=:slug" },
     { "source": "/admin/:path((?!preview(?:/|$)).*)", "destination": "/admin" }
   ],
+  "crons": [{ "path": "/api/blog-fallback?slug=keepalive", "schedule": "17 9 * * *" }],
   "functions": {
     "api/**/*.ts": { "maxDuration": 10 }
   },
