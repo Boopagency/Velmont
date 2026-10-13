@@ -95,7 +95,7 @@ export function Footer() { return <footer className="footer wrap"><div className
 export function Home({ posts }: { posts: BlogSummary[] }) {
   return <><a className="skip-link" href="#conteudo">Pular para o conteúdo</a><Motion />
     <section className="hero" id="inicio" aria-label="Velmont: marcas, patentes e software"><Header />
-      <div className="hero-kicker">PROPRIEDADE INTELECTUAL · VISÃO ESTRATÉGICA</div>
+      <div className="hero-kicker">PROPRIEDADE&nbsp;INTELECTUAL&nbsp;· PROPRIEDADE&nbsp;INDUSTRIAL&nbsp;· VISÃO&nbsp;ESTRATÉGICA</div>
       <h1 className="sr-only">Marca é patrimônio. Registro de marcas, patentes e software com a Velmont.</h1>
       <div className="hero-back" aria-hidden="true">MARCA É</div>
       <picture className="hero-mountain"><source media="(max-width: 767px)" srcSet="/generated/velmont-hero-mountain-768.webp" /><img src="/generated/velmont-hero-mountain-1536.webp" width="1536" height="1024" alt="" fetchPriority="high" /></picture>
