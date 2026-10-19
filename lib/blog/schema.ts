@@ -62,7 +62,8 @@ export const publishedRowSchema = z.object({
   content: contentSchema,
   category: z.enum(categories),
   tags: z.array(text(40)).max(12),
-  author_key: z.enum(authorKeys),
+  // An author no longer on the site is shown as the institution, never as a build failure.
+  author_key: z.enum(authorKeys).catch('velmont'),
   sources: z.array(sourceSchema).max(20),
   featured_image: imageRefSchema.nullable(),
   seo_title: z.string().max(120).nullable(),

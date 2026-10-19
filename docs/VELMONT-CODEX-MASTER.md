@@ -409,15 +409,7 @@ Princípio associado à sua visão:
 
 > **Confiança não se vende, se constrói.**
 
-## Lisandra Ferreira dos Santos — Founder & CEO
-
-Informações do material fornecido:
-
-- advogada;
-- especialista em Propriedade Industrial e Intelectual;
-- experiência nas áreas cível, trabalhista, empresarial e previdenciária.
-
-Sua visão reforça:
+## Posicionamento da marca
 
 > **Marca é patrimônio.**
 
@@ -427,7 +419,9 @@ E patrimônio exige:
 - segurança jurídica;
 - gestão responsável.
 
-### Uso das fundadoras no site
+Atualização de 2026-10-19: Lisandra Ferreira dos Santos deixou a Velmont. O site apresenta somente Danielle como fundadora; nome, retrato, autoria e dados estruturados de Lisandra foram removidos.
+
+### Uso da fundadora no site
 
 Usar fotos reais fornecidas.
 
@@ -979,9 +973,9 @@ Avaliações.
 
 Design premium.
 
-## 07 — FUNDADORAS
+## 07 — FUNDADORA
 
-Danielle e Lisandra.
+Danielle.
 
 Humano + autoridade.
 

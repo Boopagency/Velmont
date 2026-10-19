@@ -38,7 +38,7 @@ const rows = [
   row({
     slug: 'marca-e-dominio',
     title: 'Marca e domínio: qual a diferença?',
-    author_key: 'lisandra',
+    author_key: 'danielle',
     featured_image: image,
     published_at: '2026-10-01T12:00:00Z',
     modified_at: '2026-10-05T09:30:00Z',
@@ -53,7 +53,7 @@ const rows = [
     },
   }),
   row({ slug: 'rascunho-interno', title: 'Nota interna', robots_index: false, published_at: '2026-09-20T12:00:00Z' }),
-  row({ slug: 'republicado', title: 'Republicado', canonical_url: 'https://outro.example/original', published_at: '2026-09-10T12:00:00Z' }),
+  row({ slug: 'republicado', title: 'Republicado', author_key: 'autora-antiga', canonical_url: 'https://outro.example/original', published_at: '2026-09-10T12:00:00Z' }),
   row({ slug: 'consolidado', title: 'Consolidado', canonical_url: 'https://www.velmont.test/blog/marca-e-dominio', published_at: '2026-09-11T12:00:00Z' }),
 ];
 
@@ -111,7 +111,7 @@ describe('static build from the CMS', () => {
     assert.ok(!html.includes('<b>marca</b>'));
     assert.ok(!/href="javascript:/i.test(html));
     assert.match(html, /<a href="https:\/\/www.gov.br\/inpi" target="_blank" rel="noopener noreferrer">INPI<\/a>/);
-    assert.match(html, /Por <a href="\/#fundadoras" rel="author">Lisandra Ferreira dos Santos<\/a>/);
+    assert.match(html, /Por <a href="\/#fundadoras" rel="author">Danielle Cubas de Azevedo<\/a>/);
     assert.match(html, /class="article-callout"/);
     assert.match(html, /<meta name="robots" content="index,follow,max-image-preview:large">/);
     assert.match(html, /<link rel="canonical" href="https:\/\/www.velmont.test\/blog\/marca-e-dominio">/);
@@ -123,7 +123,7 @@ describe('static build from the CMS', () => {
     const graph = JSON.parse(html.match(/<script type="application\/ld\+json">(.+?)<\/script>/)![1])['@graph'];
     const post = graph.find((n: { '@type': string }) => n['@type'] === 'BlogPosting');
     assert.equal(post.headline, 'Marca e domínio: qual a diferença?');
-    assert.deepEqual(post.author, { '@id': 'https://www.velmont.test/#lisandra' });
+    assert.deepEqual(post.author, { '@id': 'https://www.velmont.test/#danielle' });
     assert.equal(post.datePublished, '2026-10-01T12:00:00Z');
     assert.equal(post.dateModified, '2026-10-05T09:30:00Z');
     assert.match(post.image[0], /storage\/v1\/object\/public\/media\/0f8fad5b/);
@@ -154,6 +154,10 @@ describe('static build from the CMS', () => {
     assert.match(html, /<link rel="canonical" href="https:\/\/www.velmont.test\/blog\/republicado">/);
     assert.match(html, /<meta property="og:url" content="https:\/\/www.velmont.test\/blog\/republicado">/);
     assert.match(read('sitemap.xml'), /<loc>https:\/\/www.velmont.test\/blog\/republicado<\/loc>/);
+  });
+
+  test('an author no longer on the site is credited to Velmont, not a build failure', () => {
+    assert.match(read('blog/republicado/index.html'), /rel="author">Velmont<\/a>/);
   });
 
   test('robots allows search and AI search crawlers', () => {

@@ -5,5 +5,4 @@ import type { AuthorKey } from './types';
 export const authors: Record<AuthorKey, { name: string; url: string; person: boolean; schemaId: string }> = {
   velmont: { name: 'Velmont', url: '/#essencia', person: false, schemaId: 'organization' },
   danielle: { name: 'Danielle Cubas de Azevedo', url: '/#fundadoras', person: true, schemaId: 'danielle' },
-  lisandra: { name: 'Lisandra Ferreira dos Santos', url: '/#fundadoras', person: true, schemaId: 'lisandra' },
 };
