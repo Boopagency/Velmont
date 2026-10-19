@@ -11,7 +11,6 @@ Pasta original: `C:/Users/JabezOrielRodriguesd/Desktop/Arquivos Velmont/`.
 | references/reference.png | Inspeção das cinco partes da referência longa | Grid, escala, ritmo e adaptação mobile |
 | Logo/logo-velmont.png | Inspeção visual | Logo original, conversão WebP e favicon derivado |
 | founders/WhatsApp Image 2026-09-05 at 20.47.30.jpeg | Inspeção e comparação com PDF | Danielle, sem geração ou alteração de rosto |
-| founders/WhatsApp Image 2026-09-05 at 20.47.30 (1).jpeg | Inspeção visual | Lisandra, enquadramento por CSS para remover faixas da foto |
 | pdf/Apresentação Velmont 2026 (1).pdf | Texto integral das 12 páginas e páginas renderizadas | Institucional, biografias, serviços, provas e contato |
 | readme.txt | Arquivo vazio | Sem conteúdo adicional |
 | GitHub Boopagency/Velmont | Clonado e inspecionado | Estava vazio no início |
@@ -19,7 +18,8 @@ Pasta original: `C:/Users/JabezOrielRodriguesd/Desktop/Arquivos Velmont/`.
 ## Fatos utilizados
 
 - Danielle: nome, formação, especialização e mais de 11 anos de atuação: briefing e página 3 do PDF. A métrica da hero se refere explicitamente à experiência da fundadora, não à idade da empresa.
-- Lisandra: nome, advocacia e especialização: briefing e página 4 do PDF. O retrato separado fornecido foi usado como fotografia real atual, sem redesenhar rosto.
+- Lisandra Ferreira dos Santos deixou a Velmont (2026-10-19): nome, retrato e autoria removidos do site.
+- Seção da fundadora: formação, especializações, princípio "Confiança não se vende, se constrói" e o que Danielle percebeu no mercado vêm do perfil dela em docs/VELMONT-CODEX-MASTER.md (briefing e página 3 do PDF).
 - Serviços: briefing e páginas 5–8.
 - Logos de parceiros: extraídos dos objetos de imagem da página 9. Não foram recriados. Seleção final: RFG Info Tech, Unimares, Michelle Lima, IDmove, Quimitec e Arte em Foto / Denise Faria.
 - Depoimentos: transcritos da página 10. A fonte não mostra os nomes dos autores; o site não inventa atribuição, cargo, empresa nem média de avaliações. Um emoji foi omitido e a pontuação foi normalizada sem alteração de sentido.

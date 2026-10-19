@@ -58,10 +58,10 @@ try {
   server.stderr!.on('data', (d: Buffer) => serverLog.push(d.toString()));
   const site = 'http://127.0.0.1:3100';
 
-  const lisandra = await stack.createUser('lisandra@velmont.test', PASSWORD);
+  const editora = await stack.createUser('editora@velmont.test', PASSWORD);
   const owner = await stack.createUser('owner@velmont.test', PASSWORD);
   await stack.createUser('estranho@example.test', PASSWORD);
-  await stack.db.query(`insert into public.admin_users (user_id, email, display_name, role) values ($1, 'lisandra@velmont.test', 'Lisandra Ferreira', 'editor'), ($2, 'owner@velmont.test', 'Responsável', 'owner')`, [lisandra, owner]);
+  await stack.db.query(`insert into public.admin_users (user_id, email, display_name, role) values ($1, 'editora@velmont.test', 'Editora Teste', 'editor'), ($2, 'owner@velmont.test', 'Responsável', 'owner')`, [editora, owner]);
 
   const browser = await chromium.launch();
   const context = await browser.newContext({ viewport: { width: 1360, height: 900 } });
@@ -169,7 +169,7 @@ try {
 
   // 3. Wrong password, then an outsider with a valid account.
   await page.goto(`${site}/admin`);
-  await page.fill('#email', 'lisandra@velmont.test');
+  await page.fill('#email', 'editora@velmont.test');
   await page.fill('#password', 'senha-errada-123456');
   await page.click('button[type=submit]');
   await page.getByText('E-mail ou senha incorretos.').waitFor();
@@ -202,7 +202,7 @@ try {
 
   // 4. Editor: password + mandatory TOTP enrollment.
   await page.getByRole('heading', { name: 'Entrar' }).waitFor();
-  await page.fill('#email', 'lisandra@velmont.test');
+  await page.fill('#email', 'editora@velmont.test');
   await page.fill('#password', PASSWORD);
   await page.click('button[type=submit]');
   const aal1Token = await page.evaluate(async () => {
@@ -217,7 +217,7 @@ try {
   assert.deepEqual(await aal1Leads.json(), []);
   ok('staff password alone (aal1) reads nothing: MFA is enforced by RLS');
   const secret = await enroll();
-  await page.getByRole('heading', { name: /Olá, Lisandra/ }).waitFor();
+  await page.getByRole('heading', { name: /Olá, Editora/ }).waitFor();
   await page.screenshot({ path: path.join(shots, 'admin-dashboard.png'), fullPage: true });
   const stats = await page.locator('.stat strong').allTextContents();
   assert.deepEqual(stats, ['3', '0', '1']);
@@ -392,7 +392,7 @@ try {
   await page.click('button:has-text("Salvar")');
   await page.getByText('Lead atualizado.').waitFor();
   assert.equal(await page.getByRole('button', { name: 'Excluir lead' }).count(), 0);
-  const audit = await stack.db.query(`select action from public.audit_log where actor_id = $1 order by id`, [lisandra]);
+  const audit = await stack.db.query(`select action from public.audit_log where actor_id = $1 order by id`, [editora]);
   const actions = audit.rows.map((r) => r.action);
   for (const a of ['auth.login', 'article.create', 'article.publish', 'article.update', 'lead.update']) assert.ok(actions.includes(a), `audit ${a}`);
   ok('lead opened, status/notes updated; editor cannot delete leads; audit log records the actions');
@@ -557,12 +557,12 @@ try {
   const statusPanel = page.getByRole('region', { name: 'Status do site' });
   const siteBuilds = async () => (await stack.db.query('select count(*)::int as n from public.site_builds')).rows[0].n as number;
   // Recorded as failed by the old 8-second timeout, although the live version began after it.
-  await stack.db.query(`insert into public.site_builds (requested_at, requested_by, reason, ok, status, finished_at, detail) values ($1, $2, 'publish: antigo', false, 'failed', $1, 'deploy hook unreachable')`, [new Date(Date.parse(liveBuild.startedAt) - 200).toISOString(), lisandra]);
+  await stack.db.query(`insert into public.site_builds (requested_at, requested_by, reason, ok, status, finished_at, detail) values ($1, $2, 'publish: antigo', false, 'failed', $1, 'deploy hook unreachable')`, [new Date(Date.parse(liveBuild.startedAt) - 200).toISOString(), editora]);
   await page.goto(`${site}/admin`);
   await statusPanel.getByText(/já mostra o conteúdo publicado mais recente/).waitFor();
   assert.equal(await statusPanel.getByText(/Falha|Não foi possível contatar/).count(), 0, 'already on the air: not a failure');
   // Asked now, Vercel's answer never arrived: awaiting confirmation, and a retry asks for nothing new.
-  await stack.db.query(`insert into public.site_builds (requested_at, requested_by, reason, ok, status, detail) values (now(), $1, 'publish: sem resposta', true, 'pending', 'deploy hook unconfirmed')`, [lisandra]);
+  await stack.db.query(`insert into public.site_builds (requested_at, requested_by, reason, ok, status, detail) values (now(), $1, 'publish: sem resposta', true, 'pending', 'deploy hook unconfirmed')`, [editora]);
   await page.reload();
   await statusPanel.getByText('Aguardando confirmação').waitFor();
   await statusPanel.getByText(/ainda não confirmou o recebimento/).waitFor();
@@ -586,7 +586,7 @@ try {
 
   // Coming back to a hidden tab checks at once; while hidden, the panel asks nothing. The page clock is
   // paused, so no polling round can fire: only the return to the tab can bring the new state.
-  await stack.db.query(`insert into public.site_builds (requested_at, requested_by, reason, ok, status) values (now(), $1, 'publish: aba oculta', true, 'pending')`, [lisandra]);
+  await stack.db.query(`insert into public.site_builds (requested_at, requested_by, reason, ok, status) values (now(), $1, 'publish: aba oculta', true, 'pending')`, [editora]);
   const clockContext = await browser.newContext({ viewport: { width: 1360, height: 900 }, storageState: await context.storageState() });
   await clockContext.clock.install({ time: new Date(Date.now() - 2000) });
   const tab = await clockContext.newPage();
@@ -629,7 +629,7 @@ try {
   ok('access token is rejected by the admin API after sign-out');
 
   // 10. Returning login asks for the TOTP code; then the owner.
-  await page.fill('#email', 'lisandra@velmont.test');
+  await page.fill('#email', 'editora@velmont.test');
   await page.fill('#password', PASSWORD);
   await page.click('button[type=submit]');
   await page.getByRole('heading', { name: 'Verificação em duas etapas' }).waitFor();

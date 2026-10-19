@@ -32,13 +32,12 @@ export function pageSchema(path: string, article: BlogPost | null = null) {
   const orgId = `${siteUrl}/#organization`;
   const siteId = `${siteUrl}/#website`;
   const pageId = `${data.url}#webpage`;
-  const org = { ...organization, '@context': undefined, '@id': orgId, founder: [{ '@id': `${siteUrl}/#danielle` }, { '@id': `${siteUrl}/#lisandra` }] };
+  const org = { ...organization, '@context': undefined, '@id': orgId, founder: [{ '@id': `${siteUrl}/#danielle` }] };
   const graph: Record<string, unknown>[] = [
     org,
     { '@type': 'WebSite', '@id': siteId, url: `${siteUrl}/`, name: 'Velmont', inLanguage: 'pt-BR', publisher: { '@id': orgId } },
     { '@type': path === BLOG_BASE ? 'CollectionPage' : 'WebPage', '@id': pageId, url: data.url, name: data.title, description: data.description, inLanguage: 'pt-BR', isPartOf: { '@id': siteId }, about: { '@id': orgId }, ...(path !== '/' ? { breadcrumb: { '@id': `${data.url}#breadcrumb` } } : {}) },
     { '@type': 'Person', '@id': `${siteUrl}/#danielle`, name: 'Danielle Cubas de Azevedo', jobTitle: 'Founder & CEO', url: `${siteUrl}/#fundadoras`, image: `${siteUrl}/images/danielle-velmont-1024.webp`, worksFor: { '@id': orgId } },
-    { '@type': 'Person', '@id': `${siteUrl}/#lisandra`, name: 'Lisandra Ferreira dos Santos', jobTitle: 'Founder & CEO', url: `${siteUrl}/#fundadoras`, image: `${siteUrl}/images/lisandra-velmont-1024.webp`, worksFor: { '@id': orgId } },
   ];
   if (path !== '/') {
     const crumbs = [{ name: 'Início', item: `${siteUrl}/` }, ...(data.article ? [{ name: 'Insights', item: `${siteUrl}${BLOG_BASE}` }] : []), { name: data.article?.title || (path === BLOG_BASE ? 'Insights' : path === '/filme' ? 'Filme' : 'Privacidade'), item: data.url }];

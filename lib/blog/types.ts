@@ -3,7 +3,7 @@ export const BLOG_BASE = '/blog';
 export const categories = ['MARCAS', 'PATENTES', 'SOFTWARE', 'PROPRIEDADE INTELECTUAL'] as const;
 export type Category = (typeof categories)[number];
 
-export const authorKeys = ['velmont', 'danielle', 'lisandra'] as const;
+export const authorKeys = ['velmont', 'danielle'] as const;
 export type AuthorKey = (typeof authorKeys)[number];
 
 export type ImageRef = { path: string; width: number; height: number; alt: string };

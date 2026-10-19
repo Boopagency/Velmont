@@ -59,7 +59,7 @@ Decisões principais:
 |---|---|
 | `components/velmont/home.tsx` | `href` de `/insights…` → `/blog…`; `InsightCards` recebe os artigos por prop; o formulário registra o lead **apenas** com `NEXT_PUBLIC_LEAD_CAPTURE=true` (honeypot invisível + frase de privacidade). O WhatsApp continua abrindo igual. |
 | `components/velmont/article-view.tsx`, `insight-cards.tsx`, `breadcrumbs.tsx`, `static-site.tsx` | Dados vindos do CMS; mesmo markup. |
-| `app/privacidade/page.tsx` | Texto condicional: com captura de leads ativa, descreve o armazenamento. **Revisão jurídica recomendada (Lisandra).** |
+| `app/privacidade/page.tsx` | Texto condicional: com captura de leads ativa, descreve o armazenamento. **Revisão jurídica recomendada.** |
 | `app/blog.css` | Estilos novos só para elementos que ainda não existiam (h3, listas, destaque, tabela, figura, FAQ), escopados em `.article-body`. |
 
 Verificação: o **corpo e o `<head>` de todas as 7 páginas atuais são idênticos byte a byte** aos da versão em produção (commit `79cb566`), exceto pela troca `/insights` → `/blog`.
@@ -79,7 +79,7 @@ Migrations em `supabase/migrations/`:
 | Tabela | Conteúdo |
 |---|---|
 | `admin_users` | Equipe: `user_id`, e-mail, nome, `role` (`owner`/`editor`), `active`. **Fonte única de papéis**; nunca usa metadata editável. |
-| `articles` | Cópia de trabalho: título, slug, resumo, `content` (JSON validado), imagem, autoria (`velmont`/`danielle`/`lisandra`), categoria, tags, referências, campos de SEO/OG, `robots_index`, `status` (`draft`/`review`/`published`/`archived`), `version` (bloqueio otimista), `created_by`/`updated_by`/datas. |
+| `articles` | Cópia de trabalho: título, slug, resumo, `content` (JSON validado), imagem, autoria (`velmont`/`danielle`), categoria, tags, referências, campos de SEO/OG, `robots_index`, `status` (`draft`/`review`/`published`/`archived`), `version` (bloqueio otimista), `created_by`/`updated_by`/datas. |
 | `published_articles` | Snapshot público, a **única** tabela legível sem login. |
 | `article_revisions` | Histórico automático: cada edição guarda a versão anterior; cada publicação guarda o snapshot. |
 | `slug_redirects` | Slug antigo → artigo, criado automaticamente quando um artigo publicado muda de endereço (301). |
@@ -245,7 +245,7 @@ Qualquer falha no meio deixa a conta bloqueada. Uma nova senha temporária emiti
 
 **Qual e-mail usar**: o e-mail é o login. Prefira o e-mail da Velmont: se alguém sair, a empresa continua controlando a caixa usada para recuperar o acesso. Quem já recebeu um convite antigo por e-mail pode receber a senha temporária nesse mesmo endereço, porque o usuário existente é reaproveitado.
 
-**Papéis.** `editor` cria, edita, publica, despublica e arquiva artigos, gerencia mídia e leads. `owner` pode tudo isso e também excluir artigos e leads definitivamente (pedidos LGPD), gerenciar a equipe e ler o registro de atividades. **Decisão da empresa:** Lisandra e Dani podem ser as duas `owner`, ou uma owner e outra editor. O banco exige ao menos um owner ativo.
+**Papéis.** `editor` cria, edita, publica, despublica e arquiva artigos, gerencia mídia e leads. `owner` pode tudo isso e também excluir artigos e leads definitivamente (pedidos LGPD), gerenciar a equipe e ler o registro de atividades. **Decisão da empresa:** Dani é `owner`; novas pessoas da equipe entram como `editor` ou `owner`. O banco exige ao menos um owner ativo.
 
 ## 9. Configuração na Vercel e deploy
 
@@ -289,7 +289,7 @@ A aplicação já limita no banco: 5 leads por cliente a cada 10 min (IPv4 por e
 
 Ative também **Bot Protection / Attack Challenge Mode** quando houver abuso. O login e a recuperação de senha são limitados pelo próprio Supabase Auth (seção 7).
 
-## 10. Uso do painel (resumo para Lisandra e Dani)
+## 10. Uso do painel (resumo para a equipe)
 
 A interface usa shadcn/ui sobre os tokens da Velmont. O sistema visual está em [`docs/admin-design-system.md`](docs/admin-design-system.md).
 
@@ -467,7 +467,7 @@ Limitações conhecidas e assumidas:
 
 - [ ] Criar o projeto Supabase e aplicar as migrations (seção 7).
 - [ ] Desativar o cadastro público, habilitar TOTP e configurar a senha mínima, a Site URL e as Redirect URLs.
-- [ ] Convidar Lisandra e Dani e liberar o primeiro owner via SQL (seção 8).
+- [ ] Convidar a equipe e liberar o primeiro owner via SQL (seção 8).
 - [ ] Definir as variáveis na Vercel e criar o Deploy Hook (seção 9). Segredos **somente em Production** (seção 6).
 - [ ] Turnstile: criar o widget na Cloudflare e definir `NEXT_PUBLIC_TURNSTILE_SITE_KEY` e `TURNSTILE_SECRET_KEY` antes de `NEXT_PUBLIC_LEAD_CAPTURE=true`.
 - [ ] Supabase Auth: notificações de segurança por e-mail e SMTP próprio (seção 7).
