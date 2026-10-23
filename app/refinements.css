@@ -15,7 +15,7 @@
 .software-asset .software-layers strong{margin:0;font-size:29px;line-height:1.4}
 .software-asset .software-layers p{grid-column:2;font-size:13px;margin-top:6px}
 
-/* Two identical groups travel exactly one group width, including its final gap. 58s per six logos keeps the pace as logos are added. */
+/* Two rows in opposite directions. In each, two identical groups travel exactly one group width plus the gap between them; 7.5s per logo keeps the pace as logos are added. Logos are ivory marks on a 16:9 canvas (scripts/client-logos.mjs), so the tile is the image itself. */
 .partner-section{margin-top:80px;padding:38px 0 0;border-top:1px solid var(--line)}
 .partners-heading{display:flex;justify-content:space-between;gap:32px;align-items:end;margin-bottom:35px}
 .partners-heading h3{font-size:32px;margin-top:17px;letter-spacing:-.03em}
@@ -23,15 +23,25 @@
 .marquee-control{display:flex;align-items:center;gap:12px;min-height:44px;border:0;border-bottom:1px solid var(--line);background:none;color:var(--muted);font-size:11px;white-space:nowrap}
 .marquee-control:hover{color:var(--ivory)}
 .marquee-control>span{font-size:18px;color:var(--champagne)}
-.partner-marquee{overflow:hidden;mask-image:linear-gradient(90deg,transparent,#000 5%,#000 95%,transparent);padding:22px 0 36px}
-.partner-track{display:flex;width:max-content;animation:partner-drift calc(var(--partner-count,6) * 58s / 6) linear infinite;background:var(--background)}
-.partner-group{display:flex;flex:none;align-items:center;gap:48px;padding:0 48px 0 0;margin:0;list-style:none}
-.partner-group li{display:flex;align-items:center;justify-content:center;width:clamp(185px,16vw,230px);height:180px;flex:none;background:var(--background)}
-.partner-group img{width:100%;height:180px;max-height:100%;object-fit:contain;filter:grayscale(1) invert(1);mix-blend-mode:screen;opacity:.86;transition:opacity .25s}
+.partner-marquee{--size:clamp(10rem,1rem + 28vmin,22rem);--gap:calc(var(--size) / 14);display:grid;gap:var(--gap);margin-inline:calc(-1 * var(--gutter));padding:22px 0 36px}
+.partner-row{display:flex;gap:var(--gap);overflow:hidden;user-select:none;mask-image:linear-gradient(90deg,transparent,#000 20%,#000 80%,transparent)}
+.partner-group{display:flex;flex:none;align-items:center;justify-content:space-around;gap:var(--gap);min-width:100%;margin:0;padding:0;list-style:none;animation:partner-drift calc(var(--partner-count) * 7.5s) linear infinite}
+.partner-row+.partner-row .partner-group{animation-direction:reverse;animation-delay:-3s}
+.partner-group li{flex:none;width:var(--size);aspect-ratio:16/9;background:var(--surface);border-radius:.5rem;overflow:hidden}
+.partner-group img{display:block;width:100%;height:100%;object-fit:contain;opacity:.86;transition:opacity .25s}
 .partner-group li:hover img{opacity:1}
-.partner-section[data-paused=true] .partner-track,.partner-section:focus-within .partner-track{animation-play-state:paused}
-@media(hover:hover){.partner-marquee:hover .partner-track{animation-play-state:paused}}
-@keyframes partner-drift{to{transform:translateX(-50%)}}
+.partner-section[data-paused=true] .partner-group{animation-play-state:paused}
+@media(hover:hover){.partner-marquee:hover .partner-group{animation-play-state:paused}}
+@keyframes partner-drift{to{transform:translateX(calc(-100% - var(--gap)))}}
+/* "Ver todos" stops the rows and lays every logo out in one grid; "Recolher" brings the carousel back. */
+.partners-more{text-align:center}
+.partners-toggle{background:none;border-width:0 0 1px;font:inherit;font-size:12px;cursor:pointer}
+.partner-section[data-expanded=true] .partner-marquee{grid-template-columns:repeat(6,minmax(0,1fr));margin-inline:0}
+.partner-section[data-expanded=true] :is(.partner-row,.partner-group){display:contents}
+.partner-section[data-expanded=true] .partner-group li{width:auto}
+.partner-section[data-expanded=true] .partner-group[aria-hidden=true]{display:none}
+@media(max-width:1100px){.partner-section[data-expanded=true] .partner-marquee{grid-template-columns:repeat(4,minmax(0,1fr))}}
+@media(max-width:767px){.partner-section[data-expanded=true] .partner-marquee{grid-template-columns:repeat(2,minmax(0,1fr))}}
 
 /* Editorial cards share content and navigation with the complete insights hub. */
 .insight-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:clamp(24px,3vw,48px)}
@@ -88,10 +98,7 @@
  .partners-heading h3{font-size:29px;line-height:1.2;max-width:290px}
  .partners-heading .eyebrow{font-size:9px}
  .marquee-control{margin-top:16px;font-size:11px}
- .partner-marquee{margin-inline:calc(-1 * var(--gutter));padding:18px 0 25px;mask-image:linear-gradient(90deg,transparent,#000 6%,#000 94%,transparent)}
- .partner-group{gap:32px;padding-right:32px}
- .partner-group li{width:175px;height:145px}
- .partner-group img{height:145px}
+ .partner-marquee{padding:18px 0 25px}
  .insight-grid{grid-template-columns:1fr;gap:40px}
  .insight-card-image{aspect-ratio:1.6}
  .insight-card-body{padding:23px 0 22px}
@@ -103,15 +110,8 @@
  .faq-list [data-slot=accordion-content]>div{font-size:15px;padding-right:22px}
 }
 @media(prefers-reduced-motion:reduce){
- .partner-track{animation:none;transform:none;width:100%}
- .partner-marquee{mask-image:none;overflow:visible;margin-inline:0}
- .partner-group{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));width:100%;gap:30px;padding:0}
- .partner-group li{width:100%;height:100px}
- .partner-group[aria-hidden=true],.marquee-control{display:none}
+ .partner-group{animation:none}
+ .partner-section[data-expanded=false] .marquee-control{display:none}
  .accordion-panel,.accordion-icon-vertical,.insight-card-image img{transition:none!important}
  .insight-card-link:hover img{transform:none}
 }
-@media(prefers-reduced-motion:reduce) and (max-width:767px){.partner-group{grid-template-columns:repeat(2,minmax(0,1fr));gap:20px}.partner-group li{height:90px}}
-
-.partner-group img[src*="quimitec"]{clip-path:circle(44%)}
-.partner-group img[src*="arte-em-foto"]{filter:grayscale(1) invert(1) contrast(1.6) brightness(1.7);mask-image:radial-gradient(ellipse at center,#000 38%,transparent 75%)}

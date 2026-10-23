@@ -23,6 +23,7 @@
     "film:align": "node scripts/film-align.mjs",
     "film:render": "node scripts/film-render.mjs",
     "film:captions": "node --import tsx scripts/film-captions.ts",
+    "logos": "node scripts/client-logos.mjs",
     "serve:full": "node --import tsx scripts/dev-server.ts"
   },
   "dependencies": {
