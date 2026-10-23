@@ -6,9 +6,15 @@
 Campos: `id`, `quote`, `name`, `rating`, `portrait`, `role`, `company`. Dados não confirmados permanecem vazios; sem fotografia autorizada são exibidas iniciais. Use somente avaliações reais e autorizadas. Ao inserir novos relatos, confira o card em 375 px e desktop. Não existe painel: alterações exigem build e publicação.
 
 ## Logos de clientes
-`content/partners.ts` lista as logomarcas de "Parceiros da nossa história". Para incluir uma nova, salve o arquivo real enviado pela Velmont em `public/images/` e adicione `{ name, src }` à lista. A faixa aceita qualquer quantidade: a duração do movimento acompanha o número de logos (58 s a cada seis), mantendo o mesmo ritmo; com movimento reduzido, os logos formam uma grade de três colunas no desktop e duas no mobile.
+`content/partners.ts` lista as logomarcas de "Parceiros da nossa história", exibidas em um carrossel de duas faixas que andam em sentidos opostos (a primeira metade da lista na faixa de cima, a segunda na de baixo). Cada logo ocupa um card 16:9 em superfície vinho, com a marca em marfim. A duração acompanha o número de logos (7,5 s por logo), mantendo o mesmo ritmo; com movimento reduzido, os logos formam uma grade única de seis colunas no desktop, quatro no tablet e duas no mobile. O botão "Pausar movimento" continua disponível, e o carrossel também para sob o cursor e fora da tela.
 
-O tratamento visual (tons de cinza, inversão e mesclagem com o fundo vinho) pressupõe marca sobre fundo branco ou transparente, como os arquivos atuais. Logos sobre fundo escuro ou colorido aparecem como uma caixa clara: peça outra versão do arquivo ou crie um ajuste individual em `app/refinements.css`, como os de Quimitec e Arte em Foto. `partner-ergotex`, `partner-nexpoint` e `partner-wallol` já estão em `public/images/`, fora da seleção atual, e têm fundo escuro ou colorido. Use somente logos reais e autorizados; não recrie nem gere marcas. Confira a faixa em desktop e 360 px após incluir novos arquivos.
+Para incluir uma nova logo:
+
+1. Salve o arquivo real enviado pela Velmont, sem edição, em `assets/client-logos/` com um nome curto (`nome-da-marca.jpg`, `.png` ou `.webp`).
+2. Rode `pnpm logos`. O script gera `public/images/clients/nome-da-marca.webp`: a mesma marca em uma cor (marfim), centralizada num quadro 16:9 com tamanho óptico equivalente ao das outras. Funciona com fundo branco, escuro ou colorido, porque cada pixel vira opacidade conforme o contraste com o fundo do próprio arquivo; nenhuma forma é redesenhada.
+3. Adicione `{ name, src: '/images/clients/nome-da-marca.webp' }` a `content/partners.ts`, alternando marcas largas e compactas para manter o ritmo das faixas.
+
+Arquivos de baixa resolução ou fotografados (como Quimitec e Arte em Foto, extraídos do PDF) podem precisar de ajuste em `tune`, no topo de `scripts/client-logos.mjs`. Use somente logos reais e autorizados; não recrie nem gere marcas. Confira o carrossel em desktop e 360 px após incluir novos arquivos. `partner-wallol.webp` continua em `public/images/`, fora da seleção.
 
 ## Fundadoras
 As fotos individuais vieram de `Fotos Novos Fundadoras.zip`, com versões WebP de 640 e 1024 px. Enquadramento: `app/final-review.css`; referências e textos alternativos: `components/velmont/home.tsx`.

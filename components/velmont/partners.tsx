@@ -2,6 +2,9 @@
 import { Icon } from './icons';
 import { useEffect, useRef, useState, type CSSProperties } from 'react';
 import { partners } from '@/content/partners';
+// Two rows drifting in opposite directions, each logo listed once.
+const half = Math.ceil(partners.length / 2);
+const rows = [partners.slice(0, half), partners.slice(half)];
 export function Partners() {
   const [paused, setPaused] = useState(false);
   const [inView, setInView] = useState(false);
@@ -23,11 +26,11 @@ export function Partners() {
       </button>
     </div>
     <div className="partner-marquee" id="partner-marquee">
-      <div className="partner-track" style={{ '--partner-count': partners.length } as CSSProperties}>
+      {rows.map((row, r) => <div className="partner-row" key={r} style={{ '--partner-count': row.length } as CSSProperties}>
         {[0, 1].map(copy => <ul className="partner-group" key={copy} aria-hidden={copy === 1 ? true : undefined}>
-          {partners.map(({ name, src }) => <li key={src}><img src={src} alt={copy === 0 ? name : ''} width="220" height="110" loading="lazy" decoding="async" /></li>)}
+          {row.map(({ name, src }) => <li key={src}><img src={src} alt={copy === 0 ? name : ''} width="640" height="360" loading="lazy" decoding="async" /></li>)}
         </ul>)}
-      </div>
+      </div>)}
     </div>
   </section>;
 }
