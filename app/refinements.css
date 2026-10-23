@@ -30,9 +30,18 @@
 .partner-group li{flex:none;width:var(--size);aspect-ratio:16/9;background:var(--surface);border-radius:.5rem;overflow:hidden}
 .partner-group img{display:block;width:100%;height:100%;object-fit:contain;opacity:.86;transition:opacity .25s}
 .partner-group li:hover img{opacity:1}
-.partner-section[data-paused=true] .partner-group,.partner-section:focus-within .partner-group{animation-play-state:paused}
+.partner-section[data-paused=true] .partner-group{animation-play-state:paused}
 @media(hover:hover){.partner-marquee:hover .partner-group{animation-play-state:paused}}
 @keyframes partner-drift{to{transform:translateX(calc(-100% - var(--gap)))}}
+/* "Ver todos" stops the rows and lays every logo out in one grid; "Recolher" brings the carousel back. */
+.partners-more{text-align:center}
+.partners-toggle{background:none;border-width:0 0 1px;font:inherit;font-size:12px;cursor:pointer}
+.partner-section[data-expanded=true] .partner-marquee{grid-template-columns:repeat(6,minmax(0,1fr));margin-inline:0}
+.partner-section[data-expanded=true] :is(.partner-row,.partner-group){display:contents}
+.partner-section[data-expanded=true] .partner-group li{width:auto}
+.partner-section[data-expanded=true] .partner-group[aria-hidden=true]{display:none}
+@media(max-width:1100px){.partner-section[data-expanded=true] .partner-marquee{grid-template-columns:repeat(4,minmax(0,1fr))}}
+@media(max-width:767px){.partner-section[data-expanded=true] .partner-marquee{grid-template-columns:repeat(2,minmax(0,1fr))}}
 
 /* Editorial cards share content and navigation with the complete insights hub. */
 .insight-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:clamp(24px,3vw,48px)}
@@ -101,12 +110,8 @@
  .faq-list [data-slot=accordion-content]>div{font-size:15px;padding-right:22px}
 }
 @media(prefers-reduced-motion:reduce){
- .partner-marquee{grid-template-columns:repeat(6,minmax(0,1fr));margin-inline:0}
- .partner-row,.partner-group{display:contents}
- .partner-group li{width:auto}
- .partner-group[aria-hidden=true],.marquee-control{display:none}
+ .partner-group{animation:none}
+ .partner-section[data-expanded=false] .marquee-control{display:none}
  .accordion-panel,.accordion-icon-vertical,.insight-card-image img{transition:none!important}
  .insight-card-link:hover img{transform:none}
 }
-@media(prefers-reduced-motion:reduce) and (max-width:1100px){.partner-marquee{grid-template-columns:repeat(4,minmax(0,1fr))}}
-@media(prefers-reduced-motion:reduce) and (max-width:767px){.partner-marquee{grid-template-columns:repeat(2,minmax(0,1fr))}}
