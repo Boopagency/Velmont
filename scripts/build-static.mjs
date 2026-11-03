@@ -71,8 +71,6 @@ const pages=[
  {route:'/privacidade',data:{}},
  {route:'/filme',data:{}},
  {route:'/links',data:{}},
- {route:'/links/b',data:{}},
- {route:'/links/c',data:{}},
  ...posts.map(post=>({route:postPath(post.slug),post,data:{post,related:relatedPosts(post,posts)}})),
  {route:'/404',data:{}},
 ];
