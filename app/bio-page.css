@@ -1,0 +1,22 @@
+/* Standalone stylesheet of /links, inlined in its HTML: only what the bio page uses
+   (fonts, tokens and base from globals.css), so nothing blocks the first paint. */
+@import './bio.css';
+@font-face{font-family:Manrope;src:url('/fonts/manrope-latin.woff2') format('woff2');font-style:normal;font-weight:200 800;font-display:swap}
+@font-face{font-family:Instrument;src:url('/fonts/instrument-serif-latin.woff2') format('woff2');font-style:normal;font-weight:400;font-display:swap}
+:root{--ink:#160b0f;--background:#210b12;--foreground:#f4efe6;--ivory:#f4efe6;--champagne:#ddc5a1;--wine:#3d101e;--surface:#32151e;--muted:#c1b1b1;--line:#ffffff24;color-scheme:dark}
+*{box-sizing:border-box}
+body{margin:0;background:var(--background);color:var(--foreground);font-family:Manrope,Arial,sans-serif;font-size:16px;line-height:1.65;-webkit-font-smoothing:antialiased}
+::selection{background:var(--champagne);color:var(--ink)}
+h1,h2,h3,p,figure,blockquote{margin:0}
+h1,h2,h3{font-weight:450;line-height:1.13}
+img{display:block;max-width:100%}
+a{color:inherit;text-decoration:none}
+a,button{-webkit-tap-highlight-color:transparent;touch-action:manipulation}
+button,input{font:inherit}
+em{font-family:Instrument,Georgia,serif;font-weight:400;font-style:normal;letter-spacing:-.015em;color:var(--champagne);font-size:1.12em}
+.sr-only{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0}
+.skip-link{position:fixed;left:20px;top:-100px;z-index:100;background:var(--ivory);color:var(--ink);padding:12px 24px}
+.skip-link:focus{top:15px}
+.form-trap{position:absolute;left:-10000px;width:1px;height:1px;overflow:hidden}
+.icon-wrap{display:inline-flex;align-items:center;justify-content:center;line-height:1;flex:none}
+.vm-icon{width:1em;height:1em;display:inline-block;flex:none;vertical-align:middle}
