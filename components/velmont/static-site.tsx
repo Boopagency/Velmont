@@ -16,6 +16,8 @@ export function StaticSite({path,data}:{path:string;data:PageData}) {
  if(route===BLOG_BASE)return <BlogIndex posts={data.posts||[]}/>;
  if(route==='/privacidade')return <Privacy/>;
  if(route==='/filme')return <FilmPage/>;
- if(route==='/links')return <BioPage posts={data.posts||[]}/>;
+ if(route==='/links')return <BioPage/>;
+ // ponytail: temporary review routes for the bio variants; remove once one is chosen.
+ if(route==='/links/b'||route==='/links/c')return <BioPage variant={route.slice(-1) as 'b'|'c'}/>;
  return data.post&&route===`${BLOG_BASE}/${data.post.slug}`?<ArticleView post={data.post} related={data.related||[]}/>:<NotFound/>;
 }

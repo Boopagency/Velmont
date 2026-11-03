@@ -1,16 +1,14 @@
 'use client';
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState, type KeyboardEvent, type MouseEvent } from 'react';
 import { contact, whatsappUrl } from '@/lib/site';
 import { publicEnv } from '@/lib/public-env';
 import { prepareLeadProtection, submitLead } from '@/lib/lead-capture';
-import { googleReviewsUrl, testimonials } from '@/content/testimonials';
-import { partners } from '@/content/partners';
-import { postPath, type BlogSummary } from '@/lib/blog/types';
 import { Arrow, Icon } from './icons';
 
-// Link in the Instagram bio (/links). Each intent opens a two-question form; the
-// answers go to /api/leads as source "link-bio" (Leads > Origem in the panel) and
-// the conversation continues on WhatsApp. Without JavaScript the links open WhatsApp.
+// Link in the Instagram bio (/links). One or two actions at most: each opens a
+// two-question form; the answers go to /api/leads as source "link-bio" (Leads >
+// Origem in the panel) and the conversation continues on WhatsApp. Without
+// JavaScript the buttons open WhatsApp directly.
 
 // Values match the interest enum of public.leads.
 const interests = ['Marcas', 'Patentes', 'Software', 'Outros ativos', 'Preciso de orientação'] as const;
@@ -23,93 +21,93 @@ const phrase: Record<Interest, string> = {
   'Preciso de orientação': 'quero entender o que proteger no meu negócio',
 };
 const chip: Record<Interest, string> = { Marcas: 'Marca', Patentes: 'Invenção ou design', Software: 'Software', 'Outros ativos': 'Outro ativo', 'Preciso de orientação': 'Ainda não sei' };
-const intents: { interest: Interest; title: string; hint: string }[] = [
-  { interest: 'Marcas', title: 'Quero registrar minha marca', hint: 'Pesquisa de viabilidade, pedido e acompanhamento no INPI' },
-  { interest: 'Patentes', title: 'Tenho uma invenção ou um design', hint: 'Patente, modelo de utilidade e desenho industrial' },
-  { interest: 'Software', title: 'Quero proteger meu software', hint: 'Registro, autoria e titularidade do código' },
-  { interest: 'Preciso de orientação', title: 'Ainda não sei o que proteger', hint: 'Uma conversa para entender o seu momento' },
-];
-const message = (interest: Interest, name?: string, company?: string) =>
-  [`Olá, Velmont! Vim pelo Instagram e ${phrase[interest]}.`, ...(name ? [`Nome: ${name}`, `Empresa ou projeto: ${company || 'Ainda em estruturação'}`, `Interesse: ${interest}`] : [])].join('\n');
-const quote = testimonials.find((t) => t.id === 'fernanda-reis') ?? testimonials[0];
-const logos = partners.slice(0, 6);
+const message = (interest: Interest | null, name?: string, company?: string) =>
+  [`Olá, Velmont! Vim pelo Instagram e ${phrase[interest || 'Preciso de orientação']}.`, ...(name ? [`Nome: ${name}`, `Empresa ou projeto: ${company || 'Ainda em estruturação'}`, `Interesse: ${interest || 'Preciso de orientação'}`] : [])].join('\n');
 const text = (value: FormDataEntryValue | null) => (typeof value === 'string' ? value.trim() : '');
-const mapsUrl = 'https://www.google.com/maps/search/?api=1&query=Avenida+Igua%C3%A7u%2C+2820%2C+%C3%81gua+Verde%2C+Curitiba+PR';
 
-export function BioPage({ posts }: { posts: BlogSummary[] }) {
+export type BioVariant = 'a' | 'b' | 'c';
+
+export function BioPage({ variant = 'a' }: { variant?: BioVariant }) {
   const dialog = useRef<HTMLDialogElement>(null);
   const form = useRef<HTMLFormElement>(null);
-  const [interest, setInterest] = useState<Interest>('Marcas');
+  const [interest, setInterest] = useState<Interest | null>('Marcas');
+  const [tab, setTab] = useState<'marca' | 'criacao'>('marca');
+  // A fixed button keeps the main action on screen until the page's own buttons are in view.
+  const [dock, setDock] = useState(false);
+  useEffect(() => {
+    if (variant === 'c') return;
+    const observer = new IntersectionObserver(() => setDock(![...document.querySelectorAll('.bio-content .bio-actions')].some((el) => { const r = el.getBoundingClientRect(); return r.height > 0 && r.top < innerHeight && r.bottom > 0; })));
+    document.querySelectorAll('.bio-content .bio-actions').forEach((el) => observer.observe(el));
+    return () => observer.disconnect();
+  }, [variant, tab]);
 
-  const open = (event: React.MouseEvent, value: Interest) => {
+  const open = (event: MouseEvent, value: Interest | null) => {
     event.preventDefault();
     setInterest(value);
     dialog.current?.showModal();
     // Turnstile starts while the person types, so the hand-off does not wait for it.
     if (form.current) prepareLeadProtection(form.current);
   };
+  const action = (value: Interest | null, label: string, line = false) =>
+    <a className={`cta bio-cta${line ? ' bio-cta-line' : ''}`} href={whatsappUrl(message(value))} target="_blank" rel="noopener noreferrer" onClick={(e) => open(e, value)}><span>{label}</span><span className="cta-arrow"><Arrow /></span></a>;
+  const tabKeys = (e: KeyboardEvent) => {
+    if (e.key !== 'ArrowLeft' && e.key !== 'ArrowRight') return;
+    const next = tab === 'marca' ? 'criacao' : 'marca';
+    setTab(next);
+    document.getElementById(`bio-tab-${next}`)?.focus();
+  };
 
-  return <div className="bio">
+  return <div className={`bio bio-${variant}`}>
     <a className="skip-link" href="#bio-conteudo">Pular para o conteúdo</a>
-    <header className="bio-top">
-      <img className="bio-mountain" src="/generated/velmont-hero-mountain-768.webp" width="768" height="512" alt="" fetchPriority="high" />
-      <a className="bio-logo" href="/" aria-label="Velmont: conheça o site"><img src="/images/velmont-logo.webp" width="140" height="70" alt="Velmont Marcas e Patentes" /></a>
-      <p className="bio-place">Curitiba, PR<br />Presencial e digital</p>
+    <header className="bio-media">
+      <img className="bio-photo" src="/images/danielle.webp" width="876" height="1600" alt="Danielle Cubas de Azevedo, fundadora da Velmont" fetchPriority="high" />
+      <span className="bio-frame" aria-hidden="true" />
+      <p className="bio-sign"><span>Danielle Cubas<br />de Azevedo</span><small>FOUNDER &amp; CEO · VELMONT</small></p>
     </header>
 
-    <main id="bio-conteudo">
-      <section className="bio-hero" aria-labelledby="bio-title">
-        <p className="eyebrow">MARCAS · PATENTES · SOFTWARE</p>
-        <h1 id="bio-title">Marca é <em>patrimônio.</em></h1>
-        <p className="bio-lead">Consultoria em propriedade intelectual. Você entende os riscos, as etapas e as possibilidades reais antes de decidir.</p>
-      </section>
+    <main id="bio-conteudo" className="bio-content">
+      <div className="bio-row"><span>Marcas · Patentes · Software</span><img src="/images/velmont-logo.webp" width="140" height="70" alt="Velmont" /></div>
 
-      <section className="bio-intents" aria-labelledby="bio-intents-title">
-        <h2 id="bio-intents-title" className="eyebrow">O QUE VOCÊ QUER PROTEGER?</h2>
-        <ul>
-          {intents.map((item, i) => <li key={item.interest}>
-            <a className={`bio-intent${i === 0 ? ' bio-intent-main' : ''}`} href={whatsappUrl(message(item.interest))} target="_blank" rel="noopener noreferrer" onClick={(e) => open(e, item.interest)}>
-              <span><strong>{item.title}</strong><small>{item.hint}</small></span>
-              <span className="cta-arrow"><Arrow /></span>
-            </a>
-          </li>)}
+      {variant === 'a' && <>
+        <h1>Sua marca é <em>patrimônio.</em></h1>
+        <p className="bio-lead">Registro de marcas, patentes e software com estratégia: você entende os riscos e cada etapa antes de decidir.</p>
+        <div className="bio-actions">{action('Marcas', 'Quero registrar minha marca')}{action(null, 'Quero proteger outra criação', true)}</div>
+      </>}
+
+      {variant === 'b' && <>
+        <h1 className="sr-only">Velmont: registro de marcas, patentes e software</h1>
+        <ul className="bio-stats" aria-label="A Velmont em números">
+          <li><strong>+11</strong><span>anos da fundadora no setor</span></li>
+          <li><strong>3</strong><span>frentes: marca, patente e software</span></li>
+          <li><strong>Curitiba</strong><span>presencial e digital</span></li>
         </ul>
-        <p className="bio-note">Duas perguntas rápidas e a conversa segue no WhatsApp.</p>
-      </section>
-
-      <section className="bio-proof" aria-labelledby="bio-proof-title">
-        <h2 id="bio-proof-title" className="sr-only">Quem atende você</h2>
-        <div className="bio-founder">
-          <img src="/images/danielle-velmont-640.webp" width="640" height="960" alt="Danielle Cubas de Azevedo, fundadora da Velmont" loading="lazy" decoding="async" />
-          <div>
-            <strong>Danielle Cubas de Azevedo</strong>
-            <span>FOUNDER & CEO</span>
-            <p>Economista, pós-graduada em Propriedade Intelectual e Direito Digital, com mais de 11 anos no setor.</p>
-          </div>
+        <div className="bio-switch" role="tablist" aria-label="O que você quer proteger" data-tab={tab}>
+          <span className="bio-switch-thumb" aria-hidden="true" />
+          {([['marca', 'Tenho uma marca'], ['criacao', 'Tenho uma criação']] as const).map(([id, label]) => <button key={id} type="button" role="tab" id={`bio-tab-${id}`} aria-controls={`bio-panel-${id}`} aria-selected={tab === id} tabIndex={tab === id ? 0 : -1} onClick={() => setTab(id)} onKeyDown={tabKeys}>{label}</button>)}
         </div>
-        <p className="bio-promise"><em>Não prometemos aprovação.</em> Construímos uma estratégia, com cada etapa explicada.</p>
-        <figure className="bio-quote">
-          <span className="testimonial-stars"><span className="sr-only">{quote.rating} de 5 estrelas</span>{Array.from({ length: quote.rating }, (_, i) => <Icon name="star" key={i} />)}</span>
-          <blockquote>{quote.quote}</blockquote>
-          <figcaption>{quote.name} · Avaliação no Google</figcaption>
-          <a className="text-link" href={googleReviewsUrl} target="_blank" rel="noopener noreferrer">Ver avaliações no Google <Arrow /></a>
-        </figure>
-        <div className="bio-clients">
-          <p className="eyebrow">PARCEIROS DA NOSSA HISTÓRIA</p>
-          <ul>{logos.map(({ name, src }) => <li key={src}><img src={src} alt={name} width="640" height="360" loading="lazy" decoding="async" /></li>)}</ul>
-        </div>
-      </section>
+        <section className="bio-panel" role="tabpanel" id="bio-panel-marca" aria-labelledby="bio-tab-marca" hidden={tab !== 'marca'}>
+          <h2>O nome é seu. <em>E o direito de usá-lo?</em></h2>
+          <p className="bio-lead">Antes do pedido, a pesquisa de viabilidade mostra o que pode ser protegido e quais riscos considerar.</p>
+          <div className="bio-actions">{action('Marcas', 'Quero registrar minha marca')}</div>
+        </section>
+        <section className="bio-panel" role="tabpanel" id="bio-panel-criacao" aria-labelledby="bio-tab-criacao" hidden={tab !== 'criacao'}>
+          <h2>Você vê uma invenção. <em>Nós vemos um ativo.</em></h2>
+          <p className="bio-lead">Patente, desenho industrial ou software: primeiro entendemos o que proteger, depois traçamos o caminho.</p>
+          <div className="bio-actions">{action(null, 'Quero proteger minha criação')}</div>
+        </section>
+      </>}
 
-      <nav className="bio-links" aria-label="Mais da Velmont">
-        <a href="/">Conheça a Velmont <Arrow /></a>
-        <a href="/filme">Assista ao filme Relevo <Arrow /></a>
-        {posts.slice(0, 2).map((post) => <a href={postPath(post.slug)} key={post.slug}><span><small>LEIA</small>{post.title}</span> <Arrow /></a>)}
-        <a href={mapsUrl} target="_blank" rel="noopener noreferrer"><span><small>COMO CHEGAR</small>Av. Iguaçu, 2820 · Água Verde</span> <Arrow /></a>
-        <a href={`mailto:${contact.email}`}><span><small>E-MAIL</small>{contact.email}</span> <Arrow /></a>
-      </nav>
+      {variant === 'c' && <>
+        <h1>Sua marca é <em>patrimônio.</em></h1>
+        <div className="bio-actions">{action('Marcas', 'Quero proteger minha marca')}<a className="bio-more" href="/">Ou conheça a Velmont <Arrow /></a></div>
+      </>}
+
+      <p className="bio-note">Leva menos de 30 segundos. Depois a conversa segue no WhatsApp.</p>
     </main>
 
-    <footer className="bio-footer"><span>© {new Date().getFullYear()} Velmont</span><a href="/privacidade">Privacidade</a></footer>
+    {variant !== 'c' && <div className="bio-dock" data-show={dock} inert={!dock}>{tab === 'criacao' ? action(null, 'Quero proteger minha criação') : action('Marcas', 'Quero registrar minha marca')}</div>}
+
+    <footer className="bio-footer"><a href={contact.instagram} target="_blank" rel="noopener noreferrer">@velmontmarcas</a><a href="/">Site</a><a href="/privacidade">Privacidade</a></footer>
 
     <dialog className="bio-dialog" ref={dialog} aria-labelledby="bio-form-title">
       <form ref={form} onSubmit={async (e) => {
@@ -130,7 +128,7 @@ export function BioPage({ posts }: { posts: BlogSummary[] }) {
         <input id="bio-company" name="company" maxLength={150} autoComplete="organization" placeholder="O que você está construindo?" />
         <fieldset>
           <legend>O que você quer proteger?</legend>
-          <div className="bio-chips">{interests.map((value) => <label key={value}><input type="radio" name="interest" value={value} checked={interest === value} onChange={() => setInterest(value)} /><span>{chip[value]}</span></label>)}</div>
+          <div className="bio-chips">{interests.map((value) => <label key={value}><input type="radio" name="interest" value={value} required checked={interest === value} onChange={() => setInterest(value)} /><span>{chip[value]}</span></label>)}</div>
         </fieldset>
         {publicEnv.leadCapture && <div className="form-trap" aria-hidden="true"><label htmlFor="bio-website">Não preencha este campo</label><input id="bio-website" name="website" tabIndex={-1} autoComplete="off" /></div>}
         <button className="cta bio-submit" type="submit"><span>Continuar no WhatsApp</span><span className="cta-arrow"><Arrow /></span></button>
