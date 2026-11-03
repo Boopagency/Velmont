@@ -24,13 +24,17 @@ const columns = 'id, created_at, name, company, interest, source, channel, landi
 const statusOptions: [string, string][] = [['all', 'Todos os status'], ...statuses.map((s): [string, string] => [s, leadStatusLabel[s]])];
 const interestOptions: [string, string][] = [['all', 'Todos os interesses'], ...interests.map((i): [string, string] => [i, i])];
 const periodOptions: [string, string][] = [['all', 'Todo o período'], ['7', 'Últimos 7 dias'], ['30', 'Últimos 30 dias'], ['90', 'Últimos 90 dias']];
+// Which form the lead came from: the site's contact section or the Instagram bio page.
+const sourceOptions: [string, string][] = [['all', 'Site e link da bio'], ['site-contact-form', 'Site'], ['link-bio', 'Link da bio']];
+const fromBio = (l: Pick<Lead, 'source'>) => l.source === 'link-bio';
 
-const origin = (l: Pick<Lead, 'utm_source' | 'referrer'>) => l.utm_source || (l.referrer ? l.referrer.replace(/^https?:\/\//, '').replace(/\/.*$/, '') : 'Direto');
+const origin = (l: Pick<Lead, 'source' | 'utm_source' | 'referrer'>) => (fromBio(l) ? 'Link da bio' : l.utm_source || (l.referrer ? l.referrer.replace(/^https?:\/\//, '').replace(/\/.*$/, '') : 'Direto'));
 
 export function Leads({ leadId }: { leadId: string | null }) {
   const params = new URLSearchParams(location.search);
   const [status, setStatus] = useState(params.get('status') || 'all');
   const [interest, setInterest] = useState('all');
+  const [source, setSource] = useState(params.get('origem') === 'bio' ? 'link-bio' : 'all');
   const [period, setPeriod] = useState('all');
   const [query, setQuery] = useState('');
   const [page, setPage] = useState(0);
@@ -45,6 +49,7 @@ export function Leads({ leadId }: { leadId: string | null }) {
         let q = supabase.from('leads').select(columns, { count: 'exact' }).order('created_at', { ascending: false }).range(page * PAGE, page * PAGE + PAGE - 1);
         if (status !== 'all') q = q.eq('status', status);
         if (interest !== 'all') q = q.eq('interest', interest);
+        if (source !== 'all') q = q.eq('source', source);
         if (period !== 'all') q = q.gte('created_at', new Date(Date.now() - Number(period) * 86400000).toISOString());
         const term = searchTerm(query);
         // The term is reduced to letters, digits and spaces, so it cannot alter the filter syntax.
@@ -55,9 +60,9 @@ export function Leads({ leadId }: { leadId: string | null }) {
       })();
     }, 200);
     return () => clearTimeout(timer);
-  }, [status, interest, period, query, page, version]);
+  }, [status, interest, source, period, query, page, version]);
 
-  const filtered = status !== 'all' || interest !== 'all' || period !== 'all' || !!query.trim();
+  const filtered = status !== 'all' || interest !== 'all' || source !== 'all' || period !== 'all' || !!query.trim();
   const reset = (fn: () => void) => {
     fn();
     setPage(0);
@@ -66,18 +71,20 @@ export function Leads({ leadId }: { leadId: string | null }) {
     reset(() => {
       setStatus('all');
       setInterest('all');
+      setSource('all');
       setPeriod('all');
       setQuery('');
     });
 
   return (
     <Page>
-      <PageHeader title="Leads" description="Pessoas que preencheram o formulário do site. A conversa continua no WhatsApp: o registro indica a intenção de contato, não confirma que a mensagem foi enviada." />
+      <PageHeader title="Leads" description="Pessoas que preencheram o formulário do site ou do link da bio do Instagram. A conversa continua no WhatsApp: o registro indica a intenção de contato, não confirma que a mensagem foi enviada." />
 
       <div className="mb-4 flex flex-wrap items-center gap-2">
         <SearchInput label="Buscar por nome ou empresa" placeholder="Buscar por nome ou empresa" value={query} onChange={(v) => reset(() => setQuery(v))} />
         <FilterSelect label="Filtrar por status" value={status} onChange={(v) => reset(() => setStatus(v))} options={statusOptions} />
         <FilterSelect label="Filtrar por interesse" value={interest} onChange={(v) => reset(() => setInterest(v))} options={interestOptions} />
+        <FilterSelect label="Filtrar por origem" value={source} onChange={(v) => reset(() => setSource(v))} options={sourceOptions} />
         <FilterSelect label="Filtrar por período" value={period} onChange={(v) => reset(() => setPeriod(v))} options={periodOptions} />
         {filtered && (
           <Button variant="ghost" size="sm" className="text-muted-foreground" onClick={clear}>
@@ -97,7 +104,7 @@ export function Leads({ leadId }: { leadId: string | null }) {
         </div>
       ) : rows.length === 0 ? (
         filtered ? (
-          status === 'new' && !query.trim() && interest === 'all' && period === 'all' ? (
+          status === 'new' && !query.trim() && interest === 'all' && source === 'all' && period === 'all' ? (
             <EmptyState icon={<InboxIcon />} title="Nenhum lead novo." description="Tudo em dia. Novos contatos do formulário do site aparecem aqui com status Novo." />
           ) : (
             <EmptyState icon={<SearchXIcon />} title="Nenhum lead encontrado" description="Tente outro termo ou limpe os filtros." action={<Button variant="outline" onClick={clear}>Limpar filtros</Button>} />
@@ -128,6 +135,7 @@ export function Leads({ leadId }: { leadId: string | null }) {
                       <span className="line-clamp-1 text-xs text-muted-foreground">
                         {l.company || 'Sem empresa informada'}
                         <span className="md:hidden"> · {l.interest}</span>
+                        {fromBio(l) && <span className="lg:hidden"> · Link da bio</span>}
                       </span>
                     </TableCell>
                     <TableCell className="hidden py-3 text-[13px] md:table-cell">{l.interest}</TableCell>
@@ -284,7 +292,7 @@ function LeadSheet({ id, onChanged }: { id: string | null; onChanged: () => void
                   Origem
                 </h3>
                 <dl className="divide-y">
-                  <Detail label="Canal">{lead.channel === 'whatsapp' ? 'Formulário do site → WhatsApp' : lead.channel}</Detail>
+                  <Detail label="Canal">{lead.channel === 'whatsapp' ? (fromBio(lead) ? 'Link da bio do Instagram → WhatsApp' : 'Formulário do site → WhatsApp') : lead.channel}</Detail>
                   <Detail label="Página de entrada">{lead.landing_page}</Detail>
                   <Detail label="Site de origem">{lead.referrer}</Detail>
                   {utms.length ? utms.map(([k, v]) => <Detail key={k} label={k}>{v}</Detail>) : <Detail label="UTMs">Sem parâmetros de campanha</Detail>}

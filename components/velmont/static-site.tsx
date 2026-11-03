@@ -5,6 +5,7 @@ import NotFound from '@/app/not-found';
 import { ArticleView } from './article-view';
 import { BlogIndex } from './blog-index';
 import { FilmPage } from './film/film-page';
+import { BioPage } from './bio';
 import { captureAttribution } from '@/lib/lead-capture';
 import { BLOG_BASE, type BlogPost, type BlogSummary } from '@/lib/blog/types';
 export type PageData = { posts?: BlogSummary[]; post?: BlogPost; related?: BlogSummary[] };
@@ -15,5 +16,6 @@ export function StaticSite({path,data}:{path:string;data:PageData}) {
  if(route===BLOG_BASE)return <BlogIndex posts={data.posts||[]}/>;
  if(route==='/privacidade')return <Privacy/>;
  if(route==='/filme')return <FilmPage/>;
+ if(route==='/links')return <BioPage posts={data.posts||[]}/>;
  return data.post&&route===`${BLOG_BASE}/${data.post.slug}`?<ArticleView post={data.post} related={data.related||[]}/>:<NotFound/>;
 }

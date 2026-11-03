@@ -12,12 +12,15 @@ const text = (max: number) => z.string().max(max * 4).transform(clean).pipe(z.st
 const optional = (max: number) => text(max).optional().transform((v) => v || null);
 
 export const interests = ['Marcas', 'Patentes', 'Software', 'Outros ativos', 'Preciso de orientação'] as const;
+/** Which form sent the lead: the site's contact section or the Instagram bio page (/links). */
+export const leadSources = ['site-contact-form', 'link-bio'] as const;
 
 // Strict: unknown keys (status, notes, id...) are rejected, preventing mass assignment.
 export const leadSchema = z.strictObject({
   name: text(100).pipe(z.string().min(1)),
   company: optional(150),
   interest: z.enum(interests),
+  source: z.enum(leadSources).optional(),
   website: z.string().max(200).optional(),
   turnstileToken: z.string().max(2048).optional(),
   landing_page: z.string().max(500).regex(/^\/[^\s<>"'\\]*$/).optional(),
@@ -36,6 +39,7 @@ export const leadRow = (lead: LeadInput) => ({
   name: lead.name,
   company: lead.company,
   interest: lead.interest,
+  source: lead.source ?? 'site-contact-form',
   landing_page: lead.landing_page ?? null,
   referrer: lead.referrer ?? null,
   utm_source: lead.utm_source,

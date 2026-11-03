@@ -70,6 +70,7 @@ const pages=[
  {route:BLOG_BASE,data:{posts:summaries}},
  {route:'/privacidade',data:{}},
  {route:'/filme',data:{}},
+ {route:'/links',data:{posts:summaries.slice(0,2)}},
  ...posts.map(post=>({route:postPath(post.slug),post,data:{post,related:relatedPosts(post,posts)}})),
  {route:'/404',data:{}},
 ];

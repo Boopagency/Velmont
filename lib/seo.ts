@@ -14,13 +14,14 @@ export function pageSeo(path: string, article: BlogPost | null = null) {
     '/': ['Registro de marcas, patentes e software | Velmont', 'Consultoria em propriedade intelectual em Curitiba, com atendimento digital. Registro de marcas, patentes e software com análise de riscos e acompanhamento.'],
     [BLOG_BASE]: ['Guias sobre marcas, patentes e software | Velmont', 'Entenda o registro de marca, a proteção de software e os critérios de uma patente. Conteúdos da Velmont para decidir com clareza sobre propriedade intelectual.'],
     '/filme': ['Relevo, um filme da Velmont | Velmont', 'Um filme curto sobre aquilo que um negócio constrói: marca, desenho, software, invenção e reputação, e o que precisa ser identificado e protegido.'],
+    '/links': ['Velmont | Marcas, patentes e software', 'Registre sua marca, proteja sua invenção ou seu software com a Velmont. Fale com a equipe pelo WhatsApp, em Curitiba ou on-line.'],
     '/privacidade': ['Privacidade e uso de dados | Velmont', 'Saiba como o site da Velmont prepara sua mensagem de contato, quais dados utiliza e como falar com a equipe sobre privacidade.'],
   };
   const [title, description] = article ? [article.seo.title || `${article.title} | Velmont`, article.seo.description || article.excerpt] : defaults[path] || ['Página não encontrada | Velmont', 'Esta página não está disponível. Acesse a Velmont ou consulte nossos conteúdos sobre marcas, patentes e software.'];
   const media = publicMedia(publicEnv.supabaseUrl);
   const cover = article && (uploadedImage(article.seo.ogImage, media) || coverFor(article, media));
   const url = `${siteUrl}${path === '/' ? '/' : path}`;
-  return { title, description, ogTitle: article?.seo.ogTitle || title, ogDescription: article?.seo.ogDescription || description, url, canonical: sameSiteUrl(article?.seo.canonical) || url, image: cover ? absolute(cover.src) : `${siteUrl}/images/velmont-social.png`, imageAlt: cover ? cover.alt || article.title : 'Velmont — Marca é patrimônio', imageWidth: cover ? cover.width : 1536, imageHeight: cover ? cover.height : 1024, index: path !== '/404' && (path !== '/filme' || !!voice.src) && (article ? article.seo.index : true), article };
+  return { title, description, ogTitle: article?.seo.ogTitle || title, ogDescription: article?.seo.ogDescription || description, url, canonical: sameSiteUrl(article?.seo.canonical) || url, image: cover ? absolute(cover.src) : `${siteUrl}/images/velmont-social.png`, imageAlt: cover ? cover.alt || article.title : 'Velmont — Marca é patrimônio', imageWidth: cover ? cover.width : 1536, imageHeight: cover ? cover.height : 1024, index: path !== '/404' && path !== '/links' && (path !== '/filme' || !!voice.src) && (article ? article.seo.index : true), article };
 }
 export function nextMetadata(path: string, article: BlogPost | null = null): Metadata {
   const data = pageSeo(path, article);

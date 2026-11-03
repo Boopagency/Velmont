@@ -190,8 +190,9 @@ describe('POST /api/leads', () => {
     const res = await submitLead(leadRequest(validLead));
     assert.equal(res.status, 201);
     const row = JSON.parse(inserted()[0].body);
-    assert.deepEqual(Object.keys(row).sort(), ['company', 'interest', 'landing_page', 'name', 'referrer', 'utm_campaign', 'utm_content', 'utm_medium', 'utm_source', 'utm_term']);
+    assert.deepEqual(Object.keys(row).sort(), ['company', 'interest', 'landing_page', 'name', 'referrer', 'source', 'utm_campaign', 'utm_content', 'utm_medium', 'utm_source', 'utm_term']);
     assert.equal(row.name, 'Maria da Silva');
+    assert.equal(row.source, 'site-contact-form');
     assert.equal(inserted()[0].auth, 'Bearer service-key');
     const rate = calls.find((c) => c.url.pathname === '/rest/v1/rpc/hit_rate_limit');
     assert.ok(rate && !rate.body.includes('203.0.113.9'), 'IP is hashed before storage');
@@ -209,6 +210,7 @@ describe('POST /api/leads', () => {
       { ...validLead, name: '' },
       { ...validLead, name: 'x'.repeat(101) },
       { ...validLead, interest: "Marcas'; drop table leads;--" },
+      { ...validLead, source: 'admin-import' },
       { ...validLead, landing_page: 'javascript:alert(1)' },
       { ...validLead, referrer: 'https://evil.test/path?email=a@b.c' },
       { ...validLead, name: { $ne: null } },
@@ -218,6 +220,11 @@ describe('POST /api/leads', () => {
     ];
     for (const body of cases) assert.equal((await submitLead(leadRequest(body))).status, 400, JSON.stringify(body));
     assert.equal(inserted().length, 0);
+  });
+
+  test('records leads from the bio page under their own source', async () => {
+    assert.equal((await submitLead(leadRequest({ ...validLead, source: 'link-bio' }))).status, 201);
+    assert.equal(JSON.parse(inserted()[0].body).source, 'link-bio');
   });
 
   test('keeps script payloads as inert text', async () => {
