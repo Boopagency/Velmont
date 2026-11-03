@@ -6,6 +6,12 @@
   "cleanUrls": true,
   "trailingSlash": false,
   "redirects": [
+    {
+      "source": "/:path*",
+      "has": [{ "type": "host", "value": "bio.grupovelmont.com" }],
+      "destination": "https://www.grupovelmont.com/links",
+      "permanent": false
+    },
     { "source": "/insights", "destination": "/blog", "statusCode": 301 },
     { "source": "/insights/:slug", "destination": "/blog/:slug", "statusCode": 301 }
   ],
