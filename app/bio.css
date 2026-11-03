@@ -1,21 +1,23 @@
-/* Link in the Instagram bio (/links): mountain, one promise, two actions. */
+/* Link in the Instagram bio (/links). Phone: one column. Desktop: mountain | content. */
 .bio{--bio-w:440px;min-height:100svh;display:flex;flex-direction:column;background:var(--background);overflow-x:clip;text-align:center}
 
 .bio-top{position:relative;display:flex;justify-content:center;width:min(var(--bio-w),100%);margin:0 auto;padding-top:28px;min-height:min(42svh,330px)}
-.bio-mountain{position:absolute;z-index:0;left:50%;top:0;width:100vw;max-width:820px;height:100%;transform:translateX(-50%);object-fit:cover;object-position:50% 34%;filter:brightness(.66) saturate(.85);-webkit-mask-image:linear-gradient(#000 45%,transparent 96%);mask-image:linear-gradient(#000 45%,transparent 96%);pointer-events:none;animation:bio-mountain 2.4s cubic-bezier(.2,.7,.2,1) both}
+.bio-mountain{position:absolute;z-index:0;left:50%;top:0;width:100vw;max-width:820px;height:100%;transform:translateX(-50%);pointer-events:none;animation:bio-mountain 2.4s cubic-bezier(.2,.7,.2,1) both}
+.bio-mountain img{width:100%;height:100%;object-fit:cover;object-position:50% 34%;filter:brightness(.66) saturate(.85);-webkit-mask-image:linear-gradient(#000 45%,transparent 96%);mask-image:linear-gradient(#000 45%,transparent 96%)}
 @keyframes bio-mountain{from{opacity:.25;transform:translateX(-50%) scale(1.08)}}
 .bio-logo{position:relative;z-index:1;height:fit-content}
 .bio-logo img{width:112px;height:auto}
+.bio-place{display:none}
 
 .bio-main{position:relative;width:min(var(--bio-w),100%);margin:-56px auto 0;padding:0 24px;flex:1;animation:bio-rise 1s ease-out .35s both}
 @keyframes bio-rise{from{opacity:0;transform:translateY(14px)}}
-.bio-kicker{font-size:11px;font-weight:500;letter-spacing:.2em;text-transform:uppercase;color:var(--champagne)}
-.bio h1{margin-top:14px;font-size:clamp(46px,13vw,60px);font-weight:400;line-height:1;letter-spacing:-.04em}
+.bio-kicker{margin:0;font-size:11px;font-weight:500;line-height:1.6;letter-spacing:.2em;text-transform:uppercase;color:var(--champagne)}
+.bio h1{margin-top:14px;font-size:clamp(36px,10vw,48px);font-weight:400;line-height:1.05;letter-spacing:-.04em}
 .bio h1 em{display:block;margin-top:2px}
-.bio-lead{max-width:30ch;margin:18px auto 0;font-size:16px;line-height:1.6;color:#e2d6d4}
+.bio-lead{max-width:34ch;margin:18px auto 0;font-size:16px;line-height:1.6;color:#e2d6d4}
 
 /* Buttons: soft pills, the arrow in a circle. */
-.bio-actions{display:grid;gap:12px;margin-top:32px}
+.bio-actions{display:grid;gap:12px;margin-top:30px}
 .bio-cta{display:flex;align-items:center;justify-content:space-between;gap:16px;width:100%;min-height:62px;padding:8px 8px 8px 26px;border:1px solid transparent;border-radius:999px;background:var(--ivory);color:var(--ink);font:600 15px/1.25 Manrope,Arial,sans-serif;letter-spacing:-.01em;text-align:left;cursor:pointer;transition:background .25s,border-color .25s,transform .2s}
 .bio-cta:hover{background:var(--champagne)}
 .bio-cta:active{transform:scale(.985)}
@@ -26,22 +28,29 @@
 .bio-cta-ghost:hover{background:#ffffff0a;border-color:#f4efe6b3}
 .bio-cta-ghost .bio-cta-arrow{background:#ffffff12}
 .bio-note{margin-top:14px;font-size:12.5px;color:var(--muted)}
-.bio a:focus-visible,.bio button:focus-visible,.bio-chips input:focus-visible+span{outline:2px solid var(--champagne);outline-offset:3px}
+.bio a:focus-visible,.bio button:focus-visible,.bio-chips input:focus-visible+span,.bio-consent input:focus-visible{outline:2px solid var(--champagne);outline-offset:3px}
 
-.bio-facts{list-style:none;display:flex;justify-content:center;margin:40px 0 0;padding:24px 0 0;border-top:1px solid var(--line)}
-.bio-facts li{flex:1;padding:0 12px;font-size:12px;line-height:1.5;color:var(--muted)}
-.bio-facts li+li{border-left:1px solid var(--line)}
-.bio-facts strong{display:block;margin-bottom:2px;font-size:18px;font-weight:500;letter-spacing:-.02em;color:var(--ivory)}
+/* How it works and who leads it. */
+.bio-steps{margin-top:48px;padding-top:28px;border-top:1px solid var(--line);text-align:left}
+.bio-steps ol{list-style:none;margin:16px 0 0;padding:0;display:grid;gap:10px}
+.bio-steps li{display:grid;grid-template-columns:34px 1fr;gap:12px;padding:16px 18px;border-radius:18px;background:#ffffff06;border:1px solid #ffffff0f}
+.bio-steps li>span{font:400 22px/1.1 Instrument,Georgia,serif;color:var(--champagne)}
+.bio-steps strong{display:block;font-size:15px;font-weight:600;letter-spacing:-.01em;line-height:1.35}
+.bio-steps li p{margin-top:4px;font-size:13.5px;line-height:1.5;color:var(--muted)}
+.bio-honest{margin-top:14px;font-size:12.5px;line-height:1.55;color:var(--muted)}
+.bio-founder{margin-top:28px;padding:22px 20px;border-radius:20px;background:#ffffff06;border:1px solid #ffffff0f;text-align:left}
+.bio-founder-name{margin-top:8px;font:400 26px/1.15 Instrument,Georgia,serif;color:var(--ivory)}
+.bio-founder p:last-child{margin-top:8px;font-size:13.5px;line-height:1.55;color:#e2d6d4}
 
-.bio-footer{display:flex;justify-content:center;gap:24px;width:min(var(--bio-w),100%);margin:0 auto;padding:40px 24px calc(28px + env(safe-area-inset-bottom));font-size:12px;color:var(--muted)}
+.bio-footer{display:flex;justify-content:center;gap:24px;width:min(var(--bio-w),100%);margin:0 auto;padding:36px 24px calc(28px + env(safe-area-inset-bottom));font-size:12px;color:var(--muted)}
 .bio-footer a:hover{color:var(--ivory)}
 
-/* Form: rounded bottom sheet on phones, card on wider screens. */
+/* Form and privacy: rounded bottom sheets on phones, cards on wider screens. */
 .bio-dialog{width:100%;max-width:var(--bio-w);max-height:92svh;margin:auto auto 0;padding:0;border:0;border-radius:28px 28px 0 0;background:#2a0e17;color:var(--ivory);overflow-y:auto;overscroll-behavior:contain;text-align:left}
 .bio-dialog::backdrop{background:#0d0407c4;backdrop-filter:blur(3px)}
 .bio-dialog[open]{animation:bio-up .3s ease-out}
 @keyframes bio-up{from{transform:translateY(28px);opacity:0}}
-.bio-dialog form{display:grid;padding:12px 22px calc(24px + env(safe-area-inset-bottom))}
+.bio-dialog form,.bio-privacy-body{display:grid;padding:12px 22px calc(24px + env(safe-area-inset-bottom))}
 .bio-grip{justify-self:center;width:40px;height:4px;margin-bottom:14px;border-radius:4px;background:#ffffff2e}
 .bio-form-head{display:flex;justify-content:space-between;align-items:flex-start;gap:16px;margin-bottom:4px}
 .bio-form-head h2{font-size:24px;font-weight:400;line-height:1.15;letter-spacing:-.03em}
@@ -51,8 +60,8 @@
 .bio-dialog label,.bio-dialog legend{font-size:13px;margin-top:18px;margin-bottom:8px;color:#e2d6d4}
 .bio-dialog legend{margin-top:0;padding:0}
 .bio-dialog label>span{font-size:11px;color:var(--muted)}
-.bio-dialog input:not([type=radio]){width:100%;padding:14px 16px;border:1px solid #ffffff1f;border-radius:14px;background:#ffffff0a;color:var(--ivory);font-size:16px;transition:border-color .2s,background .2s}
-.bio-dialog input:not([type=radio]):focus{outline:0;border-color:var(--champagne);background:#ffffff12}
+.bio-dialog input:not([type=radio]):not([type=checkbox]){width:100%;padding:14px 16px;border:1px solid #ffffff1f;border-radius:14px;background:#ffffff0a;color:var(--ivory);font-size:16px;transition:border-color .2s,background .2s}
+.bio-dialog input:not([type=radio]):not([type=checkbox]):focus{outline:0;border-color:var(--champagne);background:#ffffff12}
 .bio-dialog input::placeholder{color:#b9a3ab}
 .bio-dialog fieldset{margin:18px 0 0;padding:0;border:0;min-width:0}
 .bio-chips{display:flex;flex-wrap:wrap;gap:8px}
@@ -60,15 +69,37 @@
 .bio-chips input{position:absolute;opacity:0;width:1px;height:1px}
 .bio-chips span{display:inline-flex;align-items:center;min-height:40px;padding:0 16px;border:1px solid #ddc5a14d;border-radius:999px;font-size:13px!important;color:var(--ivory)!important;cursor:pointer;transition:background .2s,color .2s,border-color .2s}
 .bio-chips input:checked+span{background:var(--champagne);border-color:var(--champagne);color:var(--ink)!important;font-weight:600}
-.bio-submit{margin-top:26px}
-.bio-legal{margin-top:14px;font-size:11.5px;line-height:1.6;color:var(--muted)}
-.bio-legal a{text-decoration:underline}
+.bio-dialog .bio-consent{display:grid;grid-template-columns:20px 1fr;gap:10px;align-items:start;margin-top:22px;margin-bottom:0;cursor:pointer}
+.bio-consent input{width:18px;height:18px;margin:1px 0 0;accent-color:var(--champagne)}
+.bio-dialog .bio-consent>span{font-size:12.5px;line-height:1.5;color:#e2d6d4}
+.bio-consent a,.bio-legal a{color:var(--champagne);text-decoration:underline}
+.bio-submit{margin-top:20px}
+.bio-legal{margin-top:12px;font-size:11.5px;line-height:1.6;color:var(--muted);text-align:center}
 .bio-dialog .form-turnstile{margin-top:12px}
+.bio-privacy h3{margin-top:20px;font-size:14px;font-weight:600;letter-spacing:-.01em}
+.bio-privacy h3+p{margin-top:6px;font-size:13.5px;line-height:1.6;color:#e2d6d4;overflow-wrap:anywhere}
+.bio-nowrap{white-space:nowrap}
+.bio-privacy-more{display:inline-flex;align-items:center;gap:10px;margin-top:24px;font-size:13px;color:var(--champagne)}
+.bio-privacy-more .icon-wrap{width:auto;height:auto;background:none;color:inherit}
+.bio-privacy-more .vm-icon{width:16px;height:16px}
 
 @media(min-width:640px){
- .bio-top{padding-top:40px}
  .bio-dialog{margin:auto;border-radius:28px;border:1px solid var(--line)}
  .bio-grip{display:none}
- .bio-dialog form{padding-top:24px}
+ .bio-dialog form,.bio-privacy-body{padding-top:24px}
+}
+/* Desktop, like the Boop bio: the mountain fixed on the left, the content on the right. */
+@media(min-width:1024px){
+ .bio{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);grid-template-rows:1fr auto;text-align:left}
+ .bio-top{grid-row:1/3;position:sticky;top:0;width:auto;height:100svh;margin:0;padding:48px;flex-direction:column;justify-content:space-between;align-items:flex-start;overflow:hidden}
+ .bio-mountain{left:0;width:100%;max-width:none;transform:none;animation-name:bio-mountain-wide}
+ .bio-mountain img{object-position:50% 40%;filter:brightness(.72) saturate(.9);-webkit-mask-image:linear-gradient(90deg,#000 62%,transparent);mask-image:linear-gradient(90deg,#000 62%,transparent)}
+ @keyframes bio-mountain-wide{from{opacity:.25;transform:scale(1.06)}}
+ .bio-logo img{width:150px}
+ .bio-place{display:block;position:relative;z-index:1;font-size:12px;letter-spacing:.08em;color:#e2d6d4}
+ .bio-main{width:min(560px,100%);margin:0 auto;padding:80px 48px 0;align-self:center}
+ .bio-lead{margin-left:0}
+ .bio h1{font-size:52px}
+ .bio-footer{width:min(560px,100%);margin:0 auto;justify-content:flex-start;padding:40px 48px 40px}
 }
 @media(prefers-reduced-motion:reduce){.bio-mountain,.bio-main,.bio-dialog[open]{animation:none}}
