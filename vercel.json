@@ -6,6 +6,12 @@
   "cleanUrls": true,
   "trailingSlash": false,
   "redirects": [
+    {
+      "source": "/:path*",
+      "has": [{ "type": "host", "value": "bio.grupovelmont.com" }],
+      "destination": "https://www.grupovelmont.com/links",
+      "permanent": false
+    },
     { "source": "/insights", "destination": "/blog", "statusCode": 301 },
     { "source": "/insights/:slug", "destination": "/blog/:slug", "statusCode": 301 }
   ],
@@ -26,6 +32,14 @@
           "value": "public, max-age=31536000, immutable"
         }
       ]
+    },
+    {
+      "source": "/fonts/(.*)",
+      "headers": [{ "key": "Cache-Control", "value": "public, max-age=31536000, immutable" }]
+    },
+    {
+      "source": "/(images|generated)/(.*)",
+      "headers": [{ "key": "Cache-Control", "value": "public, max-age=2592000, stale-while-revalidate=86400" }]
     },
     {
       "source": "/(.*)",

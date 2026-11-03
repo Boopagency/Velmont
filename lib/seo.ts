@@ -14,6 +14,7 @@ export function pageSeo(path: string, article: BlogPost | null = null) {
     '/': ['Registro de marcas, patentes e software | Velmont', 'Consultoria em propriedade intelectual em Curitiba, com atendimento digital. Registro de marcas, patentes e software com análise de riscos e acompanhamento.'],
     [BLOG_BASE]: ['Guias sobre marcas, patentes e software | Velmont', 'Entenda o registro de marca, a proteção de software e os critérios de uma patente. Conteúdos da Velmont para decidir com clareza sobre propriedade intelectual.'],
     '/filme': ['Relevo, um filme da Velmont | Velmont', 'Um filme curto sobre aquilo que um negócio constrói: marca, desenho, software, invenção e reputação, e o que precisa ser identificado e protegido.'],
+    '/links': ['Registre sua marca no INPI | Velmont', 'Registre sua marca, proteja sua invenção ou seu software com a Velmont. Fale com a equipe pelo WhatsApp, em Curitiba ou on-line.'],
     '/privacidade': ['Privacidade e uso de dados | Velmont', 'Saiba como o site da Velmont prepara sua mensagem de contato, quais dados utiliza e como falar com a equipe sobre privacidade.'],
   };
   const [title, description] = article ? [article.seo.title || `${article.title} | Velmont`, article.seo.description || article.excerpt] : defaults[path] || ['Página não encontrada | Velmont', 'Esta página não está disponível. Acesse a Velmont ou consulte nossos conteúdos sobre marcas, patentes e software.'];
@@ -40,7 +41,7 @@ export function pageSchema(path: string, article: BlogPost | null = null) {
     { '@type': 'Person', '@id': `${siteUrl}/#danielle`, name: 'Danielle Cubas de Azevedo', jobTitle: 'Founder & CEO', url: `${siteUrl}/#fundadoras`, image: `${siteUrl}/images/danielle-velmont-1024.webp`, worksFor: { '@id': orgId } },
   ];
   if (path !== '/') {
-    const crumbs = [{ name: 'Início', item: `${siteUrl}/` }, ...(data.article ? [{ name: 'Insights', item: `${siteUrl}${BLOG_BASE}` }] : []), { name: data.article?.title || (path === BLOG_BASE ? 'Insights' : path === '/filme' ? 'Filme' : 'Privacidade'), item: data.url }];
+    const crumbs = [{ name: 'Início', item: `${siteUrl}/` }, ...(data.article ? [{ name: 'Insights', item: `${siteUrl}${BLOG_BASE}` }] : []), { name: data.article?.title || (path === BLOG_BASE ? 'Insights' : path === '/filme' ? 'Filme' : path === '/links' ? 'Links' : 'Privacidade'), item: data.url }];
     graph.push({ '@type': 'BreadcrumbList', '@id': `${data.url}#breadcrumb`, itemListElement: crumbs.map((crumb, index) => ({ '@type': 'ListItem', position: index + 1, ...crumb })) });
   }
   if (path === '/') {

@@ -87,7 +87,7 @@ const text = (value: FormDataEntryValue | null) => (typeof value === 'string' ? 
  * hand-off never waits for it; the page never claims the lead was saved.
  * Refusals are logged by the server, without the visitor's data.
  */
-export async function submitLead(fields: { name: FormDataEntryValue | null; company: FormDataEntryValue | null; interest: string | null; website: FormDataEntryValue | null }) {
+export async function submitLead(fields: { name: FormDataEntryValue | null; company: FormDataEntryValue | null; interest: string | null; website: FormDataEntryValue | null; source?: 'link-bio' }) {
   try {
     const token = await verificationToken(2500);
     const body = JSON.stringify({
@@ -95,6 +95,7 @@ export async function submitLead(fields: { name: FormDataEntryValue | null; comp
       company: text(fields.company),
       interest: fields.interest || 'Preciso de orientação',
       website: text(fields.website),
+      source: fields.source,
       turnstileToken: token,
       ...readAttribution(),
     });

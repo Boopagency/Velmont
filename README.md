@@ -40,6 +40,8 @@ O exportador estático atende todo o escopo atual, reduz dependência de servido
 
 O formulário prepara uma mensagem para o WhatsApp oficial encontrado na apresentação institucional. A pessoa revisa e envia a mensagem no WhatsApp. Há também contato direto por e-mail e um fallback sem JavaScript. Com `NEXT_PUBLIC_LEAD_CAPTURE=true`, a submissão também é registrada como lead (via `/api/leads`) e aparece em `/admin/leads`; o texto da página de privacidade acompanha essa configuração.
 
+Link da bio do Instagram: `/links`. Página leve e indexável: HTML pré-renderizado, CSS próprio embutido (`app/bio-page.css`) e um script de poucos KB sem React (`components/velmont/bio-client.ts`); textos em `content/bio.ts`. Cada opção abre o mesmo formulário curto; o lead entra em `/admin/leads` com origem **Link da bio** (`source = 'link-bio'`), filtrável pelo seletor de origem ou por `/admin/leads?origem=bio`.
+
 ## Publicação
 
 Artefato pronto: `dist/`. Hospedagem estática em Sites, Vercel ou outra plataforma compatível.
