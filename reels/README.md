@@ -8,9 +8,11 @@ Reels em motion design de colagem para o Instagram da Velmont (@velmontmarcas), 
 npm install
 npm run dev          # Remotion Studio
 npm run storyboard   # out/storyboard/*.png, um quadro por cena
-npm run render       # out/velmont-m1-paulinho.mp4
+npm run render       # out/velmont-m1-paulinho.mp4 (H.264, yuv420p, 30 fps, faststart)
 npm run cover        # out/velmont-m1-capa.png
 ```
+
+`render` usa o Remotion para gerar o H.264 e o FFmpeg do sistema para mover o índice para o começo do arquivo (`+faststart`). Precisa de `ffmpeg` no PATH.
 
 Os efeitos (`paper()`, `noise()`, `contourLines()`) rodam em WebGL2 por software (`swangle`, em `remotion.config.ts`), então o render funciona em máquina sem GPU. Para usar um Chrome já instalado, aponte `REMOTION_CHROME` para o executável.
 

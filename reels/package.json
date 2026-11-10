@@ -27,7 +27,7 @@
   "scripts": {
     "dev": "remotion studio",
     "storyboard": "node scripts/storyboard.mjs",
-    "render": "remotion render velmont-m1-paulinho out/velmont-m1-paulinho.mp4 --codec=h264 --pixel-format=yuv420p --crf=18",
+    "render": "remotion render velmont-m1-paulinho out/velmont-m1-paulinho.raw.mp4 --codec=h264 --pixel-format=yuv420p --crf=18 --x264-preset=slow && ffmpeg -y -loglevel error -i out/velmont-m1-paulinho.raw.mp4 -c copy -movflags +faststart out/velmont-m1-paulinho.mp4 && rm out/velmont-m1-paulinho.raw.mp4",
     "cover": "remotion still velmont-m1-paulinho out/velmont-m1-capa.png --frame=72",
     "lint": "eslint src && tsc"
   },
