@@ -27,7 +27,7 @@ Sai em `out/velmont-pp01-vaca-roxa.mp4` (H.264, yuv420p, 30 fps) e a capa em PNG
 |---|---|
 | `node tools/render.mjs EP01 --preview` | Prévia em meia resolução |
 | `node tools/render.mjs all` | Todos os episódios |
-| `node tools/render.mjs EP01 --no-bed` | Sem a base rítmica, só efeitos (para usar música do Instagram) |
+| `node tools/render.mjs EP01 --bed` | Com a base rítmica, bem baixa (o padrão é só efeitos) |
 | `node tools/storyboard.mjs EP01 70,262,372` | Quadros parados para storyboard |
 | `npx remotion studio` | Abrir no editor do Remotion |
 
@@ -35,7 +35,8 @@ Em outra máquina, defina `REMOTION_CHROME` com o caminho do Chrome se o Remotio
 
 ## Como é feito
 
-- **Remotion** monta as cenas em React. **FFmpeg** finaliza: grão de papel "em dois" (muda a cada 2 quadros), volume em -16 LUFS e compressão.
+- **Remotion** monta as cenas em React. **FFmpeg** finaliza: grão de papel "em dois" (muda a cada 2 quadros) e compressão.
+- **Som:** só efeitos de papel e carimbo, baixos de propósito (perto de -30 LUFS), porque a narração entra por cima. O volume geral fica em `SFX_GAIN`, em `src/kit/Sfx.tsx`.
 - `src/kit/` é a linguagem de colagem, em peças separadas:
 
 | Peça | O que faz |
@@ -45,7 +46,8 @@ Em outra máquina, defina `REMOTION_CHROME` com o caminho do Chrome se o Remotio
 | `Cutout` | Foto em halftone com borda de adesivo |
 | `Ransom` | Título em letras recortadas, coladas uma a uma |
 | `Stamp` | Carimbo com tinta falhada |
-| `Scribble`, `Mark` | Setas, círculos, riscos e sublinhados à mão |
+| `Arrow` | Seta à mão entre dois pontos exatos da tela: a ponta termina em `to` |
+| `Scribble`, `Mark` | Círculos, riscos e sublinhados à mão |
 | `T`, `Em`, `Hl`, `Reveal`, `Typed` | Texto: Manrope, ênfase em Instrument Serif itálico, caixa de destaque |
 | `Scene`, `Brand` | Fundo com curvas de nível, deriva de câmera e a moldura fixa da marca |
 | `Sfx`, `Episode` | Som por quadro e a montagem em corte seco |
@@ -58,6 +60,8 @@ Em outra máquina, defina `REMOTION_CHROME` com o caminho do Chrome se o Remotio
 1. Escreva as cenas em `src/episodes/epNN.tsx`, exportando uma lista `{ id, dur, el }`.
 2. Registre em `src/episodes/index.ts`.
 3. Confira com `node tools/storyboard.mjs EPNN every:45`.
+4. Toda seta é conferida num quadro em tamanho real (`--scale 1`): a ponta precisa encostar na borda do alvo.
+5. O tempo de cada cena segue a narração: cerca de 2,6 palavras por segundo, mais uma folga curta.
 
 ## Decisões que fogem do pedido original
 

@@ -1,8 +1,9 @@
 // Renderiza um ou todos os episódios: Remotion gera as imagens e o som,
-// o FFmpeg finaliza (grão de papel, volume padrão de rede social, H.264 yuv420p).
+// o FFmpeg finaliza (grão de papel, H.264 yuv420p). O som sai baixo de propósito:
+// só efeitos discretos, para a narração entrar por cima.
 // Uso: node tools/render.mjs EP01            (final, 1080x1920)
 //      node tools/render.mjs EP01 --preview  (metade da resolução, rápido)
-//      node tools/render.mjs all --no-bed    (sem a base rítmica, só efeitos)
+//      node tools/render.mjs all --bed       (com a base rítmica, bem baixa)
 //      node tools/render.mjs EP01 --capa 70  (também salva o quadro 70 como capa PNG)
 //      node tools/render.mjs EP01 --keep-raw / --post-only  (guarda o bruto; refaz só a finalização)
 import { execFileSync } from 'node:child_process';
@@ -29,7 +30,7 @@ const post = (raw, out, preview) => {
     '-v', 'error', '-y', '-i', raw,
     '-f', 'lavfi', '-i', `color=c=gray:s=${size}:r=15,format=gray,noise=alls=${preview ? 12 : 17}:allf=t+u,fps=30,format=yuv420p`,
     '-filter_complex', '[0:v]format=yuv420p[v];[v][1:v]blend=c0_mode=softlight:c1_mode=normal:c2_mode=normal:shortest=1[o]',
-    '-map', '[o]', '-map', '0:a', '-af', 'loudnorm=I=-16:TP=-1.5:LRA=11',
+    '-map', '[o]', '-map', '0:a',
     '-c:v', 'libx264', '-preset', 'slow', '-crf', preview ? '24' : '20', '-maxrate', preview ? '4M' : '10M', '-bufsize', preview ? '8M' : '20M',
     '-pix_fmt', 'yuv420p', '-r', '30', '-c:a', 'aac', '-b:a', '256k', '-ar', '48000', '-movflags', '+faststart', out,
   ]);
@@ -44,7 +45,7 @@ for (const id of ids) {
   if (!(has('post-only') && fs.existsSync(raw))) {
     const args = ['remotion', 'render', 'src/index.ts', id, raw, ...chrome, '--codec=h264', '--pixel-format=yuv420p', '--crf=10', '--audio-codec=aac', '--audio-bitrate=320k', '--concurrency=4', '--log=error'];
     if (preview) args.push('--scale=0.5');
-    if (has('no-bed')) args.push('--props={"bed":false,"bedVol":0}');
+    if (has('bed')) args.push('--props={"bed":"bed","bedVol":0.12}');
     if (val('frames')) args.push(`--frames=${val('frames')}`);
     run('npx', args);
   }

@@ -65,4 +65,4 @@ Sem aprovação garantida, taxa de sucesso, quantidade de clientes, assinatura, 
 - Série de Reels em motion de colagem, em `reels/` (projeto separado do site). Roteiros em `reels/ROTEIROS.md`; imagens, fontes e licenças em `reels/CREDITS.md`.
 - Regras de redação: processo "SOCIAL 04" e guias SMK do Boop Admin. Fatos sobre a marca: briefing de social media da Danielle (novembro de 2026).
 - Base legal conferida no texto da Lei 9.279/96 publicado pela Câmara dos Deputados (arts. 123, 124, 125, 129, 130, 133, 134, 139, 143, 158 e 162) e no Guia Básico de Marcas do INPI. Nenhuma promessa de registro, métrica, preço ou prova social.
-- Nomes usados como exemplo (Zuvê, Bolos Caseiros, Doce Fatia, Girassol, Doce Lar) são fictícios e precisam ser conferidos no INPI antes da publicação.
+- Cada episódio parte de uma história real, com a fonte e a data indicadas em `reels/ROTEIROS.md` e no rodapé da cena. Marcas e pessoas de terceiros aparecem só em texto. Antes de publicar, conferir se o caso teve novidade.

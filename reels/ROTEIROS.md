@@ -1,507 +1,523 @@
-# Papel Passado: 10 roteiros de Reels
+# Papel Passado: 10 roteiros de Reels (versão 2)
 
 Série em motion de colagem para a Velmont | Marcas e Patentes (@velmontmarcas).
 Oferta: registro e proteção de marca. Meta do briefing: 5 pedidos de orçamento por semana.
 
-**Status:** roteiros para aprovação. Episódio 01 animado como piloto. Os demais têm a capa montada e aguardam o ok.
+**Status:** roteiros reescritos para aprovação. O episódio 01 está animado com este roteiro novo. Os outros nove aguardam o ok.
 
-## Por que série, e por que esse nome
+## O que mudou nesta versão
 
-"De papel passado" é como se fala de algo que é seu de verdade, com registro. É o assunto da Velmont e é, ao pé da letra, a técnica dos vídeos: papel rasgado, colado e carimbado. O guia SMK T1.1.8 do Boop Admin pede programa em vez de post avulso (formato recorrente, com nome próprio), e o briefing pede fugir do "todas as empresas de marcas e patentes fazem a mesma coisa".
+| Pedido | Como foi atendido |
+|---|---|
+| Roteiro mais trabalhado, com storytelling | Cada episódio conta uma história real em atos: gancho, contexto, conflito, virada, lição e CTA. A regra jurídica só aparece depois que a história prende. |
+| Tendência | Oito dos dez episódios partem de um assunto que circulou na imprensa e nas redes, quatro deles de 2026. Há uma sugestão de quando publicar cada um. |
+| 45 s a 1 min | Narração de 135 a 155 palavras por episódio, o que dá de 50 a 60 s em ritmo normal de fala. É a faixa que o SOCIAL 04 aponta como a que mais rende. |
+| Setas corretas | A seta agora liga dois pontos exatos da tela e a ponta termina na borda do alvo. Cada uma é conferida quadro a quadro antes do render. |
+| Som discreto | Só efeitos de papel e carimbo em volume baixo, sem trilha, para a narração entrar por cima. |
 
-Todo episódio tem a mesma espinha: gancho em letras recortadas, um objeto que carrega a ideia, a regra explicada sem juridiquês, uma virada e um CTA específico. Assinatura fixa: "O que é seu, de papel passado."
+## Como a história é montada
+
+1. **Gancho (0 a 4 s):** o fato mais estranho da história, dito de uma vez. Funciona como capa.
+2. **Contexto:** quem, quando, onde. Datas e números vão na tela, não na fala.
+3. **Conflito:** o que deu errado, ou quase.
+4. **Virada:** o detalhe que quase ninguém sabe. É aqui que a regra entra.
+5. **Lição:** a ponte para o negócio de quem assiste, em segunda pessoa.
+6. **CTA:** uma ação só, coerente com a etapa do funil.
+
+Na tela vai o resumo de cada fala (frases curtas, palavra-chave em destaque), nunca a narração inteira.
 
 ## Regras de redação aplicadas (Boop Admin, SOCIAL 04)
 
-| Regra do processo | Como entrou |
-|---|---|
-| Gancho, desenvolvimento, CTA específico | As três partes estão marcadas em cada roteiro |
-| Frase de mira preenchida | Uma por episódio, sem lacuna |
-| Capa resume a tese na rotina de quem lê | O quadro de 0 a 3 s funciona sozinho como capa |
-| Fórmula escolhida pela função do post | Alcance: Mito-Correção, Ideia-Derrubada-Alternativa, Crônica. Autoridade: Antes-Depois-Ponte, Atenção-Interesse-Entrega. Venda: Promessa-Prova-Empurrão, Problema-Agitação-Solução |
-| Uma ação-alvo por peça (SMK T1.3.1) | Salvar, enviar ou chamar: nunca duas concorrendo |
-| Matar "você sabia que", pergunta óbvia, promessa que não paga | Nenhum gancho usa |
-| Faxina: sem travessão, sem "não é X, é Y", sem "isso muda tudo" | Feita frase por frase |
-| Número e data vão na tela, não na fala | Artigos de lei só no rodapé da cena |
-| Teste da unicidade (SMK T1.3.6) | Cada episódio tem um objeto e uma tese que outro escritório não postaria igual |
-| Toda peça planta a próxima pergunta (SOCIAL 03) | O fim de cada episódio aponta para o seguinte |
+- Gancho, desenvolvimento e CTA específico em todo episódio. Nenhum gancho usa "você sabia que", pergunta óbvia ou promessa que não paga.
+- Frase de mira preenchida, uma ação-alvo por peça.
+- Fórmula pela função: alcance (Crônica, Mito-Correção, Ideia-Derrubada-Alternativa), autoridade (Atenção-Interesse-Entrega, Antes-Depois-Ponte), venda (História-Oferta-Empurrão).
+- Faxina feita: sem travessão, sem "não é X, é Y", sem "isso muda tudo".
+- Teste da unicidade: nenhum episódio explica "o que é registro de marca". Todos entram por uma história.
 
-Limites do briefing respeitados em todos: sem promessa de aprovação, sem taxa de sucesso, sem número de clientes, sem preço, sem citar concorrente, sem foto ou caricatura de pessoa real, sem logo de terceiros ("INPI" só como texto). Tom: desafia a ideia, não o leitor ("explicar sem provocar"), com acolhimento.
+## Regras de fato (valem para todos)
+
+- Todo fato vem de fonte citada na tela, com data. Onde a fonte fala em alegação, o roteiro diz "segundo a empresa" ou "segundo a família".
+- Nenhuma acusação. Decisão que ainda cabe recurso é dita assim.
+- Nenhuma foto, caricatura, logo ou embalagem de terceiros. Marcas e pessoas aparecem só em texto. Rodapé fixo: "A marca citada pertence à sua titular, sem vínculo com a Velmont."
+- Sem promessa de aprovação, sem preço, sem taxa de sucesso, sem número de clientes.
+- Antes de publicar cada episódio, conferir se o caso teve novidade.
 
 ## Mapa da série
 
-| Nº | Título | Pilar do briefing | Funil | Fórmula | Ação-alvo |
-|---|---|---|---|---|---|
-| 01 | A vaca roxa | Negócio protegido | Topo | Ideia-Derrubada-Alternativa | Enviar |
-| 02 | Tenho CNPJ, o nome é meu | Sem letra miúda | Topo | Mito-Correção | Salvar e enviar |
-| 03 | Senha 001 | Marca é patrimônio | Meio | Atenção-Interesse-Entrega | Direct |
-| 04 | Não apareceu nada | Bastidores da análise | Topo | Mito-Correção | Chamar antes do logo |
-| 05 | Nome de todo mundo | Bastidores da análise | Meio | Atenção-Interesse-Entrega | Salvar |
-| 06 | 45 gavetas | Bastidores da análise | Meio | Antes-Depois-Ponte | Salvar |
-| 07 | O cupom inteiro | Sem letra miúda | Fundo | Promessa-Prova-Empurrão | WhatsApp |
-| 08 | Semana que vem | Marca é patrimônio | Topo | Crônica | Enviar |
-| 09 | Dá pra alugar um nome | Marca é patrimônio | Meio | Atenção-Interesse-Entrega | Salvar |
-| 10 | Pensa a sua marca crescer | Marca é patrimônio | Fundo | Problema-Agitação-Solução | WhatsApp |
+| Nº | Título | História | De quando | Lição | Funil | Publicar |
+|---|---|---|---|---|---|---|
+| 01 | A vaca roxa era um morango | Morango do amor e a marca de 2010 | 2025 e 2026 | Pesquisar o nome da moda; registrar a própria | Topo | Já |
+| 02 | Anitta e Annita | A cantora, o vermífugo e os cosméticos | Jan. 2026 | Registro vale por ramo (classes) | Topo | Já |
+| 03 | 30 dias pra trocar de nome | A empresa paulistana e a dona do Facebook | 2024 | Marca é de quem registra | Topo | Qualquer semana |
+| 04 | Calma, calabreso | O bordão e a corrida ao INPI | 2024 | Monitorar e se opor | Topo | Janeiro (BBB) |
+| 05 | O INPI disse não, a Justiça disse sim | A loja de pneus e o nome genérico | Nov. 2026 | Nome descritivo é fraco | Meio | Já (notícia desta semana) |
+| 06 | Uma flor de 1,3 milhão | Louis Vuitton e a rede de chá | Jul. 2026 | O logo também é marca | Topo | Qualquer semana |
+| 07 | O Burger King sem nome | Hungry Jack's, na Austrália | 1971 | Crescer sem checar o nome | Meio | Qualquer semana |
+| 08 | A marca que não parou | A marca Senna | Novembro (F1) | Marca é patrimônio | Meio | Semana do GP ou 1º de maio |
+| 09 | Ela não respondeu | Um atendimento real da Velmont | Caso da casa | Transparência, fase por fase | Fundo | Depois de dois de topo |
+| 10 | A fila rápida do INPI | Trâmite prioritário de 2026 | Maio de 2026 | Marketplace e prioridade | Fundo | Já (vagas até dezembro) |
 
-Equilíbrio: 4 de alcance, 4 de autoridade, 2 de venda (perto do 60/40 do SOCIAL 03). As três dúvidas que mais se repetem antes de fechar estão cobertas: como funciona (03, 06), se o nome é viável (04, 05) e tudo o que se paga, fase por fase (07). A objeção "não está na lista de prioridades" é o episódio 08.
-
-Os tempos abaixo são da versão sem narração (texto lido na tela). Com a narração, cada cena acompanha a fala e o vídeo fecha entre 38 e 45 s.
+Equilíbrio: 6 de alcance, 2 de autoridade, 2 de venda. As três dúvidas que mais se repetem antes de fechar estão cobertas: como funciona (03, 10), se o nome é viável (01, 05) e tudo o que se paga, fase por fase (09).
 
 ---
 
-## 01 · A vaca roxa
+## 01 · A vaca roxa era um morango
 
-**Frase de mira:** Para gerar pedidos de orçamento de registro, falo com o dono de negócio que investe em ser diferente, no momento em que a marca começa a ser notada, sobre o que acontece depois que a diferença funciona, para ele enviar o vídeo a quem está lançando uma marca.
+- **Pilar:** Negócio protegido · **Fórmula:** Ideia-Derrubada-Alternativa, contada como crônica · **Ação-alvo:** enviar
+- **Frase de mira:** Para gerar pedidos de orçamento de registro, falo com o dono de negócio que surfa ou cria tendências, no momento em que um produto começa a pegar, sobre o nome da onda já ter dono, para ele enviar o vídeo a quem está lançando um produto.
+- **Por que agora:** o morango do amor foi a febre de 2025 e o morango cravejado virou trend em agosto e setembro de 2026. É a referência que a Danielle citou (a vaca roxa), com uma história brasileira dentro.
 
-**Gancho e capa:** A VACA ROXA TEM UM PROBLEMA.
+| Ato | Tempo | Na tela | Colagem |
+|---|---|---|---|
+| Gancho | 0 a 4,2 s | Em 2025, **A VACA ROXA** do Brasil foi um morango. | Título em letras recortadas. Vaca em halftone tingida de vinho. Um morango de papel cai ao lado. |
+| Contexto | 4,2 a 10,8 s | Num pasto de vacas iguais, só a diferente é *lembrada.* | Seis vacas idênticas. A vinho bate por cima. Crédito a Seth Godin. |
+| Contexto | 10,8 a 18,4 s | Aí veio o **morango do amor.** · Julho de 2025 · em toda vitrine · em todo feed | Morango no palito. Celular de papel com o feed se enchendo de morangos. |
+| Conflito | 18,4 a 25,4 s | Quando uma vaca roxa dá certo, o pasto inteiro compra *tinta.* · Qual era a primeira? | Lata de tinta cai. Cinco vacas são pintadas uma a uma. |
+| Virada | 25,4 a 35 s | Só que pouca gente olhou **o nome.** · MARCA REGISTRADA · Morango do Amor · desde 2010 · Peccin, indústria de doces · um pirulito | Etiqueta com o nome. Lupa passa. Certificado cai, seta liga a etiqueta ao certificado, carimbo ® bate, pirulito aparece. |
+| Virada | 35 a 40,4 s | Em 2026, a onda **trocou de nome.** | Calendário de parede: a folha de 2025 é arrancada e revela 2026, morango cravejado. Depois, uma folha com interrogação. |
+| Lição | 40,4 a 50 s | Antes de estampar o nome da moda na embalagem: **PESQUISA.** · E quando a moda for criação sua: **REGISTRA** antes de a onda quebrar. | Caixa com rótulo sob a lupa. Depois, a vaca com carimbo ® e brinco de identificação. |
+| CTA | 50 a 57,6 s | Qual é a vaca roxa do seu negócio? *Ela tem dono no papel?* · Manda pra quem está surfando a onda agora. | Seta da pergunta até a vaca. Assinatura da série. |
 
-| Tempo | Texto na tela | Colagem |
-|---|---|---|
-| 0 a 3,4 s | **A VACA ROXA** tem um problema. · (a nossa é vinho. marca boa não sai da paleta.) | Título em letras recortadas. Vaca em halftone, tingida de vinho, colada com fita sobre papel kraft. Carimbo bate no "tem um problema". |
-| 3,4 a 9,4 s | Num pasto de vacas iguais, ninguém olha duas vezes. · Aí aparece *uma roxa.* · Rodapé: "A ideia é de Seth Godin, no livro A Vaca Roxa." | Seis vacas idênticas entram uma a uma. A vinho bate por cima, com cowbell. |
-| 9,4 a 13,4 s | O pasto inteiro **para pra olhar.** | Flashes de papel estouram em volta. Etiquetas: "OLHA ISSO", "QUE MARCA É ESSA?", "ME PASSA O @". |
-| 13,4 a 20,4 s | Só que a história não conta o resto. · Quando a vaca roxa dá certo, todo mundo compra *tinta.* · E agora, qual é a sua? | Lata de tinta cai. Cinco vacas são pintadas de vinho, uma por uma. |
-| 20,4 a 28,4 s | Ser diferente faz você ser *lembrado.* · O que mantém o nome com você é o **registro.** · Fazendeiro já marcava o gado pra provar de quem era. Hoje esse ferro se chama registro de marca. | Carimbo ® bate na vaca. Brinco de identificação balança na orelha. |
-| 28,4 a 34,6 s | A sua vaca já chamou atenção. · *E no papel, ela tem dono?* · Manda pra quem tá pintando a vaca agora. | Pergunta em serifa grande. Seta à mão aponta para o botão de enviar. |
-| 34,6 a 37 s | Velmont · PAPEL PASSADO · O que é seu, de papel passado. | Logo bate como carimbo. |
+**Narração (ElevenLabs), 136 palavras:**
 
-**Narração (ElevenLabs):**
-
-> A vaca roxa tem um problema.
+> Em 2025, a vaca roxa do Brasil foi um morango.
 >
-> A ideia você conhece: num pasto de vacas iguais, ninguém olha duas vezes. Aí aparece uma roxa.
+> A ideia é do Seth Godin: num pasto de vacas iguais, só a diferente é lembrada.
 >
-> E o pasto inteiro para pra olhar.
+> Aí veio o morango do amor. Em poucas semanas, o doce estava em toda vitrine e em todo feed.
 >
-> Só que a história não conta o resto. Quando a vaca roxa dá certo, todo mundo compra tinta.
+> E aconteceu o que sempre acontece quando uma vaca roxa dá certo: o pasto inteiro comprou tinta.
 >
-> Ser diferente faz você ser lembrado. O que mantém o nome com você é o registro. Fazendeiro já marcava o gado pra provar de quem era. Hoje esse ferro se chama registro de marca.
+> Só que pouca gente olhou o nome. Morango do Amor já era marca registrada desde 2010, de uma indústria de doces, pra um pirulito.
 >
-> A sua vaca já chamou atenção. E no papel, ela tem dono?
+> Em 2026, a onda trocou de nome: morango cravejado. Vai trocar de novo.
+>
+> Antes de estampar o nome da moda na sua embalagem, pesquisa. E quando a moda for criação sua, registra antes de a onda quebrar.
+>
+> Qual é a vaca roxa do seu negócio? Ela tem dono no papel?
 
-**CTA:** Manda pra quem tá pintando a vaca agora.
+Cada parágrafo é uma cena. Os tempos da tabela são os do vídeo já renderizado.
 
 **Legenda:**
 
-> Ser diferente é metade do trabalho.
+> O doce que o Brasil inteiro vendeu em 2025 tinha um nome. E o nome já tinha dono desde 2010.
 >
-> A outra metade é garantir que a diferença continue sendo sua quando o mercado inteiro resolver copiar.
+> Tendência passa rápido. O nome que você põe na embalagem fica.
 >
-> Nome conhecido sem registro é vaca roxa em pasto aberto.
+> Antes de embarcar na próxima onda, vale uma pesquisa. E se a onda for criação sua, o registro vem antes do sucesso.
 >
-> Qual é a vaca roxa do seu negócio?
+> Qual foi a última moda que você viu todo mundo copiar?
 
-**Base:** conceito de Seth Godin (A Vaca Roxa), citado na tela. Lei 9.279/96, art. 129.
-**Unicidade:** o setor explica registro; este episódio pega a referência que a Danielle citou (Carlos Busch, vaca roxa) e conta a parte que o livro não conta. A vaca vinho vira piada de marca.
+**Fontes:** Jornal Contábil, 4/8/2025; Correio Braziliense; O Povo, 1/9/2026 (morango cravejado); Mercado e Consumo, 24/7/2025.
+**Cuidados:** o roteiro não diz que confeiteiros infringiram a marca nem que a empresa notificou alguém. Segundo a imprensa, ela declarou apenas que estava atenta ao movimento.
 
 ---
 
-## 02 · Tenho CNPJ, o nome é meu
+## 02 · Anitta e Annita
 
-**Frase de mira:** Para gerar pedidos de orçamento de registro, falo com quem acabou de abrir empresa, no momento em que sai o CNPJ e o domínio, sobre a diferença entre os quatro papéis que levam o nome dele, para ele conferir qual falta e mandar pro sócio.
+- **Pilar:** Bastidores da análise · **Fórmula:** Mito-Correção · **Ação-alvo:** salvar
+- **Frase de mira:** Para gerar pedidos de orçamento de registro, falo com quem já tem um negócio rodando e está abrindo uma atividade nova, no momento da expansão, sobre o registro valer por ramo, para ele salvar e revisar as classes da marca.
+- **Por que agora:** a decisão do INPI saiu na imprensa em janeiro de 2026 e mistura dois nomes que todo brasileiro conhece.
 
-**Gancho e capa:** TENHO CNPJ. O NOME É MEU. (carimbo: MITO)
+| Ato | Tempo | Na tela | Colagem |
+|---|---|---|---|
+| Gancho | 0 a 5 s | **ANITTA** é cantora. **ANNITA** é vermífugo. Os dois nomes convivem há anos. | Duas etiquetas de papel quase iguais. Uma letra recortada troca de lugar entre elas. |
+| Contexto | 5 a 14 s | O remédio chegou primeiro: marca registrada desde 2004. A cantora veio depois, em outro ramo. | Gaveteiro de arquivo. Uma gaveta "medicamentos", outra "música". |
+| Regra | 14 a 23 s | O registro vale dentro do ramo que você pediu. O INPI organiza os ramos em **45 classes.** | O gaveteiro se completa: 45 gavetas numeradas. |
+| Conflito | 23 a 30 s | A farmacêutica quis abrir uma gaveta nova: cosméticos, com a grafia da cantora. | Mão de papel puxa uma terceira gaveta, "cosméticos". |
+| Virada | 30 a 41 s | Janeiro de 2026: o INPI disse **NÃO.** · Nome artístico notoriamente conhecido. · O remédio continua registrado. | Carimbo "INDEFERIDO" na gaveta nova. A gaveta dos medicamentos segue intacta. Rodapé: Lei 9.279/96, art. 124, XVI. |
+| Lição | 41 a 51 s | Cada atividade nova pode pedir uma gaveta nova. *E ela pode já ter dono.* | Três gavetas com etiquetas "confeitaria", "curso", "utensílios". |
+| CTA | 51 a 56 s | Em quantas gavetas a sua marca está? Salva pra revisar. | Gaveteiro inteiro. Assinatura. |
 
-| Tempo | Texto na tela | Colagem |
-|---|---|---|
-| 0 a 3 s | **TENHO CNPJ.** O nome é meu. | Cartão de CNPJ em papel (genérico, sem brasão). Carimbo MITO bate torto por cima. |
-| 3 a 8 s | Você pode ter quatro papéis com o mesmo nome. | Quatro fichas de arquivo entram em leque, com abas. |
-| 8 a 14 s | CNPJ · Junta Comercial: guarda o nome empresarial. · DOMÍNIO · Registro.br: é o endereço do site. | Fichas 1 e 2 saltam para a frente, uma de cada vez. |
-| 14 a 19 s | @ · Rede social: é o nome de usuário. | Ficha 3. |
-| 19 a 27 s | MARCA · INPI: uso exclusivo em todo o território nacional, no seu ramo. · Rodapé: Lei 9.279/96, art. 129. | Ficha 4 em vinho. Selo ® bate. |
-| 27 a 33 s | Os três primeiros são úteis. **Nenhum substitui o quarto.** | As três fichas claras recuam; a vinho fica. |
-| 33 a 39 s | Qual dos quatro está faltando aí? · Salva e manda pro seu sócio. | Gaveta aberta com uma divisória vazia. Assinatura. |
+**Narração (ElevenLabs), 145 palavras:**
 
-**Narração (ElevenLabs):**
-
-> Tenho CNPJ, então o nome é meu. É um engano comum de quem abre empresa.
+> Anitta é cantora. Annita é vermífugo. E os dois nomes convivem há anos.
 >
-> Você pode ter quatro papéis com o mesmo nome.
+> O remédio chegou primeiro: a marca está registrada desde 2004, na gaveta dos medicamentos. A cantora veio depois, em outro ramo, o da música.
 >
-> O CNPJ, na Junta Comercial, guarda o nome empresarial. O domínio é o endereço do site.
+> É assim que marca funciona no Brasil. O registro vale dentro do ramo que você pediu, e o INPI organiza esses ramos em quarenta e cinco classes.
 >
-> O arroba é o usuário na rede social.
+> A confusão começou quando a farmacêutica quis abrir uma gaveta nova: uma linha de cosméticos com a grafia da cantora.
 >
-> E a marca fica no INPI. É ela que dá o uso exclusivo do nome no país inteiro, dentro do seu ramo.
+> Em janeiro de 2026 saiu a decisão do INPI: não pode. O órgão entendeu que Anitta é nome artístico notoriamente conhecido. O remédio continua registrado, do jeito que estava.
 >
-> Os três primeiros são úteis. Nenhum deles substitui o quarto.
+> Agora olha pro seu negócio. Cada atividade nova, um curso, uma linha de produtos, pode pedir uma gaveta nova. E ela pode já ter dono.
 >
-> Olha aí na sua gaveta: qual dos quatro está faltando?
-
-**CTA:** Salva e manda pro seu sócio.
+> Em quantas gavetas a sua marca está?
 
 **Legenda:**
 
-> CNPJ aberto, domínio comprado, @ garantido. E a marca?
+> Um nome, duas donas, nenhum erro.
 >
-> São quatro registros diferentes, feitos em quatro lugares diferentes. Só o do INPI dá exclusividade sobre o nome no país, dentro do seu ramo.
+> O registro de marca vale por ramo. Por isso um remédio e uma cantora dividiram o mesmo som por anos, cada um na sua gaveta. A disputa começou quando uma das partes quis abrir outra.
 >
-> Qual dos quatro ainda falta aí?
+> O seu negócio já vende algo que não vendia quando você registrou?
 
-**Base:** Lei 9.279/96, art. 129. INPI, página "Marca x nome empresarial x domínio".
-**Unicidade:** a comparação existe em todo perfil do setor como tabela. Aqui ela vira um fichário com um carimbo de MITO na capa, e termina numa pergunta que a pessoa responde olhando a própria gaveta.
+**Fontes:** Correio Braziliense, 12/1/2026; Conselho Federal de Farmácia, 15/1/2026; Lei 9.279/96, art. 124, XVI.
+**Cuidados:** decisão administrativa. A imprensa noticiou em 22/1/2026 que a farmacêutica recorreu: conferir o andamento. Sem foto da cantora e sem embalagem do remédio.
 
 ---
 
-## 03 · Senha 001
+## 03 · 30 dias pra trocar de nome
 
-**Frase de mira:** Para gerar pedidos de orçamento de registro, falo com quem usa o nome há anos sem registro, quando o negócio começa a ficar conhecido, sobre a regra de quem fica com a marca no Brasil, para ele me mandar o nome no direct.
+- **Pilar:** Marca é patrimônio · **Fórmula:** Atenção-Interesse-Entrega · **Ação-alvo:** direct
+- **Frase de mira:** Para gerar pedidos de orçamento de registro, falo com quem usa o nome há anos sem registro, quando o negócio começa a ficar conhecido, sobre a data do pedido decidir quem fica na frente, para ele mandar o nome da marca no direct.
+- **Por que funciona:** é a história de uma empresa brasileira pequena diante de uma das maiores do mundo. Todo dono de negócio se enxerga no lado menor.
 
-**Gancho e capa:** NO BRASIL, MARCA TEM FILA. VOCÊ PEGOU SENHA?
+| Ato | Tempo | Na tela | Colagem |
+|---|---|---|---|
+| Gancho | 0 a 6 s | Em 2024, a Justiça mandou a dona do Facebook **PARAR DE USAR O NOME META** no Brasil. | Ordem judicial de papel cai na mesa. Carimbo "30 DIAS". |
+| Contexto | 6 a 17 s | Uma empresa paulistana de informática usava o nome desde os anos 90. · Registros no INPI: 2008 e 2009. | Certificado amarelado, com clipe e data. Calendário voltando no tempo. |
+| Conflito | 17 a 27 s | 2021: o Facebook vira Meta. · Segundo a empresa: **143 processos** por causa da confusão. | Pilha de envelopes cresce em stop motion sobre a mesa da empresa pequena. |
+| Virada | 27 a 32 s | Ela foi à Justiça com o que tinha: **o registro e a data dele.** | A mão de papel põe o certificado em cima da pilha. |
+| Desfecho | 32 a 45 s | A ordem foi suspensa duas semanas depois. A disputa seguiu. · Mesmo assim: ela fez a gigante responder em juízo. | Balança de papel: de um lado um certificado, do outro um prédio. |
+| Lição | 45 a 52 s | No Brasil, a marca é de quem registra. A data do pedido é a sua **senha na fila.** | Senha "001" sai de um dispensador. Rodapé: Lei 9.279/96, art. 129. |
+| CTA | 52 a 57 s | Você já pegou a sua? Me conta o nome da sua marca no direct. | Senha em branco esperando um nome. Assinatura. |
 
-| Tempo | Texto na tela | Colagem |
-|---|---|---|
-| 0 a 3,5 s | No Brasil, **MARCA TEM FILA.** Você pegou senha? | Dispensador de senhas em papel. A senha 001 sai rasgando. |
-| 3,5 a 10 s | A propriedade da marca vem do registro. Usar o nome há anos, sozinho, não garante. · Rodapé: Lei 9.279/96, art. 129. | Calendário antigo de um lado, senha do outro. |
-| 10 a 16 s | A data do pedido é a sua senha. Quem protocola primeiro fica na frente. | Fila de senhas 001, 002, 003. Painel "PRÓXIMO" vira. |
-| 16 a 25 s | E quem já usava o nome antes? · Quem usava de boa-fé, há pelo menos 6 meses, pode pedir preferência. **Precisa provar.** · Rodapé: art. 129, § 1º. | Pasta kraft com clipe: nota fiscal, foto datada, post antigo. |
-| 25 a 31 s | Preferência também se pede. *Dentro da fila.* | A pasta entra na fila, com uma senha colada. |
-| 31 a 38 s | Me conta o nome da sua marca no direct. Eu te digo o primeiro passo. | Balão de mensagem em papel, sem logo de aplicativo. Assinatura. |
+**Narração (ElevenLabs), 151 palavras:**
 
-**Narração (ElevenLabs):**
-
-> No Brasil, marca tem fila. E muita gente nem sabe que precisa pegar senha.
+> Em 2024, a Justiça de São Paulo mandou a dona do Facebook parar de usar o nome Meta no Brasil.
 >
-> A regra é esta: a propriedade da marca vem do registro. Usar o nome há anos, sozinho, não garante.
+> O motivo cabia numa folha de papel. Uma empresa paulistana de informática usava esse nome desde os anos noventa, com registros de marca concedidos pelo INPI em 2008 e 2009.
 >
-> A data do seu pedido é a sua senha. Quem protocola primeiro fica na frente.
+> Quando o Facebook virou Meta, em 2021, sobrou pra ela. Segundo a empresa, foram cento e quarenta e três processos em que acabou envolvida por causa da confusão.
 >
-> E quem já usava o nome antes? A lei dá uma chance: quem usava de boa-fé, há pelo menos seis meses, pode pedir preferência. Só que precisa provar.
+> Ela foi à Justiça com o que tinha: o registro e a data dele.
 >
-> E preferência também se pede dentro da fila.
+> A ordem foi suspensa duas semanas depois, e a disputa seguiu nos tribunais. Mas repara no tamanho disso: uma empresa brasileira fez uma das maiores do mundo responder em juízo porque tinha chegado primeiro ao INPI.
 >
-> Me conta o nome da sua marca no direct que eu te digo o primeiro passo.
-
-**CTA:** Me conta o nome da sua marca no direct. Eu te digo o primeiro passo.
+> No Brasil, a marca é de quem registra. A data do pedido é a sua senha na fila.
+>
+> Você já pegou a sua?
 
 **Legenda:**
 
-> No Brasil, marca é de quem registra.
+> Uma empresa de São Paulo fez a dona do Facebook responder na Justiça por causa de um nome.
 >
-> A lei protege quem já usava o nome de boa-fé, mas essa preferência precisa ser pedida e provada. Ela não chega sozinha.
+> O que ela tinha na mão era um registro de marca com mais de dez anos. No Brasil, a data do pedido conta mais do que o tamanho da empresa.
 >
 > Há quanto tempo você usa o seu nome sem registro?
 
-**Base:** Lei 9.279/96, art. 129, caput e § 1º.
-**Unicidade:** a regra "marca é de quem registra" todo mundo posta. A senha de fila explica por que a data importa, e a pasta de provas mostra a exceção sem prometer que ela funciona.
+**Fontes:** ConJur, 19/3/2024; Olhar Digital, 1/3/2024 e 16/3/2024; Lei 9.279/96, art. 129.
+**Cuidados:** o roteiro não diz quem ganhou, porque a disputa seguiu. Conferir o andamento antes de publicar. Os 143 processos são alegação da empresa e aparecem assim.
 
 ---
 
-## 04 · Não apareceu nada
+## 04 · Calma, calabreso
 
-**Frase de mira:** Para gerar pedidos de orçamento de registro, falo com quem digitou o nome na busca do INPI e não achou nada, na semana em que está fechando nome e logo, sobre por que o risco está no nome parecido, para ele chamar a Velmont antes de mandar fazer o logo.
+- **Pilar:** Negócio protegido · **Fórmula:** Problema-Agitação-Solução, em crônica · **Ação-alvo:** chamar no WhatsApp
+- **Frase de mira:** Para gerar pedidos de orçamento de registro, falo com quem criou um nome, um produto ou um bordão que pegou, no auge da repercussão, sobre outra pessoa pedir o registro antes, para ele chamar a Velmont e acompanhar a própria marca.
+- **Por que em janeiro:** o BBB volta e, com ele, o bordão do ano. O episódio pega carona na conversa.
 
-**Gancho e capa:** PESQUISEI NO INPI. NÃO APARECEU NADA.
+| Ato | Tempo | Na tela | Colagem |
+|---|---|---|---|
+| Gancho | 0 a 5 s | Em 2024, o Brasil repetia **"CALMA, CALABRESO".** E alguém correu pro INPI. | Balão de fala em letras recortadas. Um protocolo de papel passa correndo. |
+| Contexto | 5 a 15 s | O bordão nasceu nos vídeos do humorista Toninho Tornado. Estourou no Big Brother. | Televisor de papel. O balão se multiplica em camiseta, placa de lanche, figurinha. |
+| Conflito | 15 a 28 s | 3 de fevereiro: um pedido de registro da palavra Calabreso chega ao INPI. · Era de outra pessoa. · Dois dias depois, a equipe do humorista reage. | Folhas de calendário: dia 3, dia 5. Dois protocolos lado a lado, o segundo atrasado. |
+| Virada | 28 a 40 s | **OPOSIÇÃO:** o aviso de que o pedido esbarra num direito seu. · 60 dias depois da publicação. | Revista de papel "RPI" com uma página marcada. Cronômetro de 60 dias. Rodapé: Lei 9.279/96, art. 158. |
+| Lição | 40 a 50 s | Quem cria está ocupado aproveitando a onda. Quem pede o registro só precisa de um protocolo. | De um lado, mesa bagunçada de quem cria. Do outro, um carimbo de protocolo. |
+| CTA | 50 a 58 s | Alguém está acompanhando a sua marca? **Monitorar também é proteger.** Chama a Velmont. | Lupa parada sobre a revista. Assinatura. |
 
-| Tempo | Texto na tela | Colagem |
-|---|---|---|
-| 0 a 3,5 s | Pesquisei no INPI. **NÃO APARECEU NADA.** | Campo de busca em papel, "DOCE LAR" sendo digitado, "0 resultados". Carimbo "LIVRE?". |
-| 3,5 a 8 s | Você procurou o nome exato. O risco costuma morar no *parecido.* | Lupa em halftone desliza sobre o campo. |
-| 8 a 17 s | DOSSE LAR · soa igual · DOCELAR · a escrita lembra · SWEET HOME · quer dizer o mesmo · (nomes fictícios) | Três tiras de papel entram sob a lupa, cada uma com sua etiqueta. |
-| 17 a 23 s | E pesa quando as marcas são do mesmo ramo ou de ramos próximos. · Rodapé: Lei 9.279/96, art. 124, XIX. | Duas fachadas de papel lado a lado, mesma cor. |
-| 23 a 31 s | É isso que a pesquisa de anterioridade investiga antes do pedido. · Nenhuma pesquisa garante aprovação. Ela mostra o risco enquanto dá tempo de mudar. | Relatório em papel com as tiras grampeadas. |
-| 31 a 38 s | Vai registrar? Chama a Velmont antes de mandar fazer o logo. | Lápis e esboço de logo ao lado. Assinatura. |
+**Narração (ElevenLabs), 151 palavras:**
 
-**Narração (ElevenLabs):**
-
-> Pesquisei no INPI e não apareceu nada. Então o nome está livre?
+> Em 2024, o Brasil inteiro repetia "calma, calabreso". E alguém correu pro INPI.
 >
-> Calma. Você procurou o nome exato, e o risco costuma morar no parecido.
+> O bordão nasceu nos vídeos do humorista Toninho Tornado. Estourou quando foi parar no Big Brother e virou meme, estampa de camiseta, nome de lanche.
 >
-> Um nome pode esbarrar em outro porque soa igual, porque a escrita lembra, ou porque quer dizer a mesma coisa em outra língua.
+> No dia 3 de fevereiro, chegou ao INPI um pedido de registro da palavra Calabreso. O pedido era de outra pessoa. A equipe do humorista reagiu dois dias depois, e o caso foi pra fase de oposição.
 >
-> E isso pesa quando as duas marcas são do mesmo ramo, ou de ramos próximos.
+> Oposição é o momento em que alguém avisa o INPI: esse pedido esbarra num direito meu. O prazo é de sessenta dias depois da publicação, e quem não acompanha a revista do INPI nem fica sabendo.
 >
-> É isso que a pesquisa de anterioridade investiga antes do pedido. Nenhuma pesquisa garante aprovação. Ela mostra o risco enquanto ainda dá tempo de mudar o nome.
+> Quem cria um nome que pega costuma estar ocupado demais aproveitando a onda. Quem pede o registro só precisa de um protocolo.
 >
-> Vai registrar? Chama a Velmont antes de mandar fazer o logo.
-
-**CTA:** Vai registrar? Chama a Velmont antes de mandar fazer o logo.
+> Em janeiro tem Big Brother de novo. E a sua marca, alguém está acompanhando? Monitorar também é proteger.
 
 **Legenda:**
 
-> Não apareceu nada na busca. E o nome parecido, apareceu?
+> Um bordão viraliza numa terça. Na mesma semana, tem pedido de registro no INPI.
 >
-> A análise compara som, escrita e significado, dentro do mesmo ramo ou de ramos próximos. A busca pelo nome exato não mostra isso.
+> Existe um prazo de 60 dias para se opor a um pedido que esbarra na sua marca. Só usa o prazo quem está acompanhando.
 >
-> Nenhuma pesquisa garante aprovação. Ela mostra o risco antes de você pagar a taxa e mandar fazer o logo.
->
-> Você já buscou o seu?
+> Você sabe se alguém pediu um nome parecido com o seu?
 
-**Base:** Lei 9.279/96, art. 124, XIX. INPI, Guia Básico de Marcas (a busca "pode ajudar você a decidir").
-**Unicidade:** parte da frase que o cliente fala de verdade e mostra o bastidor da análise com um nome dissecado na mesa. O momento do CTA (antes do logo) é o gatilho da persona.
+**Fontes:** A Tarde, 22/4/2024; Bahia Notícias; Lei 9.279/96, art. 158.
+**Cuidados:** só o criador do bordão é citado pelo nome. O roteiro não diz quem pediu o registro nem sugere má-fé. As matérias são de 2024: conferir no INPI como o caso terminou. Se a Danielle preferir não usar reality, este episódio troca pelo caso Nattan e Natanzinho (nome artístico, 2025), com os mesmos cuidados.
 
 ---
 
-## 05 · Nome de todo mundo
+## 05 · O INPI disse não, a Justiça disse sim
 
-**Frase de mira:** Para gerar pedidos de orçamento de registro, falo com quem está escolhendo o nome do negócio, antes de abrir ou de trocar a fachada, sobre por que nome que descreve o produto é fraco como marca, para ele salvar e testar o próprio nome.
+- **Pilar:** Bastidores da análise · **Fórmula:** Atenção-Interesse-Entrega · **Ação-alvo:** direct
+- **Frase de mira:** Para gerar pedidos de orçamento de registro, falo com quem está escolhendo o nome do negócio ou tem um nome que descreve o produto, antes de abrir ou de trocar a fachada, sobre por que nome genérico é fraco como marca, para ele mandar o nome no direct.
+- **Por que agora:** a decisão foi noticiada em 10 de novembro de 2026. É assunto da semana no meio jurídico e quase ninguém traduziu para o empreendedor.
 
-**Gancho e capa:** O NOME MAIS FÁCIL DE ENTENDER COSTUMA SER O MAIS DIFÍCIL DE REGISTRAR.
+| Ato | Tempo | Na tela | Colagem |
+|---|---|---|---|
+| Gancho | 0 a 5 s | O INPI disse **NÃO.** A Justiça disse **SIM.** O nome era o mesmo. | Dois carimbos batem no mesmo papel, um por cima do outro. |
+| Contexto | 5 a 13 s | Novembro de 2026. Uma empresa de pneus pede o registro da marca: dois nomes e um logotipo. | Pneu recortado em halftone. Pedido de registro em papel. |
+| Conflito | 13 a 26 s | O INPI aceita o desenho e barra o conjunto. · Motivo: nome genérico. · A lei não dá exclusividade pra palavra que só descreve o que se vende. | O papel é rasgado em dois: desenho de um lado, palavra do outro. Rodapé: Lei 9.279/96, art. 124, VI. |
+| Virada | 26 a 37 s | Primeira instância: perdeu. · Tribunal, por maioria: o conjunto tem **forma distintiva suficiente.** | As duas metades são coladas de volta com fita. |
+| Detalhe | 37 a 45 s | Quem ganhou proteção foi **o conjunto.** A palavra continua livre pra qualquer concorrente. | A palavra escapa da moldura e vai parar em outras três placas. |
+| Lição | 45 a 53 s | Nome que explica o produto ajuda a vender e atrapalha na hora de proteger. | Régua de papel: descreve, sugere, palavra comum fora do ramo, inventado. |
+| CTA | 53 a 58 s | O seu nome descreve o que você vende? Manda ele no direct. | Etiqueta em branco. Assinatura. |
 
-| Tempo | Texto na tela | Colagem |
-|---|---|---|
-| 0 a 3,5 s | O nome mais fácil de entender costuma ser **O MAIS DIFÍCIL DE REGISTRAR.** | Placa de loja em papel: "BOLOS CASEIROS" (nome fictício). |
-| 3,5 a 10 s | A lei não dá exclusividade pra palavra que só descreve o produto. · Se alguém fosse dono de "bolos caseiros", ninguém mais vendia bolo caseiro. · Rodapé: Lei 9.279/96, art. 124, VI. | Várias placas iguais se empilham na rua. |
-| 10 a 22 s | DESCREVE · Bolos Caseiros · SUGERE · Doce Fatia · PALAVRA COMUM, FORA DO RAMO · Girassol · INVENTADO · Zuvê | Régua vertical de papel. O ponteiro sobe um degrau por vez. |
-| 22 a 27 s | Quanto mais longe do óbvio, **mais fácil de defender.** | Ponteiro no topo. |
-| 27 a 33 s | Com um logo bem distinto, até dá pra registrar um nome descritivo. A palavra continua livre pra todo mundo. | Placa com moldura desenhada; a palavra solta escapa da moldura. |
-| 33 a 39 s | Em que degrau está o seu? · Salva e passa o nome na régua. | Régua sozinha, degrau vazio. Assinatura. |
+**Narração (ElevenLabs), 151 palavras:**
 
-**Narração (ElevenLabs):**
-
-> O nome mais fácil de entender costuma ser o mais difícil de registrar.
+> O INPI disse não. A Justiça disse sim. E o nome era exatamente o mesmo.
 >
-> A lei não dá exclusividade pra palavra que só descreve o produto. Faz sentido: se alguém fosse dono de "bolos caseiros", ninguém mais vendia bolo caseiro.
+> O caso saiu em novembro de 2026. Uma empresa de pneus pediu o registro da marca dela: dois nomes e um logotipo.
 >
-> Pensa numa régua. Lá embaixo, o nome que descreve. Um degrau acima, o que sugere. Depois, a palavra comum usada fora do ramo dela. E no topo, o nome inventado.
+> O INPI aceitou o desenho e barrou o conjunto. O motivo: o nome era genérico, igual ao de qualquer loja do ramo. A lei não dá exclusividade pra palavra que só descreve o que se vende.
 >
-> Quanto mais longe do óbvio, mais fácil de defender.
+> A empresa perdeu na primeira instância e recorreu. No tribunal, por maioria, o resultado virou: com letra e desenho próprios, o conjunto tinha forma distintiva suficiente.
 >
-> Com um logo bem distinto, até dá pra registrar um nome descritivo. Só que a palavra continua livre pra todo mundo.
+> Repara no detalhe. Quem ganhou proteção foi o conjunto. A palavra genérica continua livre pra qualquer concorrente usar.
 >
-> Em que degrau está o seu?
-
-**CTA:** Salva e passa o seu nome na régua.
+> Nome que explica o produto ajuda a vender e atrapalha na hora de proteger. Quanto mais longe do óbvio, mais fácil defender.
+>
+> O seu nome descreve o que você vende? Manda ele no direct.
 
 **Legenda:**
 
-> Nome que explica o produto é ótimo pra vender e fraco pra proteger.
+> Uma loja de pneus levou três anos de processo pra registrar a própria marca.
 >
-> A lei não deixa ninguém ser dono de uma palavra que só descreve o que se vende. Quanto mais distintivo o nome, mais forte a marca.
+> O nome era genérico. O que salvou foi o desenho, e a palavra continua livre pra todo mundo.
 >
-> Em que degrau da régua o seu nome está?
+> Quanto mais o nome explica o produto, mais difícil é ser dono dele. O seu explica?
 
-**Base:** Lei 9.279/96, art. 124, VI.
-**Unicidade:** entrega uma ferramenta que a pessoa aplica na hora (a régua), em vez de uma lista de proibições. Pendência: conferir no INPI os nomes fictícios da régua antes de publicar.
+**Fontes:** ConJur, 10/11/2026; TRF-2, 2ª Turma Especializada, processo 5132143-87.2023.4.02.5101; Lei 9.279/96, art. 124, VI.
+**Cuidados:** a reportagem não cita o nome da empresa, e o roteiro também não. "Três anos" na legenda vem do número do processo (2023): conferir.
 
 ---
 
-## 06 · 45 gavetas
+## 06 · Uma flor de 1,3 milhão
 
-**Frase de mira:** Para gerar pedidos de orçamento de registro, falo com quem já registrou ou vai registrar e está abrindo uma atividade nova, no momento em que o negócio se amplia, sobre o registro valer por ramo, para ele salvar e revisar as classes.
+- **Pilar:** Negócio protegido · **Fórmula:** Atenção-Interesse-Entrega · **Ação-alvo:** salvar
+- **Frase de mira:** Para gerar pedidos de orçamento de registro, falo com quem está criando ou trocando o logo, na semana de aprovar a identidade com o designer, sobre o desenho também ser marca, para ele salvar e checar antes de aprovar.
+- **Por que agora:** o caso é de julho de 2026 e rodou o mundo.
 
-**Gancho e capa:** O MESMO NOME PODE TER DOIS DONOS. E OS DOIS ESTAREM CERTOS.
+| Ato | Tempo | Na tela | Colagem |
+|---|---|---|---|
+| Gancho | 0 a 6 s | Uma rede de chá foi condenada a pagar **1,3 MILHÃO DE EUROS** por causa de uma flor. | Copo de papel com uma flor recortada. Etiqueta de valor pendurada. |
+| Contexto | 6 a 17 s | Julho de 2026, China. · Mais de 2 mil lojas. · Uma flor de quatro pétalas nos copos. | Fileira de copos idênticos em stop motion. |
+| Conflito | 17 a 28 s | A Louis Vuitton tinha os desenhos registrados. · Primeira instância: ganhou. · A rede vai recorrer e já mudou o logo do aplicativo. | Certificado com desenhos (formas genéricas). O adesivo do copo é descolado e trocado. |
+| Virada | 28 a 40 s | Marca vai além do nome. **O desenho também se registra.** | Três fichas: "nome", "símbolo", "nome + símbolo". |
+| Lição | 40 a 49 s | Desenho que lembra o de uma marca famosa é risco **até em outro ramo.** | Um logo sendo desenhado ao lado de outro quase igual. |
+| CTA | 49 a 57 s | Antes de aprovar o logo novo, vale olhar o que já existe. · O seu logo está registrado, ou só o nome? | Prancheta de designer com um carimbo de "aprovado" parado no ar. Assinatura. |
 
-| Tempo | Texto na tela | Colagem |
-|---|---|---|
-| 0 a 3,5 s | **O MESMO NOME** pode ter dois donos. *E os dois estarem certos.* | Duas etiquetas idênticas "ZUVÊ", cada uma com seu ®. |
-| 3,5 a 10 s | O registro vale dentro do ramo que você pediu. O INPI organiza os ramos em **45 classes.** | Gaveteiro de 45 gavetas se monta, gaveta por gaveta. |
-| 10 a 16 s | ZUVÊ, a confeitaria: uma gaveta. · ZUVÊ, a oficina: outra. | Duas gavetas abrem (30 e 37), cada uma com sua etiqueta. |
-| 16 a 26 s | ANTES: você registrou a confeitaria. · DEPOIS: veio o curso online e a linha de utensílios. · PONTE: cada atividade nova pode pedir uma gaveta nova. | Gavetas 41 e 21 abrem. Tira de fita liga as três. |
-| 26 a 32 s | Escolher as gavetas certas, pro que você vende hoje e pro que planeja vender, faz parte da **análise estratégica.** · Rodapé: marca de alto renome é exceção e vale em todos os ramos (art. 125). | Mão de papel marca as gavetas com alfinetes. |
-| 32 a 38 s | Quais são as suas? · Salva pra revisar quando o negócio crescer. | Gaveteiro inteiro, três gavetas acesas. Assinatura. |
+**Narração (ElevenLabs), 154 palavras:**
 
-**Narração (ElevenLabs):**
-
-> O mesmo nome pode ter dois donos no mesmo país. E os dois estarem certos.
+> Uma rede de chá foi condenada a pagar um milhão e trezentos mil euros por causa de uma flor.
 >
-> Funciona assim: o registro vale dentro do ramo que você pediu, e o INPI organiza os ramos em quarenta e cinco classes.
+> Julho de 2026, China. A Molly Tea tem mais de duas mil lojas e uma flor de quatro pétalas nos copos. A Louis Vuitton olhou pra essa flor e enxergou o próprio monograma.
 >
-> Pensa num gaveteiro. Uma confeitaria ocupa uma gaveta. Uma oficina com o mesmo nome pode ocupar outra.
+> A grife tinha os desenhos registrados e foi à Justiça. Na primeira instância, ganhou. A rede avisou que vai recorrer e já mudou o logo do aplicativo.
 >
-> Agora olha pro seu negócio. Você registrou a confeitaria. Depois veio o curso online, a linha de utensílios. Cada atividade nova pode pedir uma gaveta nova.
+> O que isso tem a ver com a sua loja, a sua clínica, a sua confeitaria? Marca vai além do nome. O desenho também se registra: o símbolo sozinho, ou o conjunto de letra e imagem.
 >
-> Escolher as gavetas certas, pro que você vende hoje e pro que planeja vender, faz parte da análise estratégica.
+> E desenho que lembra o de uma marca famosa é risco até em outro ramo.
 >
-> Quais são as suas?
-
-**CTA:** Salva pra revisar quando o negócio crescer.
+> Antes de aprovar o logo novo com o designer, vale olhar o que já existe.
+>
+> O seu logo está registrado, ou só o nome?
 
 **Legenda:**
 
-> Registrou a marca? Ótimo. Em qual gaveta?
+> Uma flor num copo de chá rendeu uma condenação de 1,3 milhão de euros.
 >
-> O registro protege o nome dentro do ramo que você pediu. Negócio que cresce pra outra atividade pode precisar de outra classe.
+> Marca é também desenho. Dá pra registrar o símbolo, e símbolo parecido com o de marca famosa é problema mesmo em outro ramo.
 >
-> O que você vende hoje que não vendia quando abriu?
+> Você registrou o nome, o logo, ou os dois?
 
-**Base:** Lei 9.279/96, arts. 123 e 125. Classificação de Nice (45 classes): 30 confeitaria, 37 reparo de veículos, 41 cursos, 21 utensílios de cozinha.
-**Unicidade:** o gaveteiro transforma "classe de Nice" em algo que se vê, e o Antes-Depois-Ponte é a história de cliente que a Danielle conta (confeitaria que cresce). Pendência: Danielle valida os números das classes do exemplo.
+**Fontes:** Lusa, via ECO, 3/7/2026; Jornal de Negócios; Lei 9.279/96, art. 125 (alto renome).
+**Cuidados:** decisão de primeira instância, com recurso anunciado. O monograma da grife não aparece: a flor da colagem é uma forma genérica, diferente das registradas.
 
 ---
 
-## 07 · O cupom inteiro
+## 07 · O Burger King sem nome
 
-**Frase de mira:** Para gerar pedidos de orçamento de registro, falo com quem recebeu ou vai pedir um orçamento de registro de marca, no momento de comparar propostas, sobre todas as fases em que existe custo, para ele pedir à Velmont o orçamento com todas as linhas.
+- **Pilar:** Marca é patrimônio · **Fórmula:** Atenção-Interesse-Entrega · **Ação-alvo:** chamar antes de expandir
+- **Frase de mira:** Para gerar pedidos de orçamento de registro, falo com quem está expandindo (segunda unidade, marketplace, outro estado), no momento da expansão, sobre o nome poder ter dono em outro lugar, para ele pedir a análise antes de crescer.
+- **Por que funciona:** é a curiosidade que faz a pessoa mandar pra alguém. Não depende de data.
 
-**Gancho e capa:** ORÇAMENTO DE MARCA COM UMA LINHA SÓ? PEÇA O CUPOM INTEIRO.
+| Ato | Tempo | Na tela | Colagem |
+|---|---|---|---|
+| Gancho | 0 a 4 s | Na Austrália, o Burger King **NÃO SE CHAMA BURGER KING.** | Mapa de papel da Austrália. Uma placa de lanchonete com o nome coberto por fita. |
+| Contexto | 4 a 13 s | 1970: um empresário compra os direitos da rede pro país. · Faltou um detalhe. | Contrato assinado. Avião de papel cruza o mapa. |
+| Conflito | 13 a 19 s | O nome já tinha dono: um drive-in de Adelaide, desde 1962. | Alfinete no mapa. Placa pequena e antiga, com ®. |
+| Virada | 19 a 29 s | A rede escolhe outro nome numa lista: Hungry Jack's. · Primeira loja: 1971. | Lista de nomes riscados à mão. Um deles circulado. |
+| Desfecho | 29 a 42 s | Anos depois a matriz tentou entrar com lojas próprias, perdeu na Justiça e saiu do país. · Hoje: mais de 400 lojas. Nenhuma com o nome original. | Placas se multiplicam no mapa em stop motion. |
+| Lição | 42 a 53 s | Segunda unidade. Marketplace. Outro estado. · O nome que funciona na sua rua **está livre lá?** | Mapa do Brasil. A placa do espectador desliza de um estado a outro e encontra outra igual. |
+| CTA | 53 a 59 s | O registro vale no país inteiro. Quanto maior o negócio, mais caro trocar a placa. · Chama a Velmont antes de crescer. | Placa sendo trocada com escada de papel. Assinatura. |
 
-| Tempo | Texto na tela | Colagem |
-|---|---|---|
-| 0 a 3,5 s | Orçamento de marca com uma linha só? **PEÇA O CUPOM INTEIRO.** | Cupom curto com uma linha. O valor está coberto por fita. |
-| 3,5 a 8 s | Existe custo em mais de um momento. Você tem o direito de ver todos antes de assinar. | O cupom começa a desenrolar para baixo. |
-| 8 a 24 s | 1 · ANTES DO PEDIDO: pesquisa de viabilidade · 2 · NO PEDIDO: taxa do INPI e honorários · 3 · NO CAMINHO, SE ACONTECER: oposição, exigência ou recurso · 4 · LÁ NA FRENTE: renovação a cada 10 anos | O cupom rola na vertical, linha por linha, com som de caixa registradora. Valores sempre cobertos. |
-| 24 a 30 s | A linha 3 nem sempre acontece. **Precisa estar escrita mesmo assim.** | Círculo à mão em volta da linha 3. |
-| 30 a 35 s | Valor a gente fala na conversa: depende do seu caso. Fase escondida é que não pode. · "Confiança não se vende, se constrói." | Etiqueta kraft presa com clipe. |
-| 35 a 41 s | Chama a Velmont e peça o orçamento com todas as linhas. | Cupom inteiro dobrado, carimbo "SEM LETRA MIÚDA". Assinatura. |
+**Narração (ElevenLabs), 151 palavras:**
 
-**Narração (ElevenLabs):**
-
-> Recebeu um orçamento de registro de marca com uma linha só? Peça o cupom inteiro.
+> Na Austrália, o Burger King não se chama Burger King.
 >
-> Existe custo em mais de um momento, e você tem o direito de ver todos antes de assinar.
+> Em 1970, o empresário Jack Cowin comprou os direitos da rede pro país. Só faltou um detalhe: o nome já tinha dono por lá.
 >
-> Antes do pedido, a pesquisa de viabilidade. No pedido, a taxa do INPI e os honorários. No caminho, pode aparecer uma oposição, uma exigência ou um recurso. E, lá na frente, a renovação a cada dez anos.
+> Um drive-in de Adelaide usava Burger King desde 1962, com a marca registrada.
 >
-> A terceira linha nem sempre acontece. Precisa estar escrita mesmo assim.
+> A rede precisou escolher outro nome numa lista. Saiu Hungry Jack's, emprestado de uma mistura pra panqueca. A primeira loja abriu em 1971.
 >
-> Valor a gente fala na conversa, porque depende do seu caso. Fase escondida é que não pode.
+> Anos depois, a matriz tentou entrar no país com lojas próprias, perdeu uma briga na Justiça com o franqueado e foi embora. Hoje são mais de quatrocentas lojas. Nenhuma se chama Burger King.
 >
-> Chama a Velmont e peça o orçamento com todas as linhas.
-
-**CTA:** Chama a Velmont e peça o orçamento com todas as linhas.
+> Agora traz pra sua escala. Você abre a segunda unidade, entra num marketplace, começa a vender pra outro estado. O nome que funciona na sua rua está livre lá?
+>
+> O registro no INPI vale no país inteiro. E quanto maior o negócio, mais caro fica trocar a placa.
 
 **Legenda:**
 
-> Antes de fechar um registro de marca, peça o cupom inteiro.
+> O Burger King tem mais de 400 lojas na Austrália. Nenhuma se chama Burger King.
 >
-> O custo aparece em mais de um momento: antes do pedido, no pedido, no caminho (se houver oposição, exigência ou recurso) e na renovação.
+> O nome já era de um drive-in local quando a rede chegou. Trocar a placa de um país inteiro foi o preço de não ter checado antes.
 >
-> A gente mostra todas as fases antes de você decidir. Chama no WhatsApp.
+> Você vai abrir em outra cidade ou vender em outro estado? Checou o nome por lá?
 
-**Base:** INPI, Guia Básico de Marcas (taxa paga antes do pedido; "outras taxas podem existir durante o andamento"; renovação a cada dez anos; hoje não há taxa separada de concessão). Lei 9.279/96, arts. 133 e 158.
-**Unicidade:** é a dúvida "tudo o que ele vai pagar, em todas as fases" respondida sem citar preço. Pendência: a Danielle confirma como a Velmont divide os honorários e se aprova falar das fases sem valores (pergunta 3 da imersão).
+**Fontes:** verbete "Hungry Jack's" (Wikipédia, com referências à Suprema Corte de Nova Gales do Sul, 2001); realcommercial.com.au.
+**Cuidados:** conferir datas numa fonte primária antes de publicar. A briga judicial foi sobre o contrato de franquia, e o roteiro diz só "uma briga na Justiça com o franqueado".
 
 ---
 
-## 08 · Semana que vem
+## 08 · A marca que não parou
 
-**Frase de mira:** Para gerar pedidos de orçamento de registro, falo com o dono de negócio na correria, que sabe que precisa registrar e adia, numa segunda-feira de lista cheia, sobre o próprio adiamento, para ele se reconhecer, mandar pro sócio e dar o primeiro passo com uma mensagem.
+- **Pilar:** Marca é patrimônio · **Fórmula:** Antes-Depois-Ponte · **Ação-alvo:** salvar
+- **Frase de mira:** Para gerar pedidos de orçamento de registro, falo com o dono que vê registro como custo, quando pensa em franquia, sócio ou sucessão, sobre o que a marca registrada permite fazer, para ele salvar e passar a tratar a marca como patrimônio.
+- **Por que em novembro:** é o mês do GP de São Paulo. A outra janela é 1º de maio.
 
-**Gancho e capa:** REGISTRAR A MARCA: SEMANA QUE VEM.
+| Ato | Tempo | Na tela | Colagem |
+|---|---|---|---|
+| Gancho | 0 a 5 s | Ayrton Senna deixou as pistas em 1994. **A MARCA DELE NUNCA PAROU DE CORRER.** | Bandeira quadriculada em papel rasgado. Nenhuma imagem do piloto. |
+| Contexto | 5 a 14 s | Todo novembro, em Interlagos, o nome volta pras arquibancadas. | Boné, camiseta, tênis e relógio em papel recortado, sem logo. |
+| Antes | 14 a 23 s | Nada disso é improviso. · Nome e símbolos: marcas registradas. · Uma empresa da família licencia o uso. | Certificado, contrato de licença e uma chave. |
+| Depois | 23 a 35 s | + US$ 2 bilhões em licenciamentos em 30 anos (segundo a empresa, 2024). · + US$ 500 milhões para o instituto de educação (segundo a família). | Números em letras recortadas. Uma pilha de cadernos cresce ao lado. |
+| Ponte | 35 a 45 s | **Marca é patrimônio:** pode ser licenciada, pode render, pode continuar depois do fundador. | Três fichas presas com clipe. Rodapé: Lei 9.279/96, arts. 130 e 139. |
+| Lição | 45 a 53 s | Sem registro: um nome conhecido. Com registro: **um bem.** | Tela dividida por um rasgo: papel solto e certificado. |
+| CTA | 53 a 59 s | Criar gera valor. Proteger garante que esse valor continue sendo seu. | Frase em serifa. Assinatura. |
 
-| Tempo | Texto na tela | Colagem |
-|---|---|---|
-| 0 a 3,5 s | Registrar a marca: *semana que vem.* | Lista da semana em bloco de notas. Fornecedor, folha e boleto riscados. O último item ganha uma seta. |
-| 3,5 a 10 s | A gente entende. Registro não manda boleto nem liga cobrando. | Boletos e lembretes de papel se amontoam em cima da lista. |
-| 10 a 17 s | Só que a semana que vem chega com outra lista. E outra. | Folhas de calendário caem. A lista é reescrita. O item continua no fim. |
-| 17 a 24 s | Enquanto isso a marca cresce: mais cliente, mais gente falando o nome. **Tudo sem dono no papel.** | Fachada de papel ganha fila na porta. |
-| 24 a 31 s | O primeiro passo cabe numa mensagem: o nome da marca e o que você vende. | Balão de mensagem em papel sendo escrito. |
-| 31 a 37 s | Risca esse item hoje. WhatsApp no link da bio. | Risco à mão sobre "registrar a marca". Assinatura. |
+**Narração (ElevenLabs), 153 palavras:**
 
-**Narração (ElevenLabs):**
-
-> Na lista desta semana: fornecedor, folha, boleto. E, lá no fim, registrar a marca. Semana que vem.
+> Ayrton Senna deixou as pistas em 1994. A marca dele nunca parou de correr.
 >
-> A gente entende. Registro não manda boleto nem liga cobrando, então ele vai ficando.
+> Todo novembro, quando a Fórmula 1 chega a Interlagos, o nome volta pras arquibancadas: em boné, em camiseta, em tênis, em relógio.
 >
-> Só que a semana que vem chega com outra lista. E outra.
+> Nada disso é improviso. O nome e os símbolos são marcas registradas, administradas por uma empresa da família, que licencia o uso pra outras marcas.
 >
-> Enquanto isso a marca cresce: mais cliente, mais gente falando o nome. Tudo isso sem dono no papel.
+> Segundo a empresa, os contratos de licenciamento já somam bilhões de dólares. E, segundo a família, uma parte grande desse dinheiro foi pro instituto de educação que leva o nome dele.
 >
-> O primeiro passo cabe numa mensagem. Você manda o nome da marca e conta o que vende. Daqui a gente te mostra o caminho.
+> É isso que quer dizer marca é patrimônio. Ela pode ser licenciada, pode render e pode continuar trabalhando quando o fundador não está mais lá.
 >
-> Risca esse item hoje?
-
-**CTA:** Risca esse item hoje. WhatsApp no link da bio.
-
-**Legenda:**
-
-> Registrar a marca nunca é urgente. Por isso fica pra depois.
->
-> A gente sabe como é a semana de quem tem empresa. O primeiro passo é pequeno: uma mensagem com o nome da marca e o que você vende.
->
-> Marca quem vive dizendo "semana que vem eu vejo isso".
-
-**Base:** objeção do briefing ("o registro não está na lista de prioridades").
-**Unicidade:** é a única peça da série que não ensina nada de PI. Ela descreve a semana do cliente com as palavras dele, no tom acolhedor que o briefing pede como segunda voz.
-
----
-
-## 09 · Dá pra alugar um nome
-
-**Frase de mira:** Para gerar pedidos de orçamento de registro, falo com o dono que vê registro como custo, no momento em que pensa em franquia, sócio ou venda, sobre o que a marca registrada permite fazer, para ele salvar e passar a tratar a marca como patrimônio.
-
-**Gancho e capa:** DÁ PRA ALUGAR UM NOME.
-
-| Tempo | Texto na tela | Colagem |
-|---|---|---|
-| 0 a 3 s | **DÁ PRA ALUGAR** um nome. | Placa "ALUGA-SE" pendurada num letreiro de papel. |
-| 3 a 9 s | Marca registrada é um bem da empresa, parecido com um imóvel que tem escritura. | Certificado em papel, chave recortada em cima. |
-| 9 a 16 s | LICENCIAR · Outra empresa usa o seu nome e paga por isso. Franquia funciona assim. · Rodapé: Lei 9.279/96, art. 139. | O letreiro se multiplica em três fachadas. |
-| 16 a 22 s | CEDER · A marca muda de dono, com contrato e anotação no INPI. · Rodapé: art. 134. | A placa vira: "VENDE-SE". |
-| 22 a 29 s | Sem registro, existe um nome conhecido. Com registro, existe **um bem que tem dono.** | Tela dividida por um rasgo: papel solto de um lado, certificado do outro. |
-| 29 a 36 s | Criar gera valor. Proteger garante que esse valor continue sendo seu. · Salva pra lembrar disso quando o registro parecer só mais um gasto. | Frase da marca em serifa. Assinatura. |
-
-**Narração (ElevenLabs):**
-
-> Dá pra alugar um nome. E dá pra vender também.
->
-> Marca registrada é um bem da empresa, parecido com um imóvel que tem escritura.
->
-> Você pode licenciar: outra empresa usa o seu nome e paga por isso. Franquia funciona assim.
->
-> Você pode ceder: a marca muda de dono, com contrato e anotação no INPI.
->
-> Sem registro, o que existe é um nome conhecido. Com registro, existe um bem que tem dono.
+> A sua marca ainda é pequena, e o mecanismo é o mesmo. Sem registro, você tem um nome conhecido. Com registro, você tem um bem.
 >
 > Criar gera valor. Proteger garante que esse valor continue sendo seu.
 
-**CTA:** Salva pra lembrar disso quando o registro parecer só mais um gasto.
-
 **Legenda:**
 
-> Marca registrada se vende, se licencia e entra na conversa quando alguém avalia a sua empresa.
+> Trinta anos depois, a marca Senna segue trabalhando.
 >
-> Sem registro, você tem um nome que as pessoas conhecem. Com registro, você tem um bem.
+> Marca registrada pode ser licenciada, pode render e pode atravessar gerações. Vale pra um ídolo e vale pra uma confeitaria.
 >
 > Se a sua marca fosse um imóvel, ela teria escritura?
 
-**Base:** Lei 9.279/96, arts. 130, 134 e 139.
-**Unicidade:** mostra o ganho em vez do risco. A frase final é da própria Velmont ("Criar gera valor. Proteger garante que esse valor continue sendo seu").
+**Fontes:** Máquina do Esporte, 30/4/2024 (dados da Senna Brands e da família); Lei 9.279/96, arts. 130 e 139.
+**Cuidados:** o nome tem peso afetivo. Sem imagem do piloto, sem capacete, sem o "S". Tom de respeito, sem piada. A Danielle decide se quer este nome ou a alternativa (Galinha Pintadinha, licenciamento que nasceu de um vídeo).
 
 ---
 
-## 10 · Pensa a sua marca crescer
+## 09 · Ela não respondeu
 
-**Frase de mira:** Para gerar pedidos de orçamento de registro, falo com quem está crescendo sem registro, no momento da expansão (mais loja, mais pedido, mais seguidor), sobre o custo de trocar de nome depois de crescer, para ele pedir a análise estratégica no WhatsApp.
+- **Pilar:** Quem está por trás · **Fórmula:** História-Oferta-Empurrão · **Ação-alvo:** WhatsApp
+- **Frase de mira:** Para gerar pedidos de orçamento de registro, falo com o dono de negócio sem tempo, que adia o registro, numa semana de lista cheia, sobre como é o atendimento da Velmont por dentro, para ele chamar a Danielle no WhatsApp.
+- **Por que funciona:** é a única história que nenhum outro escritório pode contar, e responde às três dúvidas que mais se repetem antes de fechar. Vem do briefing (pergunta 13).
 
-**Gancho e capa:** PENSA A SUA MARCA CRESCER E VOCÊ NÃO TER O REGISTRO DELA.
+| Ato | Tempo | Na tela | Colagem |
+|---|---|---|---|
+| Gancho | 0 a 5 s | Ela não respondeu a minha mensagem. **UMA SEMANA DEPOIS, ME CHAMOU.** | Balão de mensagem em papel com um "visto". Folhas de calendário caem. |
+| Contexto | 5 a 14 s | Uma confeiteira de Curitiba. Crescendo rápido. Sem tempo pra nada. | Fatia de bolo em papel recortado. Lista da semana com tudo riscado, menos "registrar a marca". |
+| Conflito | 14 a 24 s | Deixei um comentário: "Pensa a sua marca crescer e você não ter o registro dela." | Post de papel com o comentário escrito à mão. |
+| Ação | 24 a 36 s | Uma análise estratégica, feita pro negócio dela. · As classes que a marca precisava. · Mandei e esperei. | Documento com gavetas marcadas. Envelope sendo fechado com fita. |
+| Virada | 36 a 49 s | As três perguntas de sempre: Como funciona? · O nome passa? · O que eu vou pagar, fase por fase? | Três fichas viram uma a uma, cada uma com um visto. |
+| Desfecho | 49 a 56 s | Ela fechou. Ninguém pode prometer o que o INPI vai decidir. **Ela viu o caminho inteiro.** | Mapa de papel com um caminho pontilhado do começo ao fim. |
+| CTA | 56 a 62 s | Confiança não se vende, se constrói. · Quer ver o caminho da sua marca? Me chama. | Assinatura da Danielle em serifa. Assinatura da série. |
 
-| Tempo | Texto na tela | Colagem |
-|---|---|---|
-| 0 a 3,5 s | Pensa a sua marca crescer **E VOCÊ NÃO TER O REGISTRO DELA.** | Primeiro bloco de papel com o nome. A torre começa. |
-| 3,5 a 11 s | Cada mês de trabalho coloca mais um andar em cima do nome. | Blocos sobem em stop motion: FACHADA, EMBALAGEM, CARDÁPIO, @, CLIENTES. A câmera sobe junto. |
-| 11 a 18 s | Se um dia você precisar trocar esse nome, troca tudo isso junto. Quanto mais alto, mais caro mexer. | A base é um contorno tracejado: "REGISTRO?". A torre balança. |
-| 18 a 24 s | O registro entra por baixo. **Ele é a base.** | Bloco ® desliza para o lugar. A torre assenta com um carimbo. |
-| 24 a 31 s | Ninguém pode prometer que o INPI vai aprovar um pedido. Dá pra conhecer o risco antes e pedir do jeito certo. | Lupa passa pela base. |
-| 31 a 38 s | Marca é patrimônio. · Peça a sua análise estratégica. WhatsApp no link da bio. | Torre inteira, logo embaixo. Assinatura. |
+**Narração (ElevenLabs, na voz da Danielle), 152 palavras:**
 
-**Narração (ElevenLabs):**
-
-> Pensa a sua marca crescer e você não ter o registro dela.
+> Ela não respondeu a minha mensagem. Uma semana depois, me chamou no WhatsApp.
 >
-> Cada mês de trabalho coloca mais um andar em cima do nome: a fachada, a embalagem, o cardápio, o arroba, a boca do cliente.
+> Era uma confeiteira de Curitiba, crescendo rápido no Instagram, sem tempo pra nada. Registro de marca não estava na lista dela.
 >
-> Se um dia você precisar trocar esse nome, troca tudo isso junto. E quanto mais alto o prédio, mais caro mexer.
+> Deixei um comentário num post: pensa a sua marca crescer e você não ter o registro dela. Depois ofereci uma análise estratégica, e ela topou receber.
 >
-> O registro entra por baixo. Ele é a base.
+> Montei o documento pensando no negócio dela: as classes que a marca precisava e como ela ficaria protegida. Mandei e esperei.
 >
-> Ninguém pode prometer que o INPI vai aprovar um pedido. O que dá pra fazer é conhecer o risco antes e pedir do jeito certo.
+> Quando ela chamou, quis saber o que todo mundo pergunta: como funciona, se o nome passa e tudo o que vai pagar, fase por fase. Respondi as três, incluindo a parte chata.
 >
-> Marca é patrimônio. Peça a sua análise estratégica pelo WhatsApp.
-
-**CTA:** Peça a sua análise estratégica. WhatsApp no link da bio.
+> Ela fechou. Eu não prometi resultado, porque ninguém pode prometer o que o INPI vai decidir. O que ela viu foi o caminho inteiro.
+>
+> Confiança não se vende, se constrói. Quer ver o caminho da sua marca? Me chama.
 
 **Legenda:**
 
-> Pensa a sua marca crescer e você não ter o registro dela.
+> Ela demorou uma semana pra responder. Quando respondeu, fez três perguntas.
 >
-> Fachada, embalagem, cardápio, @: tudo isso é construído em cima de um nome. Quanto mais o negócio cresce, mais caro fica mexer nele.
+> Como funciona, se o nome passa e quanto custa cada fase. Eu respondo as três antes de qualquer contrato, incluindo o que pode dar errado.
 >
-> A análise estratégica mostra em que pé a sua marca está. Chama a Velmont no WhatsApp.
+> Qual das três é a sua dúvida hoje?
 
-**Base:** frase da Danielle na prospecção que virou venda (briefing, pergunta 13). FAQ do site: o registro não é garantido.
-**Unicidade:** o gancho é uma fala real da fundadora. A torre não cai: o episódio agita o problema sem assustar, como o briefing pede.
+**Fonte:** relato da Danielle no briefing.
+**Pendências:** autorização da cliente, mesmo sem citar o nome. A narração é em primeira pessoa e pede a voz da Danielle. Se a voz for outra, o texto passa para a terceira pessoa.
+
+---
+
+## 10 · A fila rápida do INPI
+
+- **Pilar:** Sem letra miúda · **Fórmula:** História-Oferta-Empurrão · **Ação-alvo:** WhatsApp
+- **Frase de mira:** Para gerar pedidos de orçamento de registro, falo com quem vende em marketplace e recebeu a exigência de marca registrada, no momento em que a plataforma cobra o registro, sobre a fila prioritária do INPI, para ele chamar a Velmont e conferir se o caso se enquadra.
+- **Por que agora:** a regra é de maio de 2026 e as vagas deste ano vão até 31 de dezembro. O briefing cita vendedores do Mercado Livre entre os clientes.
+
+| Ato | Tempo | Na tela | Colagem |
+|---|---|---|---|
+| Gancho | 0 a 6 s | Em 2026, o INPI abriu **UMA FILA RÁPIDA.** Quem vende em marketplace pode ter lugar nela. | Duas filas de senhas de papel. Uma anda, a outra dispara. |
+| Contexto | 6 a 14 s | A fila comum: pedido, publicação, oposição, exame. Costuma passar de um ano. | Quatro guichês em sequência, calendário girando. |
+| Novidade | 14 a 22 s | Desde maio: trâmite prioritário, fase II. · 13 situações. | Portaria em papel com carimbo de data. Rodapé: Portarias INPI/PR 66 e 67/2026. |
+| Quem entra | 22 a 36 s | Quem precisa do registro pra operar numa plataforma de vendas. · Start-up. · Quem já usava a marca de boa-fé e viu outro pedir antes. | Três fichas saltam do fichário: caixa de envio, foguete de papel, pasta de provas. |
+| Limite | 36 a 42 s | Vagas contadas no ano, por ordem de chegada. | Contador de senhas descendo. "3.000 em 2026" na tela. |
+| Aviso | 42 a 52 s | A prioridade acelera a análise. A análise continua a mesma. · Nome fraco segue fraco. | Lupa sobre um pedido. Carimbo "EM EXAME". |
+| CTA | 52 a 60 s | A plataforma está pedindo o registro da sua marca? Chama a Velmont que a gente olha o seu caso. | Balão de mensagem em papel. Assinatura. |
+
+**Narração (ElevenLabs), 149 palavras:**
+
+> Em 2026, o INPI abriu uma fila rápida pra registro de marca. E quem vende em marketplace pode ter lugar nela.
+>
+> A fila comum você conhece: o pedido entra, é publicado, espera oposição, espera exame. Costuma passar de um ano.
+>
+> Desde maio, vale uma nova fase do trâmite prioritário. São treze situações em que o pedido pode andar na frente.
+>
+> Uma delas é a de quem precisa do registro pra operar numa plataforma de vendas. Outra é a de start-up. Outra, a de quem já usava a marca de boa-fé e viu alguém pedir o registro antes.
+>
+> Tem limite: as vagas do ano são contadas e acabam por ordem de chegada.
+>
+> E tem um aviso: a prioridade acelera a análise, e a análise continua a mesma. Nome fraco segue fraco.
+>
+> A plataforma está pedindo o registro da sua marca? Chama a Velmont que a gente olha o seu caso.
+
+**Legenda:**
+
+> O marketplace pediu marca registrada e você travou?
+>
+> Desde maio de 2026 existe uma fila prioritária no INPI, e uma das situações previstas é justamente essa. As vagas do ano são limitadas.
+>
+> Prioridade não garante registro. Acelera a resposta. Chama no WhatsApp que a gente confere se o seu caso entra.
+
+**Fontes:** Portarias INPI/PR 66 e 67, de 10/4/2026 (RPI 2.884); Migalhas, 23/4/2026; Movimento Econômico, 11/5/2026; SMABR.
+**Cuidados:** é projeto-piloto. São 3.000 requerimentos em 2026, 1.500 por quadrimestre e até 10 por requerente. A Danielle confirma as hipóteses no texto da portaria, se ainda há vagas e se o piloto segue em 2027. Nada de prometer prazo.
 
 ---
 
 ## O que falta decidir antes de animar os outros nove
 
 1. **Roteiros:** aprovar ou marcar ajustes por episódio.
-2. **Nome da série:** "Papel Passado" fica?
-3. **Voz:** os textos de narração estão escritos para a Danielle falar ("eu te digo", "a gente"). Se a voz for outra (a Adriana do filme da marca, por exemplo), mantemos assim ou trocamos para "a Velmont"?
-4. **Trilha:** o piloto tem uma base rítmica original, feita dos sons da mesa de colagem. Dá para exportar só com efeitos, se a música for da biblioteca do Instagram.
-5. **Com a Danielle:** episódio 07 (fases do custo sem valores), classes do exemplo no 06, e os nomes fictícios (Zuvê, Doce Fatia, Girassol, Doce Lar) conferidos no INPI.
-6. **Episódio 01:** a citação de Seth Godin fica na tela?
+2. **Episódios com nome de peso:** 02 (Anitta), 04 (bordão do BBB) e 08 (Senna) usam pessoas conhecidas, só em texto. A Danielle confirma se fica à vontade.
+3. **Episódio 09:** autorização da cliente e voz da Danielle.
+4. **Episódio 10:** conferência das hipóteses e das vagas na portaria.
+5. **Narração:** um MP3 por episódio. Cada parágrafo é uma cena. Com o áudio, o tempo de cada cena é ajustado à fala.

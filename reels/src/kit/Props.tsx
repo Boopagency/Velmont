@@ -77,3 +77,62 @@ export const EarTag: React.FC<{ w: number; text?: string }> = ({ w, text = 'R' }
     </svg>
   );
 };
+
+/** Morango em papel recortado, com borda de adesivo. `stick` vira "morango do amor" no palito. */
+export const Strawberry: React.FC<{ w: number; shadow?: boolean; stick?: boolean; seed?: number }> = ({ w, shadow = true, stick, seed = 1 }) => {
+  const seeds = useMemo(() => {
+    const r = rng(seed * 7 + 3);
+    const out: [number, number, number][] = [];
+    for (let row = 0; row < 5; row++) {
+      const y = 104 + row * 27;
+      const half = 62 - row * 11;
+      const n = Math.max(1, 4 - Math.floor(row / 1.4));
+      for (let i = 0; i < n; i++) out.push([100 + (n === 1 ? 0 : -half + (2 * half * i) / (n - 1)) + (r() - 0.5) * 8 + (row % 2 ? 9 : 0), y + (r() - 0.5) * 6, (r() - 0.5) * 30]);
+    }
+    return out;
+  }, [seed]);
+  const body = 'M100 240 C 46 202, 10 142, 20 94 C 28 54, 72 44, 100 64 C 128 44, 172 54, 180 94 C 190 142, 154 202, 100 240 Z';
+  const leaves = 'M100 70 L 62 30 L 88 48 L 84 14 L 102 44 L 122 12 L 116 48 L 142 32 L 100 70 Z';
+  return (
+    <svg width={w} height={w * 1.25} viewBox="0 0 200 250" style={{ display: 'block', overflow: 'visible', filter: shadow ? SHADOW : undefined }}>
+      {stick && <rect x="94" y="-70" width="12" height="130" rx="5" fill={C.kraft} stroke={C.white} strokeWidth="6" transform="rotate(14 100 60)" />}
+      <path d={body} fill={C.wine} stroke={C.white} strokeWidth="16" strokeLinejoin="round" paintOrder="stroke" />
+      <path d="M46 104 C 40 146, 62 186, 88 210" fill="none" stroke={C.cream} strokeWidth="9" strokeLinecap="round" opacity="0.2" />
+      {seeds.map(([x, y, a], i) => (
+        <ellipse key={i} cx={x} cy={y} rx="4.2" ry="7" fill={C.kraft} transform={`rotate(${a} ${x} ${y})`} />
+      ))}
+      <path d={leaves} fill={C.kraftdeep} stroke={C.white} strokeWidth="12" strokeLinejoin="round" paintOrder="stroke" />
+    </svg>
+  );
+};
+
+/** Pirulito em papel recortado. */
+export const Lollipop: React.FC<{ w: number }> = ({ w }) => {
+  const spiral = useMemo(() => {
+    let d = '';
+    for (let i = 0; i <= 90; i++) {
+      const t = (i / 90) * Math.PI * 5.2;
+      const rad = 6 + t * 3.5;
+      d += `${i ? 'L' : 'M'} ${(80 + Math.cos(t) * rad).toFixed(1)} ${(80 + Math.sin(t) * rad).toFixed(1)} `;
+    }
+    return d;
+  }, []);
+  return (
+    <svg width={w} height={w * 1.9} viewBox="0 0 160 304" style={{ display: 'block', overflow: 'visible', filter: SHADOW }}>
+      <rect x="73" y="128" width="14" height="170" rx="6" fill={C.cream} stroke={C.white} strokeWidth="6" />
+      <circle cx="80" cy="80" r="70" fill={C.cream} stroke={C.white} strokeWidth="14" />
+      <path d={spiral} fill="none" stroke={C.wine} strokeWidth="11" strokeLinecap="round" />
+    </svg>
+  );
+};
+
+/** Lupa em papel recortado: aro, vidro claro e cabo. O vidro deixa ver o que está embaixo. */
+export const Loupe: React.FC<{ w: number }> = ({ w }) => (
+  <svg width={w} height={w} viewBox="0 0 300 300" style={{ display: 'block', overflow: 'visible', filter: SHADOW }}>
+    <line x1="196" y1="196" x2="282" y2="282" stroke={C.white} strokeWidth="44" strokeLinecap="round" />
+    <line x1="200" y1="200" x2="280" y2="280" stroke={C.winedeep} strokeWidth="30" strokeLinecap="round" />
+    <circle cx="120" cy="120" r="104" fill="rgba(251,248,241,0.13)" stroke={C.white} strokeWidth="34" />
+    <circle cx="120" cy="120" r="104" fill="none" stroke={C.winedeep} strokeWidth="18" />
+    <path d="M62 96 A 64 64 0 0 1 112 56" fill="none" stroke={C.white} strokeWidth="9" strokeLinecap="round" opacity="0.8" />
+  </svg>
+);

@@ -12,7 +12,7 @@ const COMPONENTS = Object.fromEntries(EPISODES.map((ep) => [ep.id, ((p: Props) =
 export const Root: React.FC = () => (
   <>
     {EPISODES.map((ep) => (
-      <Composition key={ep.id} id={ep.id} component={COMPONENTS[ep.id]} defaultProps={{ bed: 'bed', bedVol: 0.5 }} width={W} height={H} fps={FPS} durationInFrames={total(ep.scenes)} />
+      <Composition key={ep.id} id={ep.id} component={COMPONENTS[ep.id]} defaultProps={{ bed: false, bedVol: 0.12 }} width={W} height={H} fps={FPS} durationInFrames={total(ep.scenes)} />
     ))}
   </>
 );
