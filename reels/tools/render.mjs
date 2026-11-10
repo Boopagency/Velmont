@@ -15,8 +15,8 @@ const val = (f) => { const i = rest.indexOf(`--${f}`); return i >= 0 ? rest[i + 
 const CHROME = process.env.REMOTION_CHROME || '/opt/pw-browsers/chromium_headless_shell-1243/chrome-headless-shell-linux64/chrome-headless-shell';
 const chrome = fs.existsSync(CHROME) ? [`--browser-executable=${CHROME}`] : [];
 export const NAMES = {
-  EP01: 'velmont-pp01-vaca-roxa', EP02: 'velmont-pp02-tenho-cnpj', EP03: 'velmont-pp03-senha-001', EP04: 'velmont-pp04-nao-apareceu-nada', EP05: 'velmont-pp05-nome-de-todo-mundo',
-  EP06: 'velmont-pp06-45-gavetas', EP07: 'velmont-pp07-cupom-inteiro', EP08: 'velmont-pp08-semana-que-vem', EP09: 'velmont-pp09-alugar-um-nome', EP10: 'velmont-pp10-marca-crescer',
+  EP01: 'velmont-pp01-vaca-roxa', EP02: 'velmont-pp02-anitta-e-annita', EP03: 'velmont-pp03-30-dias', EP04: 'velmont-pp04-calma-calabreso', EP05: 'velmont-pp05-inpi-disse-nao',
+  EP06: 'velmont-pp06-flor-de-1-3-milhao', EP07: 'velmont-pp07-burger-king-sem-nome', EP08: 'velmont-pp08-marca-que-nao-parou', EP09: 'velmont-pp09-ela-nao-respondeu', EP10: 'velmont-pp10-fila-rapida',
 };
 const ids = which === 'all' ? Object.keys(NAMES) : which.split(',');
 fs.mkdirSync('out/tmp', { recursive: true });

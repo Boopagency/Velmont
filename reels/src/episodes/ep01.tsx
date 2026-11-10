@@ -1,30 +1,13 @@
 import React from 'react';
-import { AbsoluteFill, Img, staticFile, useCurrentFrame } from 'remotion';
-import { Arrow, Blob, Cutout, EarTag, Em, Hl, Lollipop, Loupe, Mark, PaintCan, Paper, Piece, Ransom, Reveal, Scene, Sfx, Stamp, Strawberry, T, Tape, type SceneDef } from '../kit';
-import { C, SANS, SERIF, W } from '../theme';
+import { useCurrentFrame } from 'remotion';
+import { Arrow, Blob, Cutout, EarTag, Em, EndCard, Hl, Lollipop, Loupe, Mark, mono, PaintCan, Paper, Piece, Ransom, Reveal, Row, Scene, SeriesTag, Sfx, Source, Stamp, Strawberry, T, Tape, type SceneDef } from '../kit';
+import { C, SANS, SERIF } from '../theme';
 
 /**
  * PAPEL PASSADO · Nº 01 · A vaca roxa era um morango
  * História real: o morango do amor (2025) e a marca registrada desde 2010.
  * Os tempos de cada cena seguem a narração (ver ROTEIROS.md).
  */
-
-const mono: React.CSSProperties = { fontFamily: SANS, fontWeight: 800, fontSize: 22, letterSpacing: '0.14em', textTransform: 'uppercase' };
-
-export const SeriesTag: React.FC<{ n: string; at?: number; dark?: boolean }> = ({ n, at = 0, dark }) => (
-  <Piece x={64} y={372} rot={-1.5} seed={90} enter={{ kind: 'slide', at, from: 'left', dist: 500, dur: 8 }}>
-    <Paper w={372} h={58} color={dark ? 'kraft' : 'wine'} torn="r" seed={90} shadow="soft" style={{ display: 'flex', alignItems: 'center', paddingLeft: 18 }}>
-      <span style={{ fontFamily: SANS, fontWeight: 800, fontSize: 21, letterSpacing: '0.16em' }}>PAPEL PASSADO · Nº {n}</span>
-    </Paper>
-  </Piece>
-);
-
-/** Rodapé de fonte: pequeno, sempre no mesmo lugar, acima do @. */
-export const Source: React.FC<{ at?: number; dark?: boolean; children: React.ReactNode }> = ({ at = 0, dark, children }) => (
-  <Piece x={64} y={1346} seed={77} boil={false} enter={{ kind: 'cut', at }}>
-    <T size={20} weight={500} color={dark ? C.cream : C.winedeep} ls="0" lh={1.3} w={880} style={{ opacity: 0.74 }}>{children}</T>
-  </Piece>
-);
 
 /* 1 · Gancho (0 a 4,2 s): "Em 2025, a vaca roxa do Brasil foi um morango." */
 const S1: React.FC = () => (
@@ -201,13 +184,6 @@ const S4: React.FC = () => (
     <Sfx name="thud" at={92} vol={0.5} />
     <Sfx name="pop" at={176} vol={0.5} />
   </Scene>
-);
-
-const Row: React.FC<{ k: string; v: string }> = ({ k, v }) => (
-  <div style={{ display: 'flex', alignItems: 'baseline', gap: 18, borderTop: `2px solid ${C.apoio}`, padding: '10px 0' }}>
-    <span style={{ ...mono, fontSize: 18, opacity: 0.7, width: 138 }}>{k}</span>
-    <span style={{ fontFamily: SANS, fontWeight: 800, fontSize: 31 }}>{v}</span>
-  </div>
 );
 
 /* 5 · A virada (25,4 a 35 s): "Morango do Amor já era marca registrada desde 2010..." */
@@ -390,27 +366,6 @@ const S8: React.FC = () => (
     <Sfx name="pop" at={70} vol={0.5} />
     <Sfx name="scribble" at={78} vol={0.4} />
     <Sfx name="slide" at={96} vol={0.55} />
-  </Scene>
-);
-
-/** Cartão final da série: logo, assinatura e @. Reaproveitado em todos os episódios. */
-export const EndCard: React.FC<{ line?: React.ReactNode }> = ({ line }) => (
-  <Scene bg="winedeep" topo={1} seed={9} cam={[1.04, 1.0]} logo={false}>
-    <Piece x={(W - 620) / 2} y={620} seed={140} boil={0.5} enter={{ kind: 'stamp', at: 4 }}>
-      <Img src={staticFile('brand/logo-kraft.png')} style={{ display: 'block', width: 620, height: 'auto' }} />
-    </Piece>
-    <Piece x={(W - 560) / 2} y={980} rot={-2} seed={141} enter={{ kind: 'slide', at: 14, from: 'left', dist: 1100, dur: 8 }}>
-      <Paper w={560} h={92} color="kraft" torn="lr" seed={141} style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-        <span style={{ fontFamily: SANS, fontWeight: 800, fontSize: 34, letterSpacing: '0.2em', color: C.winedeep }}>PAPEL PASSADO</span>
-      </Paper>
-    </Piece>
-    <AbsoluteFill style={{ top: 1110, height: 200, alignItems: 'center' }}>
-      <Reveal at={24}>
-        <div style={{ fontFamily: SERIF, fontStyle: 'italic', fontSize: 58, color: C.cream, textAlign: 'center', lineHeight: 1.1 }}>{line ?? <>O que é seu, de papel passado.</>}</div>
-      </Reveal>
-    </AbsoluteFill>
-    <Sfx name="stamp" at={4} vol={0.8} />
-    <Sfx name="slide" at={14} vol={0.5} />
   </Scene>
 );
 

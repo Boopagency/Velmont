@@ -9,3 +9,5 @@ export * from './Scene';
 export * from './Sfx';
 export * from './Episode';
 export * from './Props';
+export * from './Objects';
+export * from './Series';

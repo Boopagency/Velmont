@@ -3,7 +3,7 @@
 Série em motion de colagem para a Velmont | Marcas e Patentes (@velmontmarcas).
 Oferta: registro e proteção de marca. Meta do briefing: 5 pedidos de orçamento por semana.
 
-**Status:** roteiros reescritos para aprovação. O episódio 01 está animado com este roteiro novo. Os outros nove aguardam o ok.
+**Status:** episódios 01, 06, 07 e 08 animados e renderizados. Os outros seis aguardam o ok nos roteiros.
 
 ## O que mudou nesta versão
 
@@ -96,7 +96,7 @@ Equilíbrio: 6 de alcance, 2 de autoridade, 2 de venda. As três dúvidas que ma
 >
 > Qual é a vaca roxa do seu negócio? Ela tem dono no papel?
 
-Cada parágrafo é uma cena. Os tempos da tabela são os do vídeo já renderizado.
+Cada parágrafo é uma cena. Os tempos da tabela são os do vídeo já renderizado. O mesmo vale para os episódios 06, 07 e 08.
 
 **Legenda:**
 
@@ -298,12 +298,15 @@ Cada parágrafo é uma cena. Os tempos da tabela são os do vídeo já renderiza
 
 | Ato | Tempo | Na tela | Colagem |
 |---|---|---|---|
-| Gancho | 0 a 6 s | Uma rede de chá foi condenada a pagar **1,3 MILHÃO DE EUROS** por causa de uma flor. | Copo de papel com uma flor recortada. Etiqueta de valor pendurada. |
-| Contexto | 6 a 17 s | Julho de 2026, China. · Mais de 2 mil lojas. · Uma flor de quatro pétalas nos copos. | Fileira de copos idênticos em stop motion. |
-| Conflito | 17 a 28 s | A Louis Vuitton tinha os desenhos registrados. · Primeira instância: ganhou. · A rede vai recorrer e já mudou o logo do aplicativo. | Certificado com desenhos (formas genéricas). O adesivo do copo é descolado e trocado. |
-| Virada | 28 a 40 s | Marca vai além do nome. **O desenho também se registra.** | Três fichas: "nome", "símbolo", "nome + símbolo". |
-| Lição | 40 a 49 s | Desenho que lembra o de uma marca famosa é risco **até em outro ramo.** | Um logo sendo desenhado ao lado de outro quase igual. |
-| CTA | 49 a 57 s | Antes de aprovar o logo novo, vale olhar o que já existe. · O seu logo está registrado, ou só o nome? | Prancheta de designer com um carimbo de "aprovado" parado no ar. Assinatura. |
+| Gancho | 0 a 6,7 s | Uma rede de chá foi condenada a pagar **1,3 MILHÃO** de euros por causa de *uma flor.* | Valor em letras recortadas. Copo de papel cai; a flor é carimbada no copo. |
+| Contexto | 6,7 a 13,7 s | Julho de 2026 · China · Mais de 2 mil lojas. Uma flor de quatro **pétalas nos copos.** | Oito copos idênticos entram um a um. |
+| Conflito | 13,7 a 18,3 s | A Louis Vuitton olhou pra essa flor e enxergou o próprio *monograma.* | Flor grande sobre papel kraft, lupa desliza por cima. |
+| Justiça | 18,3 a 27,8 s | A grife tinha os desenhos registrados. · Primeira instância: **GANHOU.** · A rede vai recorrer e já mudou o logo do aplicativo. | Certificado com formas genéricas, carimbo ®. Ícone do aplicativo troca de desenho; a seta liga a frase ao ícone. |
+| Ponte | 27,8 a 33,4 s | O que isso tem a ver com... a sua loja? a sua clínica? a sua confeitaria? | Três placas de papel caem, uma por vez. |
+| Regra | 33,4 a 40,8 s | Marca vai além do nome. **O desenho também se registra.** · Nome (nominativa) · Símbolo (figurativa) · Os dois (mista) | Três fichas de arquivo. |
+| Lição | 40,8 a 46,2 s | Desenho que lembra o de uma marca famosa é risco até em *outro ramo.* | Dois símbolos quase iguais lado a lado. Carimbo "parecido demais". |
+| O que fazer | 46,2 a 51,5 s | Antes de aprovar o logo novo com o designer, vale olhar o que **já existe.** | Prancheta com o logo, carimbo "aprovar?" parado no ar, lupa entra. |
+| CTA | 51,5 a 57 s | *O seu logo está registrado, ou só o nome?* · Salva pra conferir antes de aprovar o próximo. | Pergunta em serifa. Assinatura da série. |
 
 **Narração (ElevenLabs), 154 palavras:**
 
@@ -342,13 +345,14 @@ Cada parágrafo é uma cena. Os tempos da tabela são os do vídeo já renderiza
 
 | Ato | Tempo | Na tela | Colagem |
 |---|---|---|---|
-| Gancho | 0 a 4 s | Na Austrália, o Burger King **NÃO SE CHAMA BURGER KING.** | Mapa de papel da Austrália. Uma placa de lanchonete com o nome coberto por fita. |
-| Contexto | 4 a 13 s | 1970: um empresário compra os direitos da rede pro país. · Faltou um detalhe. | Contrato assinado. Avião de papel cruza o mapa. |
-| Conflito | 13 a 19 s | O nome já tinha dono: um drive-in de Adelaide, desde 1962. | Alfinete no mapa. Placa pequena e antiga, com ®. |
-| Virada | 19 a 29 s | A rede escolhe outro nome numa lista: Hungry Jack's. · Primeira loja: 1971. | Lista de nomes riscados à mão. Um deles circulado. |
-| Desfecho | 29 a 42 s | Anos depois a matriz tentou entrar com lojas próprias, perdeu na Justiça e saiu do país. · Hoje: mais de 400 lojas. Nenhuma com o nome original. | Placas se multiplicam no mapa em stop motion. |
-| Lição | 42 a 53 s | Segunda unidade. Marketplace. Outro estado. · O nome que funciona na sua rua **está livre lá?** | Mapa do Brasil. A placa do espectador desliza de um estado a outro e encontra outra igual. |
-| CTA | 53 a 59 s | O registro vale no país inteiro. Quanto maior o negócio, mais caro trocar a placa. · Chama a Velmont antes de crescer. | Placa sendo trocada com escada de papel. Assinatura. |
+| Gancho | 0 a 4 s | Na Austrália, **O BURGER KING** não se chama Burger King. | Título em letras recortadas. Mapa da Austrália e um hambúrguer de papel. |
+| Contexto | 4 a 12,7 s | 1970 · Um empresário compra os direitos da rede pro país. · Só faltou um detalhe: **o nome já tinha dono.** | Mapa grande, contrato assinado, avião de papel cruza a tela. |
+| Conflito | 12,7 a 17,8 s | Um drive-in de Adelaide usava o nome desde *1962.* | Alfinete cai em Adelaide. Placa antiga com ®; a seta liga a placa ao alfinete. |
+| Virada | 17,8 a 26,1 s | A rede precisou escolher outro nome numa **lista.** · nome de uma mistura pra panqueca · Primeira loja: 1971 | Lista com "Burger King" riscado e "Hungry Jack's" circulado. A seta sai das panquecas e chega ao nome. |
+| Desfecho | 26,1 a 34,1 s | Anos depois, a matriz tentou entrar com lojas próprias. · 2001: **perdeu na Justiça.** | Placas das duas redes no mapa. As da matriz saem de cena. |
+| Hoje | 34,1 a 38,7 s | **+400** lojas no país. Nenhuma se chama Burger King. | Nove placas iguais se empilham. |
+| Lição | 38,7 a 49,1 s | Agora traz pra **sua escala.** · 1 Segunda unidade · 2 Marketplace · 3 Outro estado · O nome que funciona na sua rua *está livre lá?* | Três fichas entram em escada. |
+| CTA | 49,1 a 58,1 s | O registro no INPI vale **no país inteiro.** Quanto maior o negócio, mais caro *trocar a placa.* · Chama a Velmont antes de crescer. | Placa pendurada torta e escada de papel. Assinatura da série. |
 
 **Narração (ElevenLabs), 151 palavras:**
 
@@ -387,13 +391,13 @@ Cada parágrafo é uma cena. Os tempos da tabela são os do vídeo já renderiza
 
 | Ato | Tempo | Na tela | Colagem |
 |---|---|---|---|
-| Gancho | 0 a 5 s | Ayrton Senna deixou as pistas em 1994. **A MARCA DELE NUNCA PAROU DE CORRER.** | Bandeira quadriculada em papel rasgado. Nenhuma imagem do piloto. |
-| Contexto | 5 a 14 s | Todo novembro, em Interlagos, o nome volta pras arquibancadas. | Boné, camiseta, tênis e relógio em papel recortado, sem logo. |
-| Antes | 14 a 23 s | Nada disso é improviso. · Nome e símbolos: marcas registradas. · Uma empresa da família licencia o uso. | Certificado, contrato de licença e uma chave. |
-| Depois | 23 a 35 s | + US$ 2 bilhões em licenciamentos em 30 anos (segundo a empresa, 2024). · + US$ 500 milhões para o instituto de educação (segundo a família). | Números em letras recortadas. Uma pilha de cadernos cresce ao lado. |
-| Ponte | 35 a 45 s | **Marca é patrimônio:** pode ser licenciada, pode render, pode continuar depois do fundador. | Três fichas presas com clipe. Rodapé: Lei 9.279/96, arts. 130 e 139. |
-| Lição | 45 a 53 s | Sem registro: um nome conhecido. Com registro: **um bem.** | Tela dividida por um rasgo: papel solto e certificado. |
-| CTA | 53 a 59 s | Criar gera valor. Proteger garante que esse valor continue sendo seu. | Frase em serifa. Assinatura. |
+| Gancho | 0 a 5,3 s | Ayrton Senna deixou as pistas em 1994. **A MARCA NUNCA** parou de correr. | Bandeira quadriculada em papel rasgado e cronômetro em halftone. Nenhuma imagem do piloto. |
+| Contexto | 5,3 a 13,3 s | Todo novembro, em Interlagos, o nome volta pras **arquibancadas.** · boné · camiseta · tênis · relógio | Quatro itens de papel, sem logo, colados com fita. |
+| Antes | 13,3 a 22,3 s | Nada disso é **improviso.** · Marcas registradas: nome, símbolos · Licença de uso: empresa da família, para outras marcas | Certificado com carimbo ®, contrato de licença e uma chave. A seta liga o certificado à licença. |
+| Depois | 22,3 a 33,3 s | Segundo a empresa, em 2024: **+US$ 2 BILHÕES** em contratos de licenciamento, em 30 anos. · Segundo a família: **+US$ 500 MILHÕES** para o instituto de educação. | Números em letras recortadas. Pilha de cadernos cresce. |
+| Ponte | 33,3 a 42,3 s | **Marca é patrimônio.** · 1 Pode ser licenciada. · 2 Pode render. · 3 Pode continuar depois do fundador. | Três fichas com clipe. Rodapé: Lei 9.279/96, arts. 130 e 139. |
+| Lição | 42,3 a 51,3 s | A sua marca ainda é pequena. O mecanismo é o mesmo. · Sem registro: *um nome conhecido.* · Com registro: *um bem.* | Dois cartões: papel rasgado e documento com ®. A seta vai de um ao outro. |
+| CTA | 51,3 a 57,8 s | *Criar gera valor. Proteger garante que esse valor continue sendo seu.* · Salva pra lembrar quando o registro parecer só mais um gasto. | Frase em serifa. Assinatura da série. |
 
 **Narração (ElevenLabs), 153 palavras:**
 
@@ -514,7 +518,7 @@ Cada parágrafo é uma cena. Os tempos da tabela são os do vídeo já renderiza
 
 ---
 
-## O que falta decidir antes de animar os outros nove
+## O que falta decidir antes de animar os outros seis
 
 1. **Roteiros:** aprovar ou marcar ajustes por episódio.
 2. **Episódios com nome de peso:** 02 (Anitta), 04 (bordão do BBB) e 08 (Senna) usam pessoas conhecidas, só em texto. A Danielle confirma se fica à vontade.

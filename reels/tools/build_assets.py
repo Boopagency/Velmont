@@ -269,6 +269,7 @@ def sticker(src: str, name: str, *, mode='rembg', width=1100, cell=5.2, angle=38
 def build_cut() -> None:
     sticker('cow-side.jpg', 'cow', mode='rembg', width=1100, cell=5.4)
     sticker('cow-side.jpg', 'cow-wine', mode='rembg', width=1100, cell=5.4, tint='#3d101e')
+    sticker('stopwatch.jpg', 'stopwatch', mode='rembg', width=700, cell=4.4, contrast=1.5)
 
 
 def build_brand() -> None:
