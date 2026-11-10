@@ -1,0 +1,8 @@
+node_modules/
+out/
+# gerados por tools/build_assets.py e tools/build_sfx.py (npm run setup)
+public/tex/
+public/cut/
+public/sfx/
+public/brand/
+__pycache__/

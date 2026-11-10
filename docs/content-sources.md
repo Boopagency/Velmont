@@ -59,3 +59,10 @@ Sem aprovação garantida, taxa de sucesso, quantidade de clientes, assinatura, 
 - Imagens: o logo Velmont original e a montanha já documentada acima. O relevo, as linhas e todo o som são gerados por código.
 - Direção completa em `docs/brand-film.md`.
 - Na home, o filme usa o MP4 final aprovado sem alteração. A cópia em 720p só reduz a imagem e mantém o mesmo áudio. O poster é um quadro do próprio filme.
+
+## Reels Papel Passado
+
+- Série de Reels em motion de colagem, em `reels/` (projeto separado do site). Roteiros em `reels/ROTEIROS.md`; imagens, fontes e licenças em `reels/CREDITS.md`.
+- Regras de redação: processo "SOCIAL 04" e guias SMK do Boop Admin. Fatos sobre a marca: briefing de social media da Danielle (novembro de 2026).
+- Base legal conferida no texto da Lei 9.279/96 publicado pela Câmara dos Deputados (arts. 123, 124, 125, 129, 130, 133, 134, 139, 143, 158 e 162) e no Guia Básico de Marcas do INPI. Nenhuma promessa de registro, métrica, preço ou prova social.
+- Nomes usados como exemplo (Zuvê, Bolos Caseiros, Doce Fatia, Girassol, Doce Lar) são fictícios e precisam ser conferidos no INPI antes da publicação.

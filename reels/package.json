@@ -1,0 +1,27 @@
+{
+  "name": "velmont-reels",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Papel Passado: série de Reels em motion de colagem da Velmont | Marcas e Patentes",
+  "scripts": {
+    "setup": "python3 tools/build_assets.py && python3 tools/build_sfx.py",
+    "assets": "python3 tools/build_assets.py",
+    "sfx": "python3 tools/build_sfx.py",
+    "studio": "remotion studio",
+    "typecheck": "tsc --noEmit",
+    "storyboard": "node tools/storyboard.mjs",
+    "render": "node tools/render.mjs"
+  },
+  "dependencies": {
+    "@remotion/cli": "4.0.542",
+    "react": "19.2.8",
+    "react-dom": "19.2.8",
+    "remotion": "4.0.542",
+    "@remotion/bundler": "4.0.542",
+    "@remotion/renderer": "4.0.542"
+  },
+  "devDependencies": {
+    "@types/react": "19.2.2",
+    "typescript": "5.9.3"
+  }
+}
