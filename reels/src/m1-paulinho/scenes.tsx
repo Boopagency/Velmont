@@ -1,7 +1,6 @@
 import React from "react";
-import { AbsoluteFill, staticFile, useCurrentFrame } from "remotion";
+import { AbsoluteFill, useCurrentFrame } from "remotion";
 import { color, sans, serif } from "../brand";
-import { BrandFrame } from "../collage/BrandFrame";
 import { Camera } from "../collage/Camera";
 import { Cutout } from "../collage/Cutout";
 import { onTwos } from "../collage/motion";
@@ -13,8 +12,8 @@ import { Stamp } from "../collage/Stamp";
 import { Tape } from "../collage/Tape";
 import { TopoLines } from "../collage/TopoLines";
 
-// Scene lengths in seconds. Total 33 s.
-export const SCENES = { cover: 3, news: 4, notice: 5, pending: 3, law: 6, split: 6, cta: 6 } as const;
+// Scene lengths in seconds. Total 31 s.
+export const SCENES = { cover: 3, news: 4, notice: 5, pending: 3, law: 6, split: 6, question: 4 } as const;
 
 const title: React.CSSProperties = {
   fontFamily: sans,
@@ -68,7 +67,6 @@ export const Cover: React.FC = () => (
         10 ANOS
       </Stamp>
     </Camera>
-    <BrandFrame top="light" bottom="light" />
   </AbsoluteFill>
 );
 
@@ -104,7 +102,6 @@ export const News: React.FC = () => (
       </At>
       <Scribble d={marks.arrow} at={44} x={690} y={1150} width={170} rotate={200} seed={24} />
     </Camera>
-    <BrandFrame top="light" bottom="light" />
   </AbsoluteFill>
 );
 
@@ -181,7 +178,6 @@ export const Notice: React.FC = () => (
       </SlideIn>
       <Scribble d={marks.burst} at={60} x={846} y={880} width={100} rotate={-55} stroke={color.champagne} seed={36} />
     </Camera>
-    <BrandFrame top="dark" bottom="dark" />
   </AbsoluteFill>
 );
 
@@ -214,7 +210,6 @@ export const Pending: React.FC = () => (
         EM ANDAMENTO
       </Stamp>
     </Camera>
-    <BrandFrame top="light" bottom="light" />
   </AbsoluteFill>
 );
 
@@ -258,7 +253,6 @@ export const Law: React.FC = () => (
         <p style={{ fontFamily: sans, fontWeight: 500, fontSize: 24, letterSpacing: "0.04em", color: color.champagne, margin: 0 }}>LEI 9.279/96, ART. 129</p>
       </At>
     </Camera>
-    <BrandFrame top="dark" bottom="dark" />
   </AbsoluteFill>
 );
 
@@ -293,51 +287,27 @@ export const Split: React.FC = () => (
           <span style={{ ...title, fontSize: 92, color: color.wine }}>Registro.</span>
         </Tape>
       </Camera>
-      <BrandFrame top="light" bottom="dark" />
     </AbsoluteFill>
 );
 
-/* 27 to 33 s: the call */
-export const Cta: React.FC = () => (
+/* 27 to 31 s: the question */
+export const Question: React.FC = () => (
   <AbsoluteFill>
-    <Camera duration={SCENES.cta * 30} seed={7}>
+    <Camera duration={SCENES.question * 30} seed={7}>
       <PaperBackground tone="wine" seed={8} />
       <TopoLines color={color.champagne} opacity={0.18} seed={17} />
-      <div
-        style={{
-          position: "absolute",
-          left: 250,
-          top: 372,
-          width: 520,
-          height: 260,
-          backgroundColor: color.champagne,
-          maskImage: `url(${staticFile("brand/velmont-logo.webp")})`,
-          maskSize: "contain",
-          maskRepeat: "no-repeat",
-        }}
-      />
-      <At x={80} y={662} w={860} style={{ textAlign: "center" }}>
-        <p style={{ ...title, fontSize: 64, color: color.ivory }}>
+      <At x={80} y={560} w={860} style={{ textAlign: "center" }}>
+        <p style={{ ...title, fontSize: 76, color: color.ivory }}>
           O seu nome
           <br />é conhecido.
         </p>
-        <p style={{ fontFamily: serif, fontStyle: "italic", fontSize: 124, lineHeight: 0.95, color: color.champagne, margin: "26px 0 0" }}>
+        <p style={{ fontFamily: serif, fontStyle: "italic", fontSize: 150, lineHeight: 0.95, color: color.champagne, margin: "34px 0 0" }}>
           Ele está
           <br />
           registrado?
         </p>
       </At>
-      <SlideIn at={75} from={[0, 700]} rotateFrom={6} duration={8} origin={[510, 1200]}>
-        <TornPaper tone="cream" x={110} y={1128} width={800} height={176} rotate={-1.5} seed={71} torn={{ left: true }}>
-          <p style={{ ...title, fontSize: 52, lineHeight: 1.08, color: color.wine, padding: "32px 44px", textAlign: "center" }}>
-            Chama a Velmont
-            <br />
-            no WhatsApp.
-          </p>
-        </TornPaper>
-        <Tape at={83} x={880} y={1134} width={150} height={50} rotate={32} seed={72} />
-      </SlideIn>
+      <Scribble d={marks.circle} at={24} x={150} y={880} width={730} height={240} stroke={color.champagne} strokeWidth={6} seed={73} />
     </Camera>
-    <BrandFrame top="dark" bottom="dark" largeHandle />
   </AbsoluteFill>
 );

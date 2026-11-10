@@ -8,7 +8,7 @@ const frames = {
   "04-em-andamento": 420,
   "05-lei": 580,
   "06-antes-depois": 760,
-  "07-chamada": 940,
+  "07-pergunta": 900,
 };
 
 execFileSync("npx", ["remotion", "bundle", "--out-dir=build"], { stdio: "inherit" });

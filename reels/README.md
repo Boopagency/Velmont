@@ -35,8 +35,7 @@ Tira o fundo (rembg), aplica retícula halftone em preto e branco e borda branca
 | `Tape.tsx` | Fita adesiva que cola com um tapa, aceita texto |
 | `TopoLines.tsx` | Curvas de nível finas, com deriva lenta |
 | `Scribble.tsx` | Seta, rabisco de impacto e círculo à mão, desenhados traço a traço |
-| `BrandFrame.tsx` | Moldura fixa: logo, "by velmont \| marcas e patentes ®", "//@velmontmarcas", dentro da área segura |
 | `SlideIn.tsx`, `Camera.tsx` | Entrada com overshoot curto e deriva de câmera por cena |
 | `motion.ts` | `onTwos` (pose a cada 2 frames), `boil` (3 poses a cada 3 frames), carimbo, deriva |
 
-Área segura do Reels: nada importante nos 250 px de cima, nos 420 px de baixo e nos 140 px da direita (`SAFE` em `src/brand.ts`).
+Área segura do Reels: nada importante nos 250 px de cima, nos 420 px de baixo e nos 140 px da direita.

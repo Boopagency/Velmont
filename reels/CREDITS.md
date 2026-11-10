@@ -19,10 +19,6 @@ O recorte de jornal é montado com tipografia própria e barras no lugar do text
 
 Papel, grão e curvas de nível são gerados pelo `@remotion/effects` (`paper()`, `noise()`, `contourLines()`).
 
-## Marca
-
-Logo Velmont: arquivo original do site (`public/images/velmont-logo.webp` na raiz do repositório), sem redesenho. Só a cor é aplicada por máscara.
-
 ## Fontes
 
 Manrope e Instrument Serif, pelo Google Fonts (`@remotion/google-fonts`). Licença SIL Open Font License 1.1.

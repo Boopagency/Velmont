@@ -23,7 +23,7 @@ export const serif = loadInstrumentSerif("italic", {
   subsets: ["latin", "latin-ext"],
 }).fontFamily;
 
-// Instagram Reels UI covers the top 250px, the bottom 420px and the right 140px.
-export const SAFE = { top: 250, bottom: 420, right: 140, left: 80 } as const;
+// Instagram Reels UI covers the top 250px, the bottom 420px and the right 140px:
+// scenes keep text and key objects inside x 80..940, y 250..1500.
 export const W = 1080;
 export const H = 1920;
