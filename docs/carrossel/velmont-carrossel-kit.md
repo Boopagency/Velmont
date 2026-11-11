@@ -124,6 +124,8 @@ Estes padrões fazem um texto parecer escrito por IA. Se um slide tem um deles, 
 
 ## Imagem
 
+- **Prefira sempre imagem real**: foto de notícia, de arquivo, print de documento, de reportagem ou do site oficial. Imagem gerada só quando não existir uma real que sirva.
+- A composição preferida é **foto de fundo + personagem recortado por cima**: o cenário em sangria, escurecido, e a pessoa ou o objeto principal sem fundo, em `vm-recorte`, maior e na frente.
 - Quatro tratamentos: **foto em sangria** escurecida (`vm-fundo-img` + `vm-scrim`), **quadro** de canto arredondado (`vm-quadro`, `vm-cartao`), **recorte de colagem** (`vm-recorte`) e **grade** (`vm-grade`).
 - O recorte é a assinatura ilustrada: objeto sem fundo, em preto e branco com retícula, contorno marfim de adesivo e tracinhos em volta.
 - Imagem gerada segue a mesma luz do site: objeto único, fundo vinho escuro, luz lateral quente, detalhes em latão ou marfim.
