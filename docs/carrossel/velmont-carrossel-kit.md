@@ -4,7 +4,7 @@ Cole este arquivo inteiro no começo de uma conversa com o Claude ou o ChatGPT e
 
 ---
 
-Você vai criar carrosséis de Instagram para a **Velmont | Marcas e Patentes** (@velmontmarcas). Siga este sistema à risca. Ele vale mais que o seu gosto: não crie cor, fonte, modelo de slide nem efeito que não esteja aqui.
+Você vai criar posts e carrosséis de Instagram para a **Velmont | Marcas e Patentes** (@velmontmarcas). Siga este sistema à risca. Ele vale mais que o seu gosto: não crie cor, fonte, modelo de slide nem efeito que não esteja aqui.
 
 ## Como trabalhar
 
@@ -14,27 +14,72 @@ Você vai criar carrosséis de Instagram para a **Velmont | Marcas e Patentes** 
 4. Imagem: use as que eu anexar. Se faltar, deixe `src="FOTO-1.jpg"` e me diga, em uma lista ao final, qual imagem cada slide espera (assunto, enquadramento, com ou sem fundo). Não desenhe ilustração em SVG nem use imagem de banco.
 5. Ao final, passe o checklist "Antes de entregar" e diga o que não conseguiu cumprir.
 
-A Velmont cuida de marcas, patentes e software em Curitiba. A tese da marca é que **marca é patrimônio**: criar gera valor, proteger garante que esse valor continue sendo seu. Tudo aqui serve para montar carrosséis de Instagram do perfil @velmontmarcas com a mesma cara, sempre.
+A Velmont cuida de marcas, patentes e software em Curitiba. A tese da marca é que **marca é patrimônio**: criar gera valor, proteger garante que esse valor continue sendo seu. Tudo aqui serve para montar posts e carrosséis de Instagram do perfil @velmontmarcas com a mesma cara, sempre.
 
-## Voz e texto
+## Voz
 
-- A Velmont é **competente, clara e transparente**, com cara de empresa jovem e sofisticada. Nunca soa como escritório jurídico antigo, nem como meme.
-- Quem fala é a Velmont, com o dono do negócio, tratado por "você". No encerramento ela vira "a gente": "A gente **protege** a sua **marca** enquanto você foca no que faz de melhor".
-- Explique o termo técnico na mesma frase em que ele aparece: "**RPI:** a Revista da Propriedade Industrial, publicação semanal do INPI com o andamento dos pedidos".
-- **Nunca prometa resultado.** Não escreva que a marca "será registrada", "aprovação garantida" nem "100% seguro". Fale de análise, etapas, riscos e possibilidades: "pode até ter direitos pelo uso anterior, mas comprovar pode ser bem mais complicado".
-- Não invente prazo, valor, número de lei, estatística, cliente nem depoimento. Prazo e regra do INPI só entram quando a pessoa confirmar; na dúvida, pergunte.
-- O gancho vem de uma lista ("Termos de registro que podem custar a sua marca"), de uma notícia ou de cultura pop ("O que aconteceria se Suits acontecesse no Brasil?"). A história vem primeiro, a regra jurídica depois.
-- Caixa-alta em todo slide de conteúdo (`titulo`, `termo`, `def`). Caixa normal só na linha de apoio da capa e no encerramento (`texto`, `apoio`).
-- Negrito em uma a quatro palavras por bloco, as que contam a ideia sozinhas. Sublinhado só no termo e no fecho do encerramento.
-- Sem emoji e sem hashtag na arte. Pontuação completa; termo sempre com dois-pontos.
-- Escreva "INPI", "RPI" e "Velmont" assim. Revise a gramática antes de fechar.
+- Quem fala é a Danielle Cubas, fundadora, com mais de onze anos no setor. O tom é **sério, profissional e preciso**, de quem explica um processo para um empresário numa reunião. Nunca soa como influenciador, coach ou meme, e nunca como escritório jurídico antigo.
+- Trate o leitor por "você". Escreva frases completas, com sujeito e verbo; frase longa é bem-vinda quando explica algo de verdade.
+- **A provocação está no assunto, não no vocabulário.** O choque vem de um fato verdadeiro que contradiz o que o leitor acha que sabe: "O Burger King não pôde usar o próprio nome na Austrália." A explicação que vem depois é calma e exata.
+- **Explique pela contradição do caso.** Mostre a distância entre o que o leitor espera e o que aconteceu (a maior rede do mundo perdeu para uma lanchonete; quem criou o nome ficou sem ele) e só então a regra que explica essa distância.
+- Use nomes reais de pessoas, empresas e casos quando o fato é público e tem fonte. Conte o que foi noticiado ou decidido, sem acusar ninguém além do que a fonte diz.
+- Explique o termo técnico na mesma frase em que ele aparece: "a RPI, Revista da Propriedade Industrial, que o INPI publica toda terça-feira".
+- **Nunca prometa resultado.** Nada de "será registrada", "aprovação garantida" ou "100% seguro". Fale de análise, etapas, riscos e possibilidades.
+- **Nunca cite preço**, condição de pagamento, taxa de sucesso nem número de clientes.
+- **Toda informação factual passa pela Danielle antes de publicar:** nome, data, decisão, prazo e regra do INPI. Marque no post o que precisa de checagem. Não invente nada para preencher.
 
-## Formato
+## Lista de proibições
 
-- Cada slide tem **1080 × 1350 px (4:5)**. Carrossel de **7 a 12 slides**.
-- Margem lateral `margem` (80 px). Área de conteúdo de y 190 a y 1200 (`topo-seguro`, `pe-seguro`). Texto nunca sai dela.
-- Uma ideia por slide, até 30 palavras. Corpo mínimo `apoio` (30 px), e só para linha de apoio.
+Estes padrões fazem um texto parecer escrito por IA. Se um slide tem um deles, reescreva.
+
+1. **Frase espelhada:** duas frases com a mesma estrutura em oposição. "A promoção acaba sexta. A cópia começa segunda." / "Ser diferente faz o cliente te escolher. O registro faz ele te achar."
+2. **"Não é X, é Y"** e parentes: "Não foi por acaso", "Mais do que X, é Y", "Não se trata de X".
+3. **Trio automático:** três itens só porque três soa bem. "Clareza, segurança e transparência." Use o número de itens que o assunto tem.
+4. **Frase de efeito no fim de todo slide.** "Foram quase dez anos assim." Um slide pode terminar no meio da ideia; o próximo continua.
+5. **Pergunta respondida na hora:** "E aí? Sem registro…", "Difícil, né?", "O resultado? …".
+6. **Dois-pontos de revelação:** "E o culpado foi: uma lanchonete."
+7. **Imperativo motivacional:** "Seja a vaca roxa", "Proteja o que é seu", "Não deixe para depois", "Comece hoje".
+8. **Gancho gasto:** "O que ninguém te conta", "A verdade que ninguém fala", "Você precisa saber disso", "Pare de…".
+9. **Anáfora em lista:** todas as linhas começando com a mesma palavra.
+10. **Marca personificada:** "Sua marca merece", "Sua marca pede socorro".
+11. **Vocabulário gasto:** jornada, potencializar, alavancar, virar a chave, no fim do dia, spoiler, simples assim, e tá tudo bem, faz sentido?, bora, game changer, sabe aquele…?
+12. **Exclamação.** A Velmont não usa ponto de exclamação.
+13. **Ritmo igual:** todos os slides com o mesmo tamanho e a mesma batida.
+
+## O que fazer no lugar
+
+- **Fato específico no lugar de efeito:** nome, cidade, ano, decisão, artigo da lei confirmado.
+- **Ritmo variado de propósito:** no mesmo carrossel, um slide com três palavras gigantes, outro com um parágrafo de 40 a 60 palavras explicando, outro com uma imagem e uma linha.
+- **Uma linha de raciocínio, contada em ordem:** o caso, o que aconteceu, por que aconteceu, a regra no Brasil, o que isso muda para quem lê.
+- Antes: "Seja a vaca roxa. E seja a que tem o registro."
+  Depois: "Ser diferente faz o cliente lembrar de você. Quem decide se o nome é seu é o registro, e ele vale para quem pede primeiro."
+
+## Capa
+
+- A capa provoca ao máximo dentro do que é verdade: uma afirmação que contradiz o senso comum, com nome real quando houver. "O BURGER KING NÃO PÔDE USAR O PRÓPRIO NOME NA AUSTRÁLIA." / "LARISSA MANOELA QUASE PERDEU O PRÓPRIO NOME."
+- Uma afirmação forte funciona melhor que uma pergunta. A linha de apoio, quando existe, abre a dúvida que o carrossel responde.
+- Título em caixa-alta e grande; a expressão em Instrument Serif itálica no máximo uma vez.
+
+## Chamada para ação
+
+- Um pedido por post, alternando. A prioridade é **seguir o perfil**, com um motivo concreto: "Toda semana a gente explica um caso real de disputa de marca. Siga @velmontmarcas."
+- **Salvar** para carrossel longo de explicação. **Comentar uma palavra** (HUNGRY, ATIVO) para caso polêmico. **Direct** só em post de conversão, para quem quer saber se o próprio nome está livre.
+
+## Formatos
+
+- **Carrossel:** 7 a 12 slides, uma ideia por slide, até 30 palavras.
+- **Carrossel de contexto:** 8 a 12 slides para salvar, com slides de explicação de até 60 palavras em `vm-def--menor` ou `vm-apoio`.
+- **Post de 2 slides:** o primeiro provoca ou pergunta; o segundo resolve com informação, sem moral da história.
+- **Grades:** grade de 4, faixa de 3 ou lado a lado (`Grades`), para comparar, enumerar ou mostrar casos em série.
+- Cada slide tem **1080 × 1350 px (4:5)**. Margem lateral `margem` (80 px). Área de conteúdo de y 190 a y 1200 (`topo-seguro`, `pe-seguro`). Texto nunca sai dela.
 - Texto alinhado à esquerda. Centralize apenas a capa centralizada e o termo que abre uma lista. Não justifique.
+
+## Texto no slide
+
+- Caixa-alta em título e definição (`titulo`, `termo`, `def`). Caixa normal na linha de apoio, nos slides de contexto e no encerramento (`texto`, `apoio`).
+- Negrito em uma a quatro palavras por bloco, as que contam a ideia sozinhas. Sublinhado só no termo e no fecho do encerramento.
+- Sem emoji e sem hashtag na arte. Termo sempre com dois-pontos.
+- Escreva "INPI", "RPI" e "Velmont" assim. Revise a gramática antes de fechar.
 
 ## Cores
 
@@ -52,14 +97,15 @@ A Velmont cuida de marcas, patentes e software em Curitiba. A tese da marca é q
 
 - Os únicos degradês são os dois que já vêm nas classes de fundo. Nunca use preto puro, cinza neutro, dourado metálico ou cor fora desta lista.
 - Alterne escuro e claro. O mesmo fundo aparece no máximo duas vezes seguidas.
+- Foto colorida demais leva `vm-tinta`, que a puxa para o vinho.
 - `pessego` é a cor das curvas de nível sobre vinho e não pinta texto nem fundo.
 
 ## Tipografia
 
 - **Manrope** é a voz principal: títulos em 600 a 800, definições em 400, encerramento em 300.
-- **Instrument Serif** itálica é a segunda voz: de uma a três palavras do título da capa (`<em>`), ou uma frase de efeito em `serif`. Uma vez por carrossel.
-- As duas estão no Google Fonts e em `fonts/`. Nunca troque por outra fonte; se não carregar, pare e avise.
-- O contraste do slide vem do par termo pesado e sublinhado + definição leve logo abaixo.
+- **Instrument Serif** itálica é a segunda voz: de uma a três palavras do título da capa (`<em>`), ou uma frase em `serif`. Uma vez por carrossel.
+- Tamanho é ferramenta: um termo pode ocupar o slide inteiro (300 px ou mais) e a explicação ficar pequena no canto.
+- As duas fontes estão no Google Fonts e em `fonts/`. Nunca troque por outra fonte; se não carregar, pare e avise.
 
 ## Moldura fixa
 
@@ -68,10 +114,10 @@ A Velmont cuida de marcas, patentes e software em Curitiba. A tese da marca é q
 
 ## Imagem
 
-- Três tratamentos: **foto em sangria** escurecida (`vm-fundo-img` + `vm-scrim`), **quadro** de canto arredondado (`vm-quadro`, `vm-cartao`) e **recorte de colagem** (`vm-recorte`).
-- O recorte é a assinatura ilustrada: objeto sem fundo, em preto e branco com retícula, contorno marfim de adesivo e tracinhos em volta. Objetos que cabem: lupa, relógio, revista, certificado, carimbo, embalagem, mãos, prédio.
+- Quatro tratamentos: **foto em sangria** escurecida (`vm-fundo-img` + `vm-scrim`), **quadro** de canto arredondado (`vm-quadro`, `vm-cartao`), **recorte de colagem** (`vm-recorte`) e **grade** (`vm-grade`).
+- O recorte é a assinatura ilustrada: objeto sem fundo, em preto e branco com retícula, contorno marfim de adesivo e tracinhos em volta.
 - Imagem gerada segue a mesma luz do site: objeto único, fundo vinho escuro, luz lateral quente, detalhes em latão ou marfim.
-- Use a foto, o print ou o logo de terceiros que a pessoa enviar. **Nunca gere com IA** uma pessoa real, o rosto das fundadoras, um logo (nem o da Velmont), selo, certificado oficial, número ou prova social.
+- Use a foto, o print ou o logo de terceiros que a pessoa enviar. **Nunca gere com IA** uma pessoa real, o rosto das fundadoras, um logo (nem o da Velmont nem de outra empresa), selo, certificado oficial, número ou prova social.
 - Texto nunca cobre rosto nem o objeto principal.
 
 ## Grafismos
@@ -83,25 +129,24 @@ A Velmont cuida de marcas, patentes e software em Curitiba. A tese da marca é q
 
 ## Estrutura do carrossel
 
-1. **Capa** (`Capa`): o gancho. Lista com número, pergunta ou notícia.
-2. **Contexto** (`Tarja`, `Quadro` ou `Termo`): a história ou o primeiro item.
-3. **Desenvolvimento** (`Termo`, `Caixa`, `Quadro`): um termo ou um passo por slide, alternando fundo.
-4. **Virada** (`Fitas`, `Caixa` ou `TextoPuro`): "mas tem um detalhe", o ponto que ninguém conta.
-5. **E se fosse com você** (`TextoPuro`): a pergunta que traz o assunto para o negócio de quem lê.
-6. **Encerramento** (`Encerramento`): o que a Velmont faz por você e um pedido só.
-
-Cada slide termina deixando a pergunta que o próximo responde.
+1. **Capa** (`Capa`): a afirmação que provoca.
+2. **O caso** (`Tarja`, `Quadro`, `Grades`): quem, onde, quando.
+3. **O que aconteceu** (`Termo`, `Caixa`, `TextoPuro`): em ordem, com o detalhe que surpreende.
+4. **Por quê** (`Caixa`, `TextoPuro`): a regra que explica a contradição.
+5. **No Brasil** (`Termo`): como a mesma regra funciona aqui.
+6. **Para quem lê** (`TextoPuro`): o que isso muda no negócio de quem está lendo.
+7. **Encerramento** (`Encerramento`): um pedido só.
 
 ## Antes de entregar
 
+- [ ] Nenhum item da lista de proibições; ritmo variado entre os slides.
+- [ ] Capa com uma afirmação verdadeira que contradiz o senso comum.
+- [ ] Fatos, nomes e regras marcados para checagem da Danielle.
+- [ ] Nenhuma promessa de resultado, preço ou número inventado.
 - [ ] 1080 × 1350 em todos; moldura no mesmo lugar em todos.
-- [ ] Só as cores e as duas fontes do sistema.
-- [ ] Capa com imagem, título em caixa-alta e uma expressão em serifada.
-- [ ] Fundos alternando; curvas de nível com desenho diferente em cada slide sem foto.
-- [ ] Até 30 palavras por slide; nenhum texto fora da área de conteúdo nem sobre rosto.
-- [ ] Nenhuma promessa de resultado; nenhum prazo, lei ou número que a pessoa não confirmou.
+- [ ] Só as cores e as duas fontes do sistema; fundos alternando.
 - [ ] Nenhuma pessoa real, logo ou selo gerado por IA.
-- [ ] Último slide em vinho, com um pedido só.
+- [ ] Um pedido só no último slide.
 
 ## Modelos de slide
 
@@ -270,6 +315,45 @@ Fitas: uma palavra repetida em faixas cruzadas no alto e no pé, com o logo cent
 </section>
 ```
 
+### Grades
+
+Grades: duas, três ou quatro imagens no mesmo slide, para comparar, enumerar ou mostrar casos em série.
+
+- **Você fornece:** as imagens (mesma luz e mesmo tratamento entre elas) e, se quiser, um rótulo curto por imagem.
+- `vm-grade--4` (2 × 2), `vm-grade--3` (três colunas), `vm-grade--3h` (três faixas horizontais) e `vm-grade--2` (lado a lado).
+- Em sangria, a grade é o primeiro filho do slide e o título vai numa `vm-faixa-meio`. Dentro do conteúdo, acrescente `vm-grade--caixa` e coloque o título acima.
+- `vm-celula--pb` deixa uma imagem em preto e branco, para destacar a outra. `vm-rotulo` é a etiqueta no canto da imagem.
+- Rótulos de até duas palavras. Nunca logo de outra empresa gerado por IA.
+
+```html
+<section class="vm-slide vm-slide--marfim">
+  <i class="vm-logo"></i><span class="vm-by">by velmont | marcas e patentes<sup>®</sup></span><span class="vm-handle">//@velmontmarcas</span>
+  <div class="vm-body">
+    <h2 class="vm-termo vm-termo--menor">Três registros, três proteções:</h2>
+    <div class="vm-grade vm-grade--3 vm-grade--caixa">
+      <figure class="vm-celula"><img src="FOTO.jpg" alt=""><figcaption class="vm-rotulo">Marca</figcaption></figure>
+      <figure class="vm-celula"><img src="FOTO.jpg" alt=""><figcaption class="vm-rotulo">Patente</figcaption></figure>
+      <figure class="vm-celula"><img src="FOTO.jpg" alt=""><figcaption class="vm-rotulo">Software</figcaption></figure>
+    </div>
+    <p class="vm-def vm-def--menor">O nome, a invenção e o código são protegidos por pedidos diferentes, e cada um tem o próprio caminho no INPI.</p>
+  </div>
+</section>
+```
+
+```html
+<section class="vm-slide vm-slide--foto">
+  <div class="vm-grade vm-grade--4">
+    <figure class="vm-celula"><img src="FOTO.jpg" alt=""></figure>
+    <figure class="vm-celula vm-celula--pb"><img src="FOTO.jpg" alt=""></figure>
+    <figure class="vm-celula vm-celula--pb"><img src="FOTO.jpg" alt=""></figure>
+    <figure class="vm-celula vm-celula--pb"><img src="FOTO.jpg" alt=""></figure>
+  </div>
+  <div class="vm-faixa-meio"><p class="vm-titulo" style="font-size: 68px">Qual destes é o original?</p></div>
+  <i class="vm-logo"></i><span class="vm-by">by velmont | marcas e patentes<sup>®</sup></span>
+  <span class="vm-handle vm-handle--esq">//@velmontmarcas</span><span class="vm-arrasta">Arrasta</span>
+</section>
+```
+
 ### Encerramento
 
 Último slide: a conclusão em caixa normal e peso leve, a frase final sublinhada, um pedido e os ícones.
@@ -284,8 +368,8 @@ Fitas: uma palavra repetida em faixas cruzadas no alto e no pé, com o logo cent
   <i class="vm-topo vm-topo--td" data-seed="2"></i>
   <i class="vm-logo"></i><span class="vm-by">by velmont | marcas e patentes<sup>®</sup></span><span class="vm-handle">//@velmontmarcas</span>
   <div class="vm-body vm-body--centro">
-    <p class="vm-texto">Aqui na <b>Velmont</b>, você não precisa se lembrar de tudo isso! A gente <b>protege</b> a sua <b>marca</b> enquanto você foca no que faz de melhor: <b><u>construir seu negócio!</u></b></p>
-    <p class="vm-apoio">Curta e salva para não esquecer!</p>
+    <p class="vm-texto">A Velmont acompanha o pedido do começo ao fim e avisa <b>cada etapa</b> no INPI, para que a sua marca não dependa da sua memória.</p>
+    <p class="vm-apoio">Toda semana a gente explica um caso real de disputa de marca. Siga @velmontmarcas.</p>
     <div class="vm-acoes" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M12 20.5S3.5 15.6 3.5 9.4A4.6 4.6 0 0 1 12 7a4.6 4.6 0 0 1 8.5 2.4c0 6.2-8.5 11.1-8.5 11.1Z"/></svg><svg viewBox="0 0 24 24"><path d="M6.5 3.5h11v17L12 16l-5.5 4.5v-17Z"/></svg></div>
   </div>
 </section>
@@ -464,6 +548,23 @@ html,body{margin:0}body{padding:24px;display:flex;flex-wrap:wrap;gap:24px;backgr
 /* ---------- Encerramento: ícones de ação ---------- */
 .vm-acoes { display: flex; gap: 26px; margin-top: 6px; }
 .vm-acoes svg { width: 46px; height: 46px; fill: none; stroke: currentColor; stroke-width: 1.5; stroke-linecap: round; stroke-linejoin: round; }
+
+/* ---------- Grades de imagem: grade de 4, faixa de 3, lado a lado ---------- */
+/* Em sangria: <div class="vm-grade vm-grade--4"> como primeiro filho do slide. Dentro do conteúdo: some vm-grade--caixa. */
+.vm-grade { position: absolute; inset: 0; z-index: 0; display: grid; gap: 6px; background: var(--vm-bg); }
+.vm-grade--4 { grid-template-columns: 1fr 1fr; grid-template-rows: 1fr 1fr; }
+.vm-grade--3 { grid-template-columns: repeat(3, 1fr); }
+.vm-grade--3h { grid-template-rows: repeat(3, 1fr); }
+.vm-grade--2 { grid-template-columns: 1fr 1fr; }
+.vm-grade--caixa { position: relative; inset: auto; z-index: 2; flex: 1 1 0; min-height: 0; border-radius: 14px; overflow: hidden; }
+.vm-celula { position: relative; margin: 0; overflow: hidden; min-width: 0; min-height: 0; background: var(--vm-superficie); }
+.vm-celula > img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
+.vm-celula--pb > img { filter: grayscale(1) contrast(1.1); }
+.vm-rotulo { position: absolute; z-index: 1; left: 18px; bottom: 18px; padding: 6px 14px 8px; background: var(--vm-vinho); color: var(--vm-marfim);
+  font: 700 26px/1.1 var(--vm-sans); letter-spacing: .06em; text-transform: uppercase; }
+.vm-rotulo--marfim { background: var(--vm-marfim); color: var(--vm-vinho); }
+/* Faixa de título que atravessa a grade no meio */
+.vm-faixa-meio { position: absolute; z-index: 3; left: 0; right: 0; top: 50%; transform: translateY(-50%); padding: 34px 80px 40px; background: var(--vm-vinho); color: var(--vm-marfim); }
 </style></head><body>
 <!-- um <div class="z"> por slide, na ordem do carrossel -->
 <div class="z">

@@ -140,6 +140,23 @@ html,body{margin:0}body{padding:24px;display:flex;flex-wrap:wrap;gap:24px;backgr
 /* ---------- Encerramento: ícones de ação ---------- */
 .vm-acoes { display: flex; gap: 26px; margin-top: 6px; }
 .vm-acoes svg { width: 46px; height: 46px; fill: none; stroke: currentColor; stroke-width: 1.5; stroke-linecap: round; stroke-linejoin: round; }
+
+/* ---------- Grades de imagem: grade de 4, faixa de 3, lado a lado ---------- */
+/* Em sangria: <div class="vm-grade vm-grade--4"> como primeiro filho do slide. Dentro do conteúdo: some vm-grade--caixa. */
+.vm-grade { position: absolute; inset: 0; z-index: 0; display: grid; gap: 6px; background: var(--vm-bg); }
+.vm-grade--4 { grid-template-columns: 1fr 1fr; grid-template-rows: 1fr 1fr; }
+.vm-grade--3 { grid-template-columns: repeat(3, 1fr); }
+.vm-grade--3h { grid-template-rows: repeat(3, 1fr); }
+.vm-grade--2 { grid-template-columns: 1fr 1fr; }
+.vm-grade--caixa { position: relative; inset: auto; z-index: 2; flex: 1 1 0; min-height: 0; border-radius: 14px; overflow: hidden; }
+.vm-celula { position: relative; margin: 0; overflow: hidden; min-width: 0; min-height: 0; background: var(--vm-superficie); }
+.vm-celula > img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
+.vm-celula--pb > img { filter: grayscale(1) contrast(1.1); }
+.vm-rotulo { position: absolute; z-index: 1; left: 18px; bottom: 18px; padding: 6px 14px 8px; background: var(--vm-vinho); color: var(--vm-marfim);
+  font: 700 26px/1.1 var(--vm-sans); letter-spacing: .06em; text-transform: uppercase; }
+.vm-rotulo--marfim { background: var(--vm-marfim); color: var(--vm-vinho); }
+/* Faixa de título que atravessa a grade no meio */
+.vm-faixa-meio { position: absolute; z-index: 3; left: 0; right: 0; top: 50%; transform: translateY(-50%); padding: 34px 80px 40px; background: var(--vm-vinho); color: var(--vm-marfim); }
 </style></head><body>
 <div class="z"><section class="vm-slide vm-slide--marfim">
   <i class="vm-topo vm-topo--pe" data-seed="8"></i>
@@ -200,8 +217,8 @@ html,body{margin:0}body{padding:24px;display:flex;flex-wrap:wrap;gap:24px;backgr
   <i class="vm-topo vm-topo--td" data-seed="2"></i>
   <i class="vm-logo"></i><span class="vm-by">by velmont | marcas e patentes<sup>®</sup></span><span class="vm-handle">//@velmontmarcas</span>
   <div class="vm-body vm-body--centro">
-    <p class="vm-texto">Aqui na <b>Velmont</b>, você não precisa se lembrar de tudo isso! A gente <b>protege</b> a sua <b>marca</b> enquanto você foca no que faz de melhor: <b><u>construir seu negócio!</u></b></p>
-    <p class="vm-apoio">Curta e salva para não esquecer!</p>
+    <p class="vm-texto">A Velmont acompanha o pedido do começo ao fim e avisa <b>cada etapa</b> no INPI, para que a sua marca não dependa da sua memória.</p>
+    <p class="vm-apoio">Toda semana a gente explica um caso real de disputa de marca. Siga @velmontmarcas.</p>
     <div class="vm-acoes" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M12 20.5S3.5 15.6 3.5 9.4A4.6 4.6 0 0 1 12 7a4.6 4.6 0 0 1 8.5 2.4c0 6.2-8.5 11.1-8.5 11.1Z"/></svg><svg viewBox="0 0 24 24"><path d="M6.5 3.5h11v17L12 16l-5.5 4.5v-17Z"/></svg></div>
   </div>
 </section></div>
