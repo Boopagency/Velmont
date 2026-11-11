@@ -74,6 +74,14 @@ Estes padrões fazem um texto parecer escrito por IA. Se um slide tem um deles, 
 - Cada slide tem **1080 × 1350 px (4:5)**. Margem lateral `margem` (80 px). Área de conteúdo de y 190 a y 1200 (`topo-seguro`, `pe-seguro`). Texto nunca sai dela.
 - Texto alinhado à esquerda. Centralize apenas a capa centralizada e o termo que abre uma lista. Não justifique.
 
+## Composição
+
+- **Nenhum slide com buraco.** Título e texto formam um bloco só (`vm-body--centro`); não separe um no topo e outro no pé com `vm-body--entre` quando o slide tem pouco texto.
+- Se sobrar espaço, ele é preenchido com uma destas três coisas, nesta ordem: **uma imagem** (foto em sangria, meia página, quadro ou grade), **um número ou palavra gigante** (300 a 470 px, sempre dentro da margem) ou **o próprio texto maior**.
+- Listas curtas viram tipografia em escada: cada item numa linha, em tamanho grande, com a opacidade caindo (100, 82, 64, 46%).
+- Imagem segura a atenção: em carrossel de 8 slides ou mais, pelo menos um a cada três slides tem foto.
+- Palavra ou número gigante nunca encosta na borda: confira a largura e reduza o tamanho até caber em 920 px.
+
 ## Texto no slide
 
 - Caixa-alta em título e definição (`titulo`, `termo`, `def`). Caixa normal na linha de apoio, nos slides de contexto e no encerramento (`texto`, `apoio`).
