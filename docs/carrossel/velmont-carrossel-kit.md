@@ -58,7 +58,9 @@ Estes padrões fazem um texto parecer escrito por IA. Se um slide tem um deles, 
 
 - A capa provoca ao máximo dentro do que é verdade: uma afirmação que contradiz o senso comum, com nome real quando houver. "O BURGER KING NÃO PÔDE USAR O PRÓPRIO NOME NA AUSTRÁLIA." / "LARISSA MANOELA QUASE PERDEU O PRÓPRIO NOME."
 - Uma afirmação forte funciona melhor que uma pergunta. A linha de apoio, quando existe, abre a dúvida que o carrossel responde.
-- Título em caixa-alta e grande; a expressão em Instrument Serif itálica no máximo uma vez.
+- O título ocupa quase toda a capa (`vm-titulo--capa`, de 138 a 160 px, quatro a seis linhas), sobre a foto escurecida, e continua legível de longe.
+- Expressão em Instrument Serif itálica no máximo uma vez.
+- Capa de série leva o selo fixo no mesmo lugar (`vm-selo`, logo abaixo do logo): "Versão brasileira" para os filmes e séries contados como se fossem no Brasil. Casos reais com nomes conhecidos seguem a linha de fofoca séria do caso Larissa Manoela, sem selo.
 
 ## Chamada para ação
 
@@ -573,6 +575,12 @@ html,body{margin:0}body{padding:24px;display:flex;flex-wrap:wrap;gap:24px;backgr
 .vm-rotulo--marfim { background: var(--vm-marfim); color: var(--vm-vinho); }
 /* Faixa de título que atravessa a grade no meio */
 .vm-faixa-meio { position: absolute; z-index: 3; left: 0; right: 0; top: 50%; transform: translateY(-50%); padding: 34px 80px 40px; background: var(--vm-vinho); color: var(--vm-marfim); }
+
+/* ---------- Selo de série (Versão Brasileira e outras) ---------- */
+.vm-selo { position: absolute; z-index: 5; left: 80px; top: 168px; padding: 12px 22px 14px; border: 3px solid currentColor; border-radius: 4px;
+  font: 800 26px/1 var(--vm-sans); letter-spacing: .16em; text-transform: uppercase; color: var(--vm-acento); transform: rotate(-4deg); transform-origin: left center; }
+/* Título de capa que ocupa quase todo o slide */
+.vm-titulo--capa { font-size: 150px; line-height: .92; font-weight: 800; letter-spacing: -.035em; }
 </style></head><body>
 <!-- um <div class="z"> por slide, na ordem do carrossel -->
 <div class="z">
